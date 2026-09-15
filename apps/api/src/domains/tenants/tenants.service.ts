@@ -1,0 +1,321 @@
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common'
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
+import { randomBytes } from 'node:crypto'
+import type {
+  CreateTenantInput,
+  CredentialStatus,
+  PaymentMethodInput,
+  RegisterWhatsappNumberInput,
+  SaveCredentialInput,
+  UpdateTenantInput,
+} from '@cobra/contracts'
+import { CredentialsCryptoService } from '~/crypto/credentials-crypto.service'
+import { SupabaseService } from '~/supabase/supabase.service'
+
+const UNIQUE_VIOLATION = '23505'
+
+export interface Tenant {
+  id: string
+  slug: string
+  companyName: string
+  supportPhone: string
+  adminPhone: string
+  status: 'active' | 'suspended'
+}
+
+export interface WhatsappNumber {
+  id: string
+  phoneNumberId: string
+  displayNumber: string
+  verifyToken: string
+  webhookPath: string
+  validTo: string | null
+}
+
+@Injectable()
+export class TenantsService {
+  private readonly logger = new Logger(TenantsService.name)
+
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly crypto: CredentialsCryptoService,
+  ) {}
+
+  /** The caller's tenants, filtered by RLS rather than by a where clause here. */
+  async listMine(client: SupabaseClient): Promise<Tenant[]> {
+    const { data, error } = await client
+      .from('tenants')
+      .select('id, slug, company_name, support_phone, admin_phone, status')
+      .order('company_name')
+
+    if (error) throw this.toHttpError(error)
+
+    return data.map(toTenant)
+  }
+
+  /**
+   * Creating a tenant and joining it are one operation.
+   *
+   * It runs with the secret key because `tenants` has no insert policy: a
+   * caller with no membership anywhere cannot pass a policy that asks for
+   * membership. The caller's id comes from the verified token, never from the
+   * body.
+   */
+  async create(userId: string, input: CreateTenantInput): Promise<Tenant> {
+    const { data, error } = await this.supabase.admin
+      .from('tenants')
+      .insert({
+        slug: input.slug,
+        company_name: input.companyName,
+        support_phone: input.supportPhone,
+        admin_phone: input.adminPhone,
+      })
+      .select('id, slug, company_name, support_phone, admin_phone, status')
+      .single()
+
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) {
+        throw new ConflictException('Ya existe una empresa con ese identificador')
+      }
+      throw this.toHttpError(error)
+    }
+
+    const membership = await this.supabase.admin
+      .from('tenant_members')
+      .insert({ tenant_id: data.id, user_id: userId })
+
+    if (membership.error) {
+      // Without the membership the tenant is invisible to everyone, including
+      // whoever just created it. Undo rather than leave it orphaned.
+      await this.supabase.admin.from('tenants').delete().eq('id', data.id)
+      throw this.toHttpError(membership.error)
+    }
+
+    return toTenant(data)
+  }
+
+  async update(client: SupabaseClient, tenantId: string, input: UpdateTenantInput): Promise<Tenant> {
+    const { data, error } = await client
+      .from('tenants')
+      .update({
+        ...(input.companyName ? { company_name: input.companyName } : {}),
+        ...(input.supportPhone ? { support_phone: input.supportPhone } : {}),
+        ...(input.adminPhone ? { admin_phone: input.adminPhone } : {}),
+      })
+      .eq('id', tenantId)
+      .select('id, slug, company_name, support_phone, admin_phone, status')
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    return toTenant(data)
+  }
+
+  /** What the panel is allowed to know about a credential: that it is loaded. */
+  async listCredentials(client: SupabaseClient, tenantId: string): Promise<CredentialStatus[]> {
+    const { data, error } = await client
+      .from('tenant_credentials')
+      .select('provider, last4, rotated_at')
+      .eq('tenant_id', tenantId)
+
+    if (error) throw this.toHttpError(error)
+
+    return data.map((row) => ({
+      provider: row.provider,
+      last4: row.last4,
+      rotatedAt: row.rotated_at,
+    }))
+  }
+
+  /**
+   * Saves a credential encrypted. The plaintext exists in this process and
+   * nowhere else: it is never logged, never returned and never stored.
+   */
+  async saveCredential(
+    userId: string,
+    tenantId: string,
+    input: SaveCredentialInput,
+  ): Promise<CredentialStatus> {
+    await this.assertMembership(userId, tenantId)
+
+    const { ciphertext, last4 } = this.crypto.encrypt({ secret: input.secret, extra: input.extra })
+
+    const { data, error } = await this.supabase.admin
+      .from('tenant_credentials')
+      .upsert(
+        {
+          tenant_id: tenantId,
+          provider: input.provider,
+          ciphertext,
+          last4,
+          rotated_at: new Date().toISOString(),
+        },
+        { onConflict: 'tenant_id,provider' },
+      )
+      .select('provider, last4, rotated_at')
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    return { provider: data.provider, last4: data.last4, rotatedAt: data.rotated_at }
+  }
+
+  async listNumbers(client: SupabaseClient, tenantId: string): Promise<WhatsappNumber[]> {
+    const { data, error } = await client
+      .from('whatsapp_numbers')
+      .select('id, phone_number_id, display_number, verify_token, webhook_token, valid_to')
+      .eq('tenant_id', tenantId)
+      .order('valid_from', { ascending: false })
+
+    if (error) throw this.toHttpError(error)
+
+    const { data: tenant } = await client.from('tenants').select('slug').eq('id', tenantId).single()
+
+    return data.map((row) => ({
+      id: row.id,
+      phoneNumberId: row.phone_number_id,
+      displayNumber: row.display_number,
+      verifyToken: row.verify_token,
+      webhookPath: `/wh/wa/${tenant?.slug ?? ''}/${row.webhook_token}`,
+      validTo: row.valid_to,
+    }))
+  }
+
+  /**
+   * Registers a number and mints its two tokens.
+   *
+   * `verify_token` is what Meta echoes in the GET handshake; `webhook_token` is
+   * the opaque segment of the URL and is what authenticates an inbound POST
+   * when a signature is unavailable. Both are generated here — never chosen by
+   * the client — because their entropy is the whole protection.
+   */
+  async registerNumber(
+    userId: string,
+    tenantId: string,
+    input: RegisterWhatsappNumberInput,
+  ): Promise<WhatsappNumber> {
+    await this.assertMembership(userId, tenantId)
+
+    const { data, error } = await this.supabase.admin
+      .from('whatsapp_numbers')
+      .insert({
+        tenant_id: tenantId,
+        phone_number_id: input.phoneNumberId,
+        display_number: input.displayNumber,
+        verify_token: randomBytes(24).toString('base64url'),
+        webhook_token: randomBytes(32).toString('base64url'),
+      })
+      .select('id, phone_number_id, display_number, verify_token, webhook_token, valid_to')
+      .single()
+
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) {
+        throw new ConflictException('Ese número ya está activo en otra empresa')
+      }
+      throw this.toHttpError(error)
+    }
+
+    const { data: tenant } = await this.supabase.admin
+      .from('tenants')
+      .select('slug')
+      .eq('id', tenantId)
+      .single()
+
+    return {
+      id: data.id,
+      phoneNumberId: data.phone_number_id,
+      displayNumber: data.display_number,
+      verifyToken: data.verify_token,
+      webhookPath: `/wh/wa/${tenant?.slug ?? ''}/${data.webhook_token}`,
+      validTo: data.valid_to,
+    }
+  }
+
+  async listPaymentMethods(client: SupabaseClient, tenantId: string) {
+    const { data, error } = await client
+      .from('payment_methods')
+      .select('id, zone, entity_name, payment_address, wisphub_id, description')
+      .eq('tenant_id', tenantId)
+      .order('entity_name')
+
+    if (error) throw this.toHttpError(error)
+
+    return data
+  }
+
+  async addPaymentMethod(client: SupabaseClient, tenantId: string, input: PaymentMethodInput) {
+    const { data, error } = await client
+      .from('payment_methods')
+      .insert({
+        tenant_id: tenantId,
+        zone: input.zone ?? null,
+        entity_name: input.entityName,
+        payment_address: input.paymentAddress,
+        wisphub_id: input.wisphubId ?? null,
+        description: input.description ?? null,
+      })
+      .select('id, zone, entity_name, payment_address, wisphub_id, description')
+      .single()
+
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) {
+        throw new ConflictException('Esa cuenta ya está registrada para esta empresa')
+      }
+      throw this.toHttpError(error)
+    }
+
+    return data
+  }
+
+  async removePaymentMethod(client: SupabaseClient, tenantId: string, methodId: string) {
+    const { error } = await client
+      .from('payment_methods')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('id', methodId)
+
+    if (error) throw this.toHttpError(error)
+  }
+
+  /**
+   * The check RLS would have done, for the writes that run with the secret key.
+   *
+   * The service role ignores policies, so a route that skips this one answers
+   * happily for a tenant the caller has nothing to do with.
+   */
+  async assertMembership(userId: string, tenantId: string): Promise<void> {
+    const { data, error } = await this.supabase.admin
+      .from('tenant_members')
+      .select('tenant_id')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (error) throw this.toHttpError(error)
+    if (!data) throw new ForbiddenException('No tienes acceso a esta empresa')
+  }
+
+  private toHttpError(error: PostgrestError): Error {
+    if (error.code === 'PGRST116') return new NotFoundException('No se encontró el recurso')
+
+    this.logger.error(`Postgrest ${error.code}: ${error.message}`)
+
+    return new InternalServerErrorException('No se pudo completar la operación')
+  }
+}
+
+const toTenant = (row: Record<string, string>): Tenant => ({
+  id: row['id'] as string,
+  slug: row['slug'] as string,
+  companyName: row['company_name'] as string,
+  supportPhone: row['support_phone'] as string,
+  adminPhone: row['admin_phone'] as string,
+  status: row['status'] as 'active' | 'suspended',
+})
