@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { describe, expect, it } from 'vitest'
 import { TenantScope } from './tenant-scope'
 
 const TENANT = '11111111-1111-1111-1111-111111111111'
