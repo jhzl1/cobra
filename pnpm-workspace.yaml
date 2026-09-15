@@ -1,0 +1,13 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm blocks postinstall scripts by default and fails the install rather than
+# warning, so every package that has one is answered here.
+#
+# esbuild fetches its platform binary (tsup and vite both resolve through it) and
+# @nestjs/core runs a postinstall that prints its banner.
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - esbuild
+  - unrs-resolver

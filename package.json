@@ -1,0 +1,30 @@
+{
+  "name": "cobra",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Agente de cobros por WhatsApp multi-cliente para ISP que facturan en Wisphub",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.29.3",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "tscheck": "turbo run tscheck",
+    "test": "turbo run test",
+    "db:new": "pnpm --filter @cobra/db db:new",
+    "db:deploy": "pnpm --filter @cobra/db db:deploy",
+    "db:reset": "pnpm --filter @cobra/db db:reset",
+    "db:types": "pnpm --filter @cobra/db db:types",
+    "format:check": "prettier --check .",
+    "format:fix": "prettier --write ."
+  },
+  "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "prettier": "^3.9.6",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "turbo": "^2.10.13",
+    "typescript": "~6.0.3"
+  }
+}
