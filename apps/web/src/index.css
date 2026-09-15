@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
+@plugin './theme.ts';
+
+/* Tailwind only emits the classes it can see. HeroUI's variants live inside its
+   own package, so its dist has to be scanned too — the path resolves from the
+   repo root because pnpm hoists @heroui/* (`public-hoist-pattern` in .npmrc). */
+@source '../../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
+@source './**/*.{ts,tsx}';
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --color-bg: #f8fafc;
+}
+
+body {
+  background-color: var(--color-bg);
+  font-family: var(--font-sans);
+}

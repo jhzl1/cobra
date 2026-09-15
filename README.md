@@ -82,3 +82,35 @@ Node 22, pnpm 10.
 | `pnpm db:new <nombre>` | Nueva migración |
 | `pnpm db:deploy` | Aplica migraciones al proyecto enlazado |
 | `pnpm db:types` | Regenera los tipos de la base |
+
+## Desplegar
+
+Dos servicios de Railway sobre el mismo repo, más Supabase:
+
+1. **`@cobra/api`** — `pnpm --filter @cobra/api build && node apps/api/dist/main.js`.
+2. **`@cobra/worker`** — `pnpm --filter @cobra/worker build && node apps/worker/dist/main.js`.
+
+Son dos servicios y no uno porque pg-boss corre mantenimiento por instancia
+(`supervise`, `schedule`, vacuum, reindex). En cada réplica de la API eso se
+multiplica contra la misma base, así que allá va con `supervise: false`,
+`schedule: false`, `migrate: false`: solo encola.
+
+**El primer deploy falla con `ENETUNREACH`.** La conexión directa de Supabase es
+solo IPv6 y Railway no trae IPv6 saliente por defecto: se activa en
+Settings → Networking → Outbound IPv6 y se redespliega. El pooler no es
+alternativa — en modo transacción desactiva `LISTEN/NOTIFY`, que es de lo que
+vive pg-boss, y en modo sesión limita los clientes al tamaño del pool.
+
+### Conectar un número de WhatsApp
+
+1. Cargar en el panel las tres credenciales del cliente: el access token
+   permanente de Meta con su app secret, la API key de OpenRouter y la de Wisphub.
+2. Registrar el `phone_number_id` en Configuración → Números.
+3. Copiar la URL del webhook y el verify token que el panel genera, y pegarlos en
+   la configuración de webhooks de la app de Meta.
+4. Suscribir los campos `messages` y, si el cliente usa el celular físico,
+   `smb_message_echoes`.
+
+Sin el app secret cargado el webhook queda autenticado solo por el token opaco de
+la URL. Funciona, y queda escrito en el log de la API cada vez que llega un
+evento, porque es una decisión consciente y no un descuido.
