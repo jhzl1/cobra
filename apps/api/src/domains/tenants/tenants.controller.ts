@@ -175,6 +175,15 @@ export class TenantsController {
     return publicUrlOf(request, this.config.get<string>('PUBLIC_URL'))
   }
 
+  @Get(':tenantId/wisphub/payment-methods')
+  @ApiOperation({ summary: 'Las formas de pago que la empresa tiene en Wisphub' })
+  listWisphubPaymentMethods(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+  ) {
+    return this.tenants.listWisphubPaymentMethods(readCallerId(ctx.userClaims), tenantId)
+  }
+
   @Get(':tenantId/payment-methods')
   @ApiOperation({ summary: 'Cuentas donde los clientes pagan' })
   listPaymentMethods(
