@@ -122,7 +122,7 @@ export class WhatsappService {
 
         // Coexistence: what the business sent from the physical handset. Stored
         // so the panel shows the real chat, and never fed to the agent — the
-        // loop that creates is the lesson netplus-bot left behind.
+        // loop that creates is the lesson the previous bot generation left behind.
         if (value.message_echoes?.length) {
           await this.storeEchoes(route, value.message_echoes)
           continue

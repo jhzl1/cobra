@@ -16,7 +16,7 @@ export interface TenantConfig {
   companyName: string
   /** Where the agent sends anyone asking about the service itself. */
   supportPhone: string
-  /** Where escalations go. `573158767678`, typed into four n8n nodes, lives here now. */
+  /** Where escalations go. Typed into four n8n nodes, it lives here now. */
   adminPhone: string
 }
 

@@ -2,7 +2,7 @@
 
 Agente de cobros por WhatsApp, multi-cliente, para ISP que facturan en Wisphub.
 
-Reemplaza el workflow de n8n `Netplus Pagos v4` —53 nodos, 5 subflujos, un solo
+Reemplaza el workflow de n8n original —53 nodos, 5 subflujos, un solo
 cliente— por una plataforma donde cada cliente trae sus propias credenciales y su
 operador ve la conversación en vivo, toma el control cuando quiere y devuelve el
 chat al bot.
@@ -28,7 +28,7 @@ cobra/
 ├── apps/
 │   ├── api/       @cobra/api     — NestJS 11 (HTTP + webhook de Meta)
 │   ├── worker/    @cobra/worker  — NestJS standalone, ESM, corre pg-boss
-│   └── web/       @cobra/web     — React 19 · Vite · Tailwind v4 · HeroUI · TanStack
+│   └── web/       @cobra/web     — React 19 · Vite · Tailwind v4 · shadcn/ui · TanStack
 ├── packages/
 │   ├── contracts/ @cobra/contracts — esquemas zod compartidos
 │   ├── agent/     @cobra/agent     — runtime del agente, sin framework

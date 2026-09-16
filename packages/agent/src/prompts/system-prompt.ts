@@ -2,7 +2,7 @@ import type { TenantConfig } from '../types'
 
 /**
  * The agent's instructions, carried over from the `Agente de pagos` node of
- * `Netplus Pagos v4` (n8n `UBzsVy2q0l228DVo`).
+ * the original n8n payment workflow (`UBzsVy2q0l228DVo`).
  *
  * Every rule in here was written after an incident, so the text is transcribed
  * rather than rewritten. Three things changed and nothing else:
@@ -10,7 +10,7 @@ import type { TenantConfig } from '../types'
  *  - the company name, the support phone and the administrator are parameters
  *    now, not literals typed into the prompt and into four separate nodes;
  *  - the notification tools are `NotifyAdmin` / `NotifyAdminWithImage`, because
- *    "Sergio" and "Dualhook" are one tenant's administrator and one tenant's
+ *    the original names carried one tenant's administrator and one tenant's
  *    provider, not the product's;
  *  - the paragraph about the system deleting the conversation stays true: what
  *    moves now is `conversations.context_reset_at`, and the agent's memory

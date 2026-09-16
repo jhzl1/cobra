@@ -66,7 +66,7 @@ const CreateTenantCard = () => {
         <Input
           className="w-44"
           label="Identificador"
-          placeholder="netplus"
+          placeholder="acme-isp"
           value={slug}
           onValueChange={setSlug}
         />
@@ -79,14 +79,14 @@ const CreateTenantCard = () => {
         <Input
           className="w-52"
           label="Teléfono de soporte"
-          placeholder="573114926993"
+          placeholder="573001234567"
           value={supportPhone}
           onValueChange={setSupportPhone}
         />
         <Input
           className="w-52"
           label="Teléfono del administrador"
-          placeholder="573158767678"
+          placeholder="573001234568"
           value={adminPhone}
           onValueChange={setAdminPhone}
         />

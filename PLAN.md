@@ -5,8 +5,8 @@
 
 ## Contexto
 
-Hoy el agente de cobros de Netplus vive en n8n: un workflow de 53 nodos (`Netplus Pagos v4`)
-más 5 subflujos, corriendo contra un Railway con Mongo. Funciona, pero está atado a un solo
+Hoy el agente de cobros del cliente piloto vive en n8n: un workflow de 53 nodos más 5
+subflujos, corriendo contra un Railway con Mongo. Funciona, pero está atado a un solo
 cliente: las credenciales de Wisphub, Dualhook y OpenRouter son globales del n8n, el teléfono
 del administrador está escrito a mano en 4 nodos, y el nombre de la empresa vive dentro del
 prompt. Montarle un n8n a cada cliente nuevo no escala ni operativa ni económicamente.
@@ -27,7 +27,7 @@ Lo que hay que igualar, verificado contra n8n por MCP:
 - **7.039 ejecuciones** desde el 7 de agosto, unas 180 por día.
 - **14 errores en total**, 0,2%. Trece de ellos en una misma sesión de arreglo el 9 de septiembre;
   los otros dos son fallos reales de producción, analizados en *Cuando algo falla* más abajo.
-- Número en producción `573023802193`, `phone_number_id` `112665125154828`.
+- Un solo número en producción, con su `phone_number_id` propio.
 - Los eventos `statuses` (visto, entregado) entran por el mismo webhook y mueren en el filtro
   `Es un mensaje?`. Son la mayoría del tráfico entrante y hay que descartarlos antes de la cola.
 - Las conversaciones vienen marcadas `free_customer_service`: la ventana de servicio de 24 horas
@@ -35,16 +35,16 @@ Lo que hay que igualar, verificado contra n8n por MCP:
 
 ### Antecedente
 
-`/Users/jhzl/Documents/dev/personal/netplus-bot` es la generación anterior, de julio de 2026:
+La generación anterior del bot, de julio de 2026, resolvía lo mismo con otras piezas:
 Evolution API en vez de Dualhook, MiniMax en vez de OpenRouter, y un esquema de Mongo distinto
-(`active_conversations`, `finished_conversations`). Está superado por `Netplus Pagos v4`, pero su
-`STATUS.md` deja dos lecciones que aplican igual:
+(`active_conversations`, `finished_conversations`). Está superado por el workflow de n8n que
+corre hoy, pero su `STATUS.md` deja dos lecciones que aplican igual:
 
 - **El filtro de mensajes propios no es opcional.** Sin él, cada mensaje que envía el bot vuelve a
   disparar el webhook: *"sin ese filtro los envíos del propio bot re-disparan el webhook en bucle
   infinito"*. En la ruta de Meta esto reaparece como el evento `smb_message_echoes`.
-- **El administrador tenía dos números**: `...7678` para notificaciones y `...7570` para fallos
-  técnicos. `Netplus Pagos v4` solo usa el primero. Hay que confirmar si eso fue una unificación
+- **El administrador tenía dos números**: uno para notificaciones y otro para fallos técnicos.
+  El workflow original solo usa el primero. Hay que confirmar si eso fue una unificación
   deliberada o una pérdida, porque define si `tenants` lleva uno o dos teléfonos de administrador.
 
 ---
@@ -62,7 +62,7 @@ Evolution API en vez de Dualhook, MiniMax en vez de OpenRouter, y un esquema de 
 | Mensajes a mitad de turno | `steer`: se revisa antes de lanzar cada tool, la que ya corre termina, las que no arrancaron se saltan. |
 | Facturación | Solo Wisphub. Cobra es un producto vertical para ISP que facturan ahí; las tools se escriben contra esa API sin capa de abstracción. |
 | Roles | Uno solo. Todo usuario de un cliente ve conversaciones, hace handoff, carga credenciales y edita la configuración de su empresa. |
-| Aviso de handoff | Bandeja en el panel **y** mensaje de WhatsApp al operador, igual que las alertas a Sergio hoy. |
+| Aviso de handoff | Bandeja en el panel **y** mensaje de WhatsApp al operador, igual que las alertas al administrador hoy. |
 | Datos actuales | Se arranca limpio. Nada de Mongo se migra. |
 
 **Decisión abierta:** si el agente corre en el worker de Railway o en un Durable Object de
@@ -81,7 +81,7 @@ cobra/
 ├── apps/
 │   ├── api/          @cobra/api    — NestJS 11 (HTTP + webhook)
 │   ├── worker/       @cobra/worker — NestJS standalone, corre pg-boss
-│   └── web/          @cobra/web    — React 19 · Vite · Tailwind v4 · HeroUI · TanStack
+│   └── web/          @cobra/web    — React 19 · Vite · Tailwind v4 · shadcn/ui · TanStack
 ├── packages/
 │   ├── contracts/    @cobra/contracts — esquemas zod compartidos
 │   ├── agent/        @cobra/agent     — el runtime del agente (puro, sin Nest)
@@ -388,9 +388,9 @@ Respetar la inconsistencia de las barras finales de Wisphub: `/saldo` sin barra,
 `fecha_pago` que va a Wisphub es `now()` en `America/Bogota` con formato `YYYY-MM-DD HH:mm`,
 **no** la fecha del comprobante. La del comprobante se guarda en `paid_at`.
 
-Las dos tools de notificación al administrador (`NotifySergioDualhook` y
-`NotifySergioImagenDualhook`) pasan a escribir en el panel **y** mandar el WhatsApp al
-`admin_phone` del tenant. El `573158767678` escrito a mano en 4 nodos desaparece.
+Las dos tools de notificación al administrador —una para texto y otra para imagen— pasan a
+escribir en el panel **y** mandar el WhatsApp al `admin_phone` del tenant. El teléfono del
+administrador escrito a mano en 4 nodos desaparece.
 
 ### 5. Cómo se registra un pago sin cobrar dos veces
 
@@ -417,7 +417,7 @@ Cuatro medidas, una por cada modo de fallo observado:
 
 **El envío es su propio job.** En la ejecución 40057 (10 de septiembre) el turno completo fue
 exitoso —agente, modelo, redacción— y solo falló el `POST` a Dualhook con un `(#131000) Something
-went wrong` de Meta. El cliente `573158545428` había mandado un comprobante de $50.000 y nunca
+went wrong` de Meta. El cliente había mandado un comprobante de .000 y nunca
 recibió la pregunta por su documento. Reintentar el turno entero es caro y arriesgado; reintentar
 el envío es gratis. Va como job `send-message` con reintentos y espera creciente, separado del
 turno.
@@ -427,8 +427,8 @@ del agente murió con `Request timed out.` tras 16,7 segundos contra OpenRouter.
 corrido, así que no hubo riesgo de cobro, pero el cliente quedó sin respuesta. El timeout se
 declara, y al vencerse se envía un mensaje de respaldo en vez de silencio.
 
-**Las alertas al administrador nunca tumban el turno.** En la ejecución 38986 el nodo
-`Avisar a Sergio (imagen)` reventó con `Node 'Lector de la imagen' hasn't been executed` porque
+**Las alertas al administrador nunca tumban el turno.** En la ejecución 38986 el nodo que avisa
+al administrador con imagen reventó con `Node 'Lector de la imagen' hasn't been executed` porque
 arma su texto con datos del lector de imagen, que no corre cuando el pago viene de un comprobante
 pendiente. El cliente ya había recibido su confirmación; la ejecución murió en rojo igual. Toda
 notificación al administrador es best-effort y se captura.
@@ -475,12 +475,12 @@ administrador hoy.
 
 > **Riesgo abierto sobre ese aviso.** Meta solo permite mensajes libres dentro de las 24 horas
 > siguientes al último mensaje del destinatario; fuera de esa ventana devuelve el error `131047` y
-> hace falta una plantilla aprobada. Las alertas actuales a Sergio funcionan porque él le escribe
-> al número del bot, y el nodo que las manda tiene `onError: continueRegularOutput`: si alguna
-> falla por ventana vencida, **el error se traga y la ejecución queda verde**. Para un operador que
-> no le escribe al bot nunca, el aviso simplemente no llega. Verificarlo antes de construir sobre
-> ello: preguntarle a Sergio si recibe todas las alertas, o buscar `131047` en la salida de esos
-> nodos. Si se confirma, hace falta una plantilla para el aviso de handoff.
+> hace falta una plantilla aprobada. Las alertas actuales al administrador funcionan porque él
+> le escribe al número del bot, y el nodo que las manda tiene `onError: continueRegularOutput`:
+> si alguna falla por ventana vencida, **el error se traga y la ejecución queda verde**. Para un
+> operador que no le escribe al bot nunca, el aviso simplemente no llega. Verificarlo antes de
+> construir sobre ello: preguntarle al administrador si recibe todas las alertas, o buscar
+> `131047` en la salida de esos nodos. Si se confirma, hace falta una plantilla para el handoff.
 
 El estado se verifica **justo antes de enviar**, no al arrancar el turno: si el operador toma el
 control mientras el agente está pensando, la respuesta del bot se descarta.

@@ -1,7 +1,7 @@
 /**
  * The receipt extractor, transcribed from the `Lector de la imagen` node of
- * `Netplus Pagos v4`. It is tenant-independent: what it reads is a Colombian
- * payment receipt, which looks the same whoever is being paid.
+ * the original n8n payment workflow. It is tenant-independent: what it reads is
+ * a Colombian payment receipt, which looks the same whoever is being paid.
  *
  * Two of its rules exist because of specific losses and must not be softened:
  *
