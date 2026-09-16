@@ -66,9 +66,6 @@ export const ChatPanel = ({ conversation }: Props) => {
           <ServiceWindow lastInboundAt={conversation.lastInboundAt} />
         </div>
 
-        {/* Two actions that used to read as one. The first decides who answers
-            from now on; the second produces one reply, now, from what is already
-            in the thread. */}
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -83,15 +80,6 @@ export const ChatPanel = ({ conversation }: Props) => {
           >
             {isHuman ? 'Devolver el control' : 'Tomar el control'}
           </Button>
-
-          <Button
-            size="sm"
-            variant={conversation.lastRunFailed ? 'default' : 'outline'}
-            title="El agente lee la conversación y escribe una respuesta. Úsalo si su último turno falló, o para que retome el hilo después de que escribieras tú."
-            onClick={() => handoff.mutate('replay')}
-          >
-            Responder con el agente
-          </Button>
         </div>
       </CardHeader>
 
@@ -105,13 +93,12 @@ export const ChatPanel = ({ conversation }: Props) => {
       </CardContent>
 
       <CardFooter className="flex flex-col items-stretch gap-2 py-4">
-        {/* Without this the retry button is a control with no visible occasion:
-            the turn failed somewhere off screen and nothing on this panel says
-            so, which is why nobody could tell what the button was for. */}
+        {/* The failed turn still has to be visible — it is the reason the failed
+            tray exists — but the only way out on screen is now the operator. */}
         {conversation.lastRunFailed && (
           <p className="rounded-lg border border-destructive/40 bg-destructive/15 p-2 text-xs text-destructive">
-            El último turno del agente falló, así que el cliente se quedó sin respuesta. Puedes
-            pedirle que responda de nuevo, o tomar el control y escribirle tú.
+            El último turno del agente falló, así que el cliente se quedó sin respuesta. Toma el
+            control y escríbele tú.
           </p>
         )}
 

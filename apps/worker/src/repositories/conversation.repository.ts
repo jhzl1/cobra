@@ -122,6 +122,22 @@ export class ConversationRepository {
     return (data as string | null) ?? null
   }
 
+  /**
+   * Points the message at the image that was stored for it.
+   *
+   * The receipt row already carries the path, but the panel draws the bubble
+   * from the message — so without this the operator sees an empty bubble for an
+   * image the system read, judged and answered.
+   */
+  async attachMedia(tenantId: string, messageId: string, storagePath: string): Promise<void> {
+    const { error } = await this.supabase
+      .scope(tenantId)
+      .update('messages', { storage_path: storagePath })
+      .eq('id', messageId)
+
+    if (error) throw error
+  }
+
   /** Used when the conversation is in `human`: stored, never answered. */
   async markProcessed(tenantId: string, messageIds: string[]): Promise<void> {
     if (!messageIds.length) return
