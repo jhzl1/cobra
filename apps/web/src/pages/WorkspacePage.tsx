@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import type { AgentRun, ConversationSummary } from '@cobra/contracts'
 import { ChatPanel } from '~/components/ChatPanel'
 import { ConversationList } from '~/components/ConversationList'
@@ -10,8 +10,14 @@ import { useConversationStream } from '~/hooks/useConversationStream'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
 
-export const WorkspacePage = ({ tenantId }: { tenantId: string }) => {
-  const [conversationId, setConversationId] = useState<string | null>(null)
+interface Props {
+  tenantId: string
+  /** From the path. Null on /chats, which is the list with nothing open. */
+  conversationId: string | null
+}
+
+export const WorkspacePage = ({ tenantId, conversationId }: Props) => {
+  const navigate = useNavigate()
 
   const conversations = useQuery({
     queryKey: queryKeys.conversations(tenantId),
@@ -54,7 +60,9 @@ export const WorkspacePage = ({ tenantId }: { tenantId: string }) => {
           <ConversationList
             conversations={conversations.data ?? []}
             selectedId={conversationId}
-            onSelect={setConversationId}
+            onSelect={(id) =>
+              void navigate({ to: '/chats/$conversationId', params: { conversationId: id } })
+            }
           />
         )}
       </Card>

@@ -76,6 +76,8 @@ interface ProviderSpec {
   purpose: string
   /** What the secret is called wherever the operator copied it from. */
   secretLabel: string
+  /** Where to find it, so the label never has to be the vendor's field name. */
+  secretHint: string
   /** Meta's app secret rides in the same envelope as the access token. */
   hasAppSecret?: boolean
 }
@@ -85,20 +87,23 @@ const PROVIDERS: ProviderSpec[] = [
     provider: 'meta',
     name: 'WhatsApp Cloud API',
     purpose: 'Recibe y envía los mensajes del número de la empresa.',
-    secretLabel: 'Access token permanente',
+    secretLabel: 'Token de acceso permanente',
+    secretHint: 'En Meta: WhatsApp → Configuración de la API, campo «Access token».',
     hasAppSecret: true,
   },
   {
     provider: 'openrouter',
     name: 'OpenRouter',
     purpose: 'Corre el agente y la lectura de comprobantes.',
-    secretLabel: 'API key',
+    secretLabel: 'Clave de API',
+    secretHint: 'En OpenRouter: Keys. Empieza por sk-or-.',
   },
   {
     provider: 'wisphub',
     name: 'Wisphub',
     purpose: 'Consulta la deuda y registra los pagos.',
-    secretLabel: 'API key',
+    secretLabel: 'Clave de API',
+    secretHint: 'En Wisphub: Configuración → API.',
   },
 ]
 
@@ -260,7 +265,8 @@ const CredentialDialog = ({
           <form.Field name="secret">
             {(field) => (
               <Field
-                label={spec?.secretLabel ?? 'API key'}
+                label={spec?.secretLabel ?? 'Clave de acceso'}
+                hint={spec?.secretHint}
                 type="password"
                 autoComplete="off"
                 required
@@ -277,7 +283,8 @@ const CredentialDialog = ({
               <form.Field name="appSecret">
                 {(field) => (
                   <Field
-                    label="App secret"
+                    label="Clave secreta de la aplicación"
+                    hint="En Meta: Configuración de la app → Básica, campo «App secret»."
                     type="password"
                     autoComplete="off"
                     value={field.state.value}
@@ -365,7 +372,7 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
               {number.displayNumber} · {number.phoneNumberId}
             </p>
             <CopyField className="max-w-full" value={`${webhookOrigin}${number.webhookPath}`} />
-            <CopyField label="Verify token:" value={number.verifyToken} />
+            <CopyField label="Token de verificación:" value={number.verifyToken} />
           </div>
         ))}
 
@@ -380,7 +387,8 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
             {(field) => (
               <Field
                 className="w-64"
-                label="phone_number_id"
+                label="Identificador del número"
+                hint="En Meta: WhatsApp → Configuración de la API, campo «Phone number ID»."
                 value={field.state.value}
                 error={fieldError(field)}
                 onBlur={field.handleBlur}
@@ -393,7 +401,8 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
             {(field) => (
               <Field
                 className="w-64"
-                label="Número"
+                label="Número de WhatsApp"
+                hint="Con indicativo de país y sin signos."
                 placeholder="573001234567"
                 value={field.state.value}
                 error={fieldError(field)}
@@ -484,7 +493,7 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
               <TableHead>Entidad</TableHead>
               <TableHead>Cuenta</TableHead>
               <TableHead>Zona</TableHead>
-              <TableHead>forma_pago</TableHead>
+              <TableHead>Forma de pago</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -517,8 +526,9 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
           <form.Field name="entityName">
             {(field) => (
               <Field
-                className="w-40"
+                className="w-44"
                 label="Entidad"
+                hint="Bancolombia, Nequi, Daviplata…"
                 value={field.state.value}
                 error={fieldError(field)}
                 onBlur={field.handleBlur}
@@ -532,6 +542,7 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
               <Field
                 className="w-56"
                 label="Cuenta o llave"
+                hint="El número de cuenta, o la llave de Nequi o Daviplata."
                 value={field.state.value}
                 error={fieldError(field)}
                 onBlur={field.handleBlur}
@@ -543,8 +554,9 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
           <form.Field name="zone">
             {(field) => (
               <Field
-                className="w-32"
+                className="w-36"
                 label="Zona"
+                hint="Opcional."
                 value={field.state.value}
                 error={fieldError(field)}
                 onBlur={field.handleBlur}
@@ -556,8 +568,9 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
           <form.Field name="wisphubId">
             {(field) => (
               <Field
-                className="w-32"
-                label="forma_pago"
+                className="w-40"
+                label="Forma de pago"
+                hint="Su id en Wisphub."
                 value={field.state.value}
                 error={fieldError(field)}
                 onBlur={field.handleBlur}

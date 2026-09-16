@@ -82,9 +82,17 @@ function Button({
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     >
-      {/* Slot takes exactly one child, so asChild and the spinner cannot mix. */}
-      {loading && !asChild ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
-      {children}
+      {/* Slot clones a single child, and `{null}{children}` is already two — so
+          with asChild the children pass through untouched and there is no
+          spinner. Guarding only the icon is not enough: the empty slot counts. */}
+      {asChild ? (
+        children
+      ) : (
+        <>
+          {loading ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+          {children}
+        </>
+      )}
     </Comp>
   )
 }

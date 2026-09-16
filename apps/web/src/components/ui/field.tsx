@@ -5,6 +5,11 @@ import { cn } from '~/lib/utils'
 
 interface Props extends React.ComponentProps<typeof Input> {
   label: string
+  /**
+   * Where the value comes from, in the reader's words. This is where a vendor's
+   * own name for a thing goes, so the label never has to be one.
+   */
+  hint?: string
   /** Shown under the field, in red, with `aria-invalid` on the input. */
   error?: string
 }
@@ -17,10 +22,11 @@ interface Props extends React.ComponentProps<typeof Input> {
  * a field. `className` goes on the wrapper rather than the input, so the widths
  * the pages already use (`w-64`, `w-80`) keep measuring the whole field.
  */
-export const Field = ({ label, error, className, id: idProp, required, ...props }: Props) => {
+export const Field = ({ label, hint, error, className, id: idProp, required, ...props }: Props) => {
   const generated = React.useId()
   const id = idProp ?? generated
   const errorId = `${id}-error`
+  const hintId = `${id}-hint`
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
@@ -39,7 +45,7 @@ export const Field = ({ label, error, className, id: idProp, required, ...props 
         id={id}
         required={required}
         aria-invalid={!!error}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={error ? errorId : hint ? hintId : undefined}
         className="w-full"
         {...props}
       />
@@ -47,6 +53,10 @@ export const Field = ({ label, error, className, id: idProp, required, ...props 
       {error ? (
         <p id={errorId} className="text-xs text-destructive">
           {error}
+        </p>
+      ) : hint ? (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          {hint}
         </p>
       ) : null}
     </div>

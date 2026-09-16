@@ -23,6 +23,9 @@ import { SupabaseService } from '~/supabase/supabase.service'
 
 const UNIQUE_VIOLATION = '23505'
 
+/** How many suffixed slugs to try before giving up. */
+const SLUG_ATTEMPTS = 20
+
 const TENANT_COLUMNS =
   'id, slug, company_name, support_phone, admin_phone, status, tenant_members(count)'
 
@@ -129,23 +132,7 @@ export class TenantsService {
    * body.
    */
   async create(userId: string, input: CreateTenantInput): Promise<Tenant> {
-    const { data, error } = await this.supabase.admin
-      .from('tenants')
-      .insert({
-        slug: input.slug,
-        company_name: input.companyName,
-        support_phone: input.supportPhone,
-        admin_phone: input.adminPhone,
-      })
-      .select('id, slug, company_name, support_phone, admin_phone, status')
-      .single()
-
-    if (error) {
-      if (error.code === UNIQUE_VIOLATION) {
-        throw new ConflictException('Ya existe una empresa con ese identificador')
-      }
-      throw this.toHttpError(error)
-    }
+    const data = await this.insertWithDerivedSlug(input)
 
     const membership = await this.supabase.admin
       .from('tenant_members')
@@ -351,6 +338,38 @@ export class TenantsService {
   }
 
   /**
+   * Inserts the company, deriving its slug from its name.
+   *
+   * The slug is only ever seen inside the webhook URL, so nobody is asked to
+   * invent one. Two companies can share a name, and the column is unique, so a
+   * collision retries with a numeric suffix rather than failing in the face of
+   * whoever is onboarding a client.
+   */
+  private async insertWithDerivedSlug(input: CreateTenantInput): Promise<Record<string, unknown>> {
+    const base = slugify(input.companyName)
+
+    for (let attempt = 1; attempt <= SLUG_ATTEMPTS; attempt += 1) {
+      const slug = attempt === 1 ? base : `${base}-${attempt}`
+
+      const { data, error } = await this.supabase.admin
+        .from('tenants')
+        .insert({
+          slug,
+          company_name: input.companyName,
+          support_phone: input.supportPhone,
+          admin_phone: input.adminPhone,
+        })
+        .select('id, slug, company_name, support_phone, admin_phone, status')
+        .single()
+
+      if (!error) return data
+      if (error.code !== UNIQUE_VIOLATION) throw this.toHttpError(error)
+    }
+
+    throw new ConflictException('Ya hay demasiadas empresas con un nombre parecido')
+  }
+
+  /**
    * The check RLS would have done, for the writes that run with the secret key.
    *
    * The service role ignores policies, so a route that skips this one answers
@@ -375,6 +394,27 @@ export class TenantsService {
 
     return new InternalServerErrorException('No se pudo completar la operación')
   }
+}
+
+/**
+ * A company name turned into a URL segment.
+ *
+ * `normalize('NFD')` splits an accented letter into the letter plus its mark, so
+ * stripping the marks leaves ASCII behind — without it "Telecomunicación" loses
+ * the whole last syllable instead of just the accent. A name with nothing
+ * latin in it at all reduces to empty, hence the fallback.
+ */
+export const slugify = (name: string): string => {
+  const slug = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 36)
+    .replace(/-+$/, '')
+
+  return slug || 'empresa'
 }
 
 const toTenant = (row: Record<string, unknown>): Tenant => ({

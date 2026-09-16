@@ -1,5 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { type RoleGrant, createTenantSchema, grantRoleSchema } from '@cobra/contracts'
 import { TenantDetail } from '~/components/TenantDetail'
@@ -15,7 +16,22 @@ import {
 } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '~/components/ui/dialog'
 import { Field } from '~/components/ui/field'
 import { Spinner } from '~/components/ui/spinner'
 import {
@@ -41,7 +57,6 @@ import type { TenantSummary } from '~/lib/tenants'
 export const PlatformPage = () => (
   <div className="flex flex-col gap-4 p-4">
     <TenantsCard />
-    <CreateTenantCard />
     <GrantsCard />
   </div>
 )
@@ -52,6 +67,7 @@ const TenantsCard = () => {
   const queryClient = useQueryClient()
   const [viewing, setViewing] = useState<TenantSummary | null>(null)
   const [suspending, setSuspending] = useState<TenantSummary | null>(null)
+  const [creating, setCreating] = useState(false)
 
   const tenants = useQuery({
     queryKey: queryKeys.tenants,
@@ -80,6 +96,12 @@ const TenantsCard = () => {
           Suspender una empresa detiene su agente: deja de recibir mensajes de WhatsApp y deja de
           responderle a sus clientes.
         </CardDescription>
+        <CardAction>
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <PlusIcon />
+            Nueva empresa
+          </Button>
+        </CardAction>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
@@ -87,7 +109,6 @@ const TenantsCard = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Empresa</TableHead>
-              <TableHead>Identificador</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Miembros</TableHead>
               <TableHead> </TableHead>
@@ -96,7 +117,7 @@ const TenantsCard = () => {
           <TableBody>
             {tenants.isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-20 text-center">
+                <TableCell colSpan={4} className="h-20 text-center">
                   <Spinner className="mx-auto" />
                 </TableCell>
               </TableRow>
@@ -104,9 +125,6 @@ const TenantsCard = () => {
               tenants.data.map((tenant) => (
                 <TableRow key={tenant.id}>
                   <TableCell className="font-medium">{tenant.companyName}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {tenant.slug}
-                  </TableCell>
                   <TableCell>
                     <Badge variant={tenant.status === 'active' ? 'success' : 'default'}>
                       {tenant.status === 'active' ? 'Activa' : 'Suspendida'}
@@ -138,7 +156,7 @@ const TenantsCard = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-20 text-center text-muted-foreground">
+                <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">
                   Todavía no hay empresas
                 </TableCell>
               </TableRow>
@@ -150,6 +168,8 @@ const TenantsCard = () => {
       </CardContent>
 
       <TenantDetail tenant={viewing} onClose={() => setViewing(null)} />
+
+      <CreateTenantDialog open={creating} onClose={() => setCreating(false)} />
 
       {/* Suspending is not "are you sure": it says what stops happening. */}
       <AlertDialog
@@ -186,12 +206,12 @@ const TenantsCard = () => {
 
 /* Create --------------------------------------------------------------------- */
 
-const CreateTenantCard = () => {
+const CreateTenantDialog = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const queryClient = useQueryClient()
   const [failure, setFailure] = useState<string | null>(null)
 
   const form = useForm({
-    defaultValues: { slug: '', companyName: '', supportPhone: '', adminPhone: '' },
+    defaultValues: { companyName: '', supportPhone: '', adminPhone: '' },
     validators: { onChange: createTenantSchema },
     onSubmit: async ({ value, formApi }) => {
       setFailure(null)
@@ -207,46 +227,39 @@ const CreateTenantCard = () => {
 
       formApi.reset()
       await queryClient.invalidateQueries({ queryKey: queryKeys.tenants })
+      onClose()
     },
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Crear empresa</CardTitle>
-        <CardDescription>
-          Quedas como miembro de la empresa que crees. El identificador va dentro de la URL del
-          webhook y no se puede cambiar después.
-        </CardDescription>
-      </CardHeader>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Nueva empresa</DialogTitle>
+          <DialogDescription>
+            Quedas como miembro de la empresa que crees. Después hay que cargarle sus credenciales y
+            conectarle un número de WhatsApp.
+          </DialogDescription>
+        </DialogHeader>
 
-      <CardContent>
         <form
-          className="flex flex-wrap items-end gap-2"
+          className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault()
             void form.handleSubmit()
           }}
         >
-          <form.Field name="slug">
-            {(field) => (
-              <Field
-                className="w-44"
-                label="Identificador"
-                placeholder="acme-isp"
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
           <form.Field name="companyName">
             {(field) => (
               <Field
-                className="w-56"
                 label="Nombre de la empresa"
+                placeholder="Acme Telecomunicaciones"
+                required
                 value={field.state.value}
                 error={fieldError(field)}
                 onBlur={field.handleBlur}
@@ -258,9 +271,10 @@ const CreateTenantCard = () => {
           <form.Field name="supportPhone">
             {(field) => (
               <Field
-                className="w-52"
                 label="Teléfono de soporte"
+                hint="El número que el agente le da a quien pregunta por el servicio. Con indicativo de país y sin signos."
                 placeholder="573001234567"
+                required
                 value={field.state.value}
                 error={fieldError(field)}
                 onBlur={field.handleBlur}
@@ -272,9 +286,10 @@ const CreateTenantCard = () => {
           <form.Field name="adminPhone">
             {(field) => (
               <Field
-                className="w-52"
                 label="Teléfono del administrador"
+                hint="A dónde llegan los avisos cuando el agente necesita que alguien intervenga."
                 placeholder="573001234568"
+                required
                 value={field.state.value}
                 error={fieldError(field)}
                 onBlur={field.handleBlur}
@@ -283,18 +298,23 @@ const CreateTenantCard = () => {
             )}
           </form.Field>
 
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <Button type="submit" loading={isSubmitting}>
-                Crear
-              </Button>
-            )}
-          </form.Subscribe>
-        </form>
+          {failure && <p className="text-sm text-destructive">{failure}</p>}
 
-        {failure && <p className="mt-2 text-sm text-destructive">{failure}</p>}
-      </CardContent>
-    </Card>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancelar
+            </Button>
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <Button type="submit" loading={isSubmitting}>
+                  Crear
+                </Button>
+              )}
+            </form.Subscribe>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
