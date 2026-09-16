@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { WisphubCustomer, WisphubPort } from './types'
 import { planPayment, registerPayment } from './register-payment'
+import type { WisphubCustomer, WisphubPort } from './types'
 
 const customer = (over: Partial<WisphubCustomer> = {}): WisphubCustomer => ({
   found: true,

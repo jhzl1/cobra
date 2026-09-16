@@ -10,14 +10,14 @@ describe('CredentialsCrypto', () => {
 
     const { ciphertext, last4 } = crypto.encrypt({
       secret: 'EAAG-super-secret-token-9821',
-      extra: { wabaId: '109695075453765' },
+      extra: { wabaId: '100000000000001' },
     })
 
     expect(last4).toBe('9821')
     expect(ciphertext).not.toContain('super-secret')
     expect(crypto.decrypt(ciphertext)).toEqual({
       secret: 'EAAG-super-secret-token-9821',
-      extra: { wabaId: '109695075453765' },
+      extra: { wabaId: '100000000000001' },
     })
   })
 

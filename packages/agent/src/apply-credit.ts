@@ -41,7 +41,8 @@ export const evaluateCredit = (
     return {
       decision: 'reject',
       message:
-        customer.message ?? `No existe ningun cliente registrado con el documento ${input.documento}.`,
+        customer.message ??
+        `No existe ningun cliente registrado con el documento ${input.documento}.`,
     }
   }
 

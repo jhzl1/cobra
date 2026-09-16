@@ -116,7 +116,11 @@ export class MetaClient {
     const parsed = text ? safeJson(text) : null
 
     if (!response.ok) {
-      throw new MetaError(`Meta ${method} ${path} answered ${response.status}`, response.status, parsed)
+      throw new MetaError(
+        `Meta ${method} ${path} answered ${response.status}`,
+        response.status,
+        parsed,
+      )
     }
 
     return parsed

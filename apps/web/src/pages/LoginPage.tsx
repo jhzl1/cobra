@@ -1,59 +1,91 @@
-import { Button, Card, CardBody, CardHeader, Input } from '@heroui/react'
-import { type FormEvent, useState } from 'react'
+import { useForm } from '@tanstack/react-form'
+import { useState } from 'react'
+import { z } from 'zod'
+import { Button } from '~/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import { Field } from '~/components/ui/field'
+import { fieldError } from '~/lib/form'
 import { supabase } from '~/lib/supabase'
 
+// Not in @cobra/contracts: signing in never reaches our API, it goes straight
+// to Supabase Auth, so there is no server schema to share.
+const signInSchema = z.object({
+  email: z.email('Escribe un correo válido'),
+  password: z.string().min(1, 'Escribe tu contraseña'),
+})
+
 export const LoginPage = () => {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    setLoading(true)
-    setError(null)
+  const form = useForm({
+    defaultValues: { email: '', password: '' },
+    validators: { onChange: signInSchema },
+    onSubmit: async ({ value }) => {
+      setError(null)
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      const { error: signInError } = await supabase.auth.signInWithPassword(value)
 
-    if (signInError) setError('Correo o contraseña incorrectos')
-
-    setLoading(false)
-  }
+      if (signInError) setError('Correo o contraseña incorrectos')
+    },
+  })
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
-        <CardHeader className="flex-col items-start gap-1">
-          <h1 className="text-xl font-semibold">Cobra</h1>
-          <p className="text-default-500 text-sm">Panel de cobros por WhatsApp</p>
+        <CardHeader>
+          <CardTitle className="text-xl">Cobra</CardTitle>
+          <CardDescription>Panel de cobros por WhatsApp</CardDescription>
         </CardHeader>
 
-        <CardBody>
-          <form className="flex flex-col gap-3" onSubmit={submit}>
-            <Input
-              label="Correo"
-              type="email"
-              value={email}
-              onValueChange={setEmail}
-              isRequired
-              autoComplete="email"
-            />
-            <Input
-              label="Contraseña"
-              type="password"
-              value={password}
-              onValueChange={setPassword}
-              isRequired
-              autoComplete="current-password"
-            />
+        <CardContent>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void form.handleSubmit()
+            }}
+          >
+            <form.Field name="email">
+              {(field) => (
+                <Field
+                  label="Correo"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={field.state.value}
+                  error={fieldError(field)}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+              )}
+            </form.Field>
 
-            {error && <p className="text-danger text-sm">{error}</p>}
+            <form.Field name="password">
+              {(field) => (
+                <Field
+                  label="Contraseña"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={field.state.value}
+                  error={fieldError(field)}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+              )}
+            </form.Field>
 
-            <Button color="primary" type="submit" isLoading={loading}>
-              Entrar
-            </Button>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <Button type="submit" loading={isSubmitting}>
+                  Entrar
+                </Button>
+              )}
+            </form.Subscribe>
           </form>
-        </CardBody>
+        </CardContent>
       </Card>
     </div>
   )

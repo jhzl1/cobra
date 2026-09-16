@@ -1,6 +1,6 @@
 import type { AlertReason, ReceiptExtraction } from '@cobra/contracts'
-import type { PaymentMethod, ValidatedReceipt } from './types'
 import { resolvePaymentMethod } from './payment-methods'
+import type { PaymentMethod, ValidatedReceipt } from './types'
 
 /** The fixed sentence the customer gets for every rejection, whatever the rule. */
 export const MANUAL_REVIEW_REPLY =

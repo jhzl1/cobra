@@ -1,5 +1,5 @@
-import type { PaymentMethod } from './types'
 import { digitsOnly } from './normalize'
+import type { PaymentMethod } from './types'
 
 /**
  * Which of the tenant's accounts a receipt was paid into.
@@ -22,7 +22,9 @@ export const resolvePaymentMethod = (
 
   if (!usable.length || !destinationAccount) return null
 
-  const candidates = usable.filter((method) => matchesAddress(method.paymentAddress, destinationAccount))
+  const candidates = usable.filter((method) =>
+    matchesAddress(method.paymentAddress, destinationAccount),
+  )
 
   if (candidates.length === 1) return candidates[0] ?? null
   if (!candidates.length) return null
@@ -55,9 +57,7 @@ const matchesAddress = (configured: string, read: string): boolean => {
   const shortest = Math.min(configuredDigits.length, readDigits.length)
   if (shortest < 4) return false
 
-  return (
-    configuredDigits.endsWith(readDigits) || readDigits.endsWith(configuredDigits)
-  )
+  return configuredDigits.endsWith(readDigits) || readDigits.endsWith(configuredDigits)
 }
 
 const isKeyAddress = (value: string): boolean => /[a-z@]/i.test(value)

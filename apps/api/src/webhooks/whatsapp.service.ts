@@ -18,6 +18,8 @@ export interface WebhookRoute {
   phoneNumberId: string
   verifyToken: string
   appSecret: string | null
+  /** A suspended company's events are acknowledged and dropped. */
+  suspended: boolean
 }
 
 const UNIQUE_VIOLATION = '23505'
@@ -48,7 +50,7 @@ export class WhatsappService {
   async resolveRoute(slug: string, webhookToken: string): Promise<WebhookRoute> {
     const { data, error } = await this.supabase.admin
       .from('whatsapp_numbers')
-      .select('id, tenant_id, phone_number_id, verify_token, tenants!inner (slug)')
+      .select('id, tenant_id, phone_number_id, verify_token, tenants!inner (slug, status)')
       .eq('webhook_token', webhookToken)
       .is('valid_to', null)
       .maybeSingle()
@@ -59,7 +61,7 @@ export class WhatsappService {
     }
 
     const tenant = (Array.isArray(data?.tenants) ? data?.tenants[0] : data?.tenants) as
-      { slug: string } | undefined
+      { slug: string; status: string } | undefined
 
     if (!data || tenant?.slug !== slug) {
       // Same answer for a wrong token and a wrong slug: anything more specific
@@ -73,6 +75,7 @@ export class WhatsappService {
       phoneNumberId: data.phone_number_id as string,
       verifyToken: data.verify_token as string,
       appSecret: await this.readAppSecret(data.tenant_id as string),
+      suspended: tenant?.status === 'suspended',
     }
   }
 
@@ -102,6 +105,14 @@ export class WhatsappService {
    * Meta retries anything that is not a 200, with backoff, for up to seven days.
    */
   async ingest(route: WebhookRoute, payload: MetaWebhook): Promise<void> {
+    // A suspended company still gets its 200. Answering anything else makes Meta
+    // retry with backoff for up to seven days, so the events would pile up and
+    // arrive in a burst the moment it is reactivated.
+    if (route.suspended) {
+      this.logger.log(`Dropping a webhook event for suspended tenant ${route.tenantId}`)
+      return
+    }
+
     for (const entry of payload.entry ?? []) {
       for (const change of entry.changes ?? []) {
         const { value } = change
@@ -122,7 +133,7 @@ export class WhatsappService {
 
         // Coexistence: what the business sent from the physical handset. Stored
         // so the panel shows the real chat, and never fed to the agent — the
-        // loop that creates is the lesson netplus-bot left behind.
+        // loop that creates is the lesson the previous bot generation left behind.
         if (value.message_echoes?.length) {
           await this.storeEchoes(route, value.message_echoes)
           continue

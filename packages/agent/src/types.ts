@@ -16,7 +16,7 @@ export interface TenantConfig {
   companyName: string
   /** Where the agent sends anyone asking about the service itself. */
   supportPhone: string
-  /** Where escalations go. `573158767678`, typed into four n8n nodes, lives here now. */
+  /** Where escalations go. Typed into four n8n nodes, it lives here now. */
   adminPhone: string
 }
 
@@ -91,7 +91,13 @@ export interface WisphubPort {
   /** One call per invoice, for that invoice's exact amount. Never a lump sum. */
   registerInvoicePayment(
     invoiceId: number,
-    body: { referencia: string; fecha_pago: string; total_cobrado: number; accion: 1; forma_pago: string },
+    body: {
+      referencia: string
+      fecha_pago: string
+      total_cobrado: number
+      accion: 1
+      forma_pago: string
+    },
   ): Promise<unknown>
   updateBalance(serviceId: number, saldo: string): Promise<unknown>
 }
@@ -143,7 +149,10 @@ export interface StepRecorder {
     toolCallId?: string
     input?: unknown
   }): Promise<string>
-  finish(stepId: string, result: { output?: unknown; error?: string; status?: 'done' | 'error' | 'skipped' }): Promise<void>
+  finish(
+    stepId: string,
+    result: { output?: unknown; error?: string; status?: 'done' | 'error' | 'skipped' },
+  ): Promise<void>
 }
 
 /** What a receipt looked like after the vision model and the five rules. */

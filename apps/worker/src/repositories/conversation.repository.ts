@@ -39,8 +39,7 @@ export class ConversationRepository {
 
     const row = data as Record<string, unknown>
     const contact = (Array.isArray(row['contacts']) ? row['contacts'][0] : row['contacts']) as
-      | { person_id: string; phone: string | null }
-      | undefined
+      { person_id: string; phone: string | null } | undefined
 
     return {
       id: row['id'] as string,
@@ -55,7 +54,10 @@ export class ConversationRepository {
   }
 
   /** What the turn drains. Oldest first, so the burst reads in order. */
-  async unprocessedInbound(tenantId: string, conversationId: string): Promise<ConversationMessage[]> {
+  async unprocessedInbound(
+    tenantId: string,
+    conversationId: string,
+  ): Promise<ConversationMessage[]> {
     const { data, error } = await this.supabase
       .scope(tenantId)
       .select('messages', 'id, author, type, body, media_id, received_at')

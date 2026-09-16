@@ -17,7 +17,7 @@ create table public.tenants (
   company_name  text not null,
   -- The number the agent tells customers to call. Colombian E.164, no plus.
   support_phone text not null,
-  -- Where escalations land. In n8n this was 573158767678, typed into four nodes.
+  -- Where escalations land. In n8n this was typed by hand into four nodes.
   admin_phone   text not null,
   status        public.tenant_status not null default 'active',
   created_at    timestamptz not null default now()

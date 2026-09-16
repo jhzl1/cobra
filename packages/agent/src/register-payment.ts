@@ -1,5 +1,5 @@
-import type { WisphubCustomer, WisphubInvoice, WisphubPort } from './types'
 import { bogotaTimestamp } from './normalize'
+import type { WisphubCustomer, WisphubInvoice, WisphubPort } from './types'
 
 export interface RegisterPaymentInput {
   /** One or several documents, comma-separated, exactly as the model passes them. */
@@ -36,7 +36,13 @@ interface PlannedInvoice {
 
 export type PaymentPlan =
   | { decision: 'reject'; message: string; totalDebt: number }
-  | { decision: 'pay'; invoices: PlannedInvoice[]; totalDebt: number; excess: number; serviceId: number }
+  | {
+      decision: 'pay'
+      invoices: PlannedInvoice[]
+      totalDebt: number
+      excess: number
+      serviceId: number
+    }
 
 /**
  * Whether this payment may be registered at all, and against which invoices.
@@ -86,7 +92,9 @@ export const planPayment = (
       totalDebt: 0,
       message: `El o los clientes con documento ${withoutDebt
         .map((customer) => customer.documentNumber)
-        .join(', ')} no tienen facturas pendientes. Un comprobante para varias cuentas solo se acepta si TODAS tienen deuda.`,
+        .join(
+          ', ',
+        )} no tienen facturas pendientes. Un comprobante para varias cuentas solo se acepta si TODAS tienen deuda.`,
     }
   }
 
@@ -97,7 +105,8 @@ export const planPayment = (
     return {
       decision: 'reject',
       totalDebt: 0,
-      message: 'El cliente no tiene facturas pendientes. Para abonar a saldo a favor usa ApplyCredit.',
+      message:
+        'El cliente no tiene facturas pendientes. Para abonar a saldo a favor usa ApplyCredit.',
     }
   }
 
@@ -237,13 +246,19 @@ const buildAdminMessage = ({
   creditedExcess: number
   excessError: string | null
 }): string => {
-  const names = [...new Set(plan.invoices.map((invoice) => invoice.customerName).filter(Boolean))].join(', ')
-  const documents = [...new Set(plan.invoices.map((invoice) => invoice.document).filter(Boolean))].join(', ')
+  const names = [
+    ...new Set(plan.invoices.map((invoice) => invoice.customerName).filter(Boolean)),
+  ].join(', ')
+  const documents = [
+    ...new Set(plan.invoices.map((invoice) => invoice.document).filter(Boolean)),
+  ].join(', ')
   const line = (invoice: PlannedInvoice) =>
     `  • Factura #${invoice.invoiceId}: $${invoice.amount}${invoice.dueDate ? ` (vence ${invoice.dueDate})` : ''}`
 
   const okDetail = paid.map(line).join('\n')
-  const failDetail = failed.map((invoice) => `${line(invoice)} — ERROR: ${invoice.error}`).join('\n')
+  const failDetail = failed
+    .map((invoice) => `${line(invoice)} — ERROR: ${invoice.error}`)
+    .join('\n')
   const header = [
     `Cliente: ${names || 'desconocido'}`,
     `Documento(s): ${documents || 'desconocido'}`,

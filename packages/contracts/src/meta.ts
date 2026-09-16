@@ -98,7 +98,7 @@ export const metaValueSchema = z.looseObject({
    * Coexistence: what the business sends from the physical handset. Subscribed
    * to so the panel shows the real state of the chat — and filtered by direction,
    * because a filter that only looks at the type makes the agent answer itself in
-   * a loop. That loop is the lesson netplus-bot's STATUS.md left behind.
+   * a loop. That loop is the lesson the previous bot generation left behind.
    */
   message_echoes: z.array(metaMessageSchema).optional(),
 })

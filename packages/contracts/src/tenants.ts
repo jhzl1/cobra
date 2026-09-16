@@ -3,14 +3,18 @@ import { credentialProviderSchema } from './domain'
 
 const phoneSchema = z
   .string()
-  .regex(/^\d{10,15}$/, 'El teléfono va en formato internacional sin signos, por ejemplo 573001234567')
+  .regex(
+    /^\d{10,15}$/,
+    'El teléfono va en formato internacional sin signos, por ejemplo 573001234567',
+  )
 
+/**
+ * No slug here on purpose. It only exists to make the webhook URL readable —
+ * the route is resolved by its token and the slug is compared afterwards, so it
+ * buys nothing an attacker does not already have. The API derives it from the
+ * company name rather than asking someone to build one by hand.
+ */
 export const createTenantSchema = z.object({
-  slug: z
-    .string()
-    .min(2)
-    .max(40)
-    .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, 'Solo minúsculas, números y guiones'),
   companyName: z.string().min(2).max(120),
   supportPhone: phoneSchema,
   adminPhone: phoneSchema,
@@ -18,7 +22,29 @@ export const createTenantSchema = z.object({
 
 export type CreateTenantInput = z.infer<typeof createTenantSchema>
 
-export const updateTenantSchema = createTenantSchema.omit({ slug: true }).partial()
+export const updateTenantSchema = createTenantSchema.partial()
+
+export const tenantStatusSchema = z.enum(['active', 'suspended'])
+
+export type TenantStatus = z.infer<typeof tenantStatusSchema>
+
+/**
+ * Suspending is a platform action, not a company one, so it gets its own schema
+ * and its own endpoint. Folded into `updateTenantSchema` it would let any member
+ * of a company lift their own suspension, because that route is theirs to call.
+ */
+export const updateTenantStatusSchema = z.object({ status: tenantStatusSchema })
+
+export type UpdateTenantStatusInput = z.infer<typeof updateTenantStatusSchema>
+
+export const tenantMemberSchema = z.object({
+  userId: z.uuid(),
+  /** Null when the account was removed from auth but the membership row stayed. */
+  email: z.string().nullable(),
+  joinedAt: z.string(),
+})
+
+export type TenantMember = z.infer<typeof tenantMemberSchema>
 
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>
 

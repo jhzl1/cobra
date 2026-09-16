@@ -18,6 +18,7 @@ import {
   registerWhatsappNumberSchema,
   saveCredentialSchema,
   updateTenantSchema,
+  updateTenantStatusSchema,
 } from '@cobra/contracts'
 import { AuthClient } from '~/auth/auth-client.decorator'
 import { readCallerId } from '~/auth/caller'
@@ -73,6 +74,30 @@ export class TenantsController {
       tenantId,
       body as Parameters<TenantsService['update']>[2],
     )
+  }
+
+  /**
+   * Suspending is the platform's call, not the company's.
+   *
+   * It is a route of its own, and not a field on PATCH /tenants/:tenantId,
+   * because that one is the company's to call: a member could lift their own
+   * suspension the moment the field existed there.
+   */
+  @Patch(':tenantId/status')
+  @RequireAdmin()
+  @ApiOperation({ summary: 'Activar o suspender una empresa' })
+  setStatus(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Body(new ZodValidationPipe(updateTenantStatusSchema)) body: unknown,
+  ) {
+    return this.tenants.setStatus(tenantId, (body as { status: 'active' | 'suspended' }).status)
+  }
+
+  @Get(':tenantId/members')
+  @RequireAdmin()
+  @ApiOperation({ summary: 'Ver quién pertenece a una empresa' })
+  listMembers(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
+    return this.tenants.listMembers(tenantId)
   }
 
   @Get(':tenantId/credentials')

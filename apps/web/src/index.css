@@ -1,19 +1,108 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
-@plugin './theme.ts';
+@import 'tw-animate-css';
 
-/* Tailwind only emits the classes it can see. HeroUI's variants live inside its
-   own package, so its dist has to be scanned too — the path resolves from the
-   repo root because pnpm hoists @heroui/* (`public-hoist-pattern` in .npmrc). */
-@source '../../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
 @source './**/*.{ts,tsx}';
 
-@theme {
-  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --color-bg: #f8fafc;
+/* The panel is dark only: the tokens live in :root and there is no .dark block.
+   The variant stays because shadcn's own source ships `dark:` utilities that are
+   part of the dark look (outline, destructive, ghost), and <html class="dark">
+   is fixed in index.html so they resolve. */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: dark;
+  --radius: 0.625rem;
+
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.985 0 0);
+
+  --card: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 285.885);
+  --popover-foreground: oklch(0.985 0 0);
+
+  /* White. Reserved for one action per screen. */
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.21 0.006 285.885);
+
+  /* The interactive grey. Its border and its hover are what separate it from
+     "switched off": on a dark theme the fill alone is 1.19:1 against the card,
+     which reads as a smudge rather than a control. */
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --secondary-border: oklch(0.552 0.016 285.938);
+  --secondary-hover: oklch(0.37 0.013 285.805);
+  --secondary-active: oklch(0.442 0.017 285.786);
+
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+
+  /* Disabled has a colour of its own. It is not "secondary at half opacity",
+     which would be the same object, dimmer. */
+  --disabled-foreground: oklch(0.552 0.016 285.938);
+
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.21 0.006 285.885);
+  /* shadcn only ships destructive. The timeline and the service window map
+     agent states onto these two. */
+  --success: oklch(0.765 0.177 163.223);
+  --success-foreground: oklch(0.21 0.006 285.885);
+  --warning: oklch(0.828 0.189 84.429);
+  --warning-foreground: oklch(0.21 0.006 285.885);
+
+  /* Alpha rather than a flat hex: the same border reads correctly on `card` and
+     on `background`, which sit two steps apart. */
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.552 0.016 285.938);
 }
 
-body {
-  background-color: var(--color-bg);
-  font-family: var(--font-sans);
+@theme inline {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-border: var(--secondary-border);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-active: var(--secondary-active);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
 }

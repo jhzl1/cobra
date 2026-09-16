@@ -1,114 +1,328 @@
+import { useForm } from '@tanstack/react-form'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { PlusIcon } from 'lucide-react'
+import { useState } from 'react'
+import { type RoleGrant, createTenantSchema, grantRoleSchema } from '@cobra/contracts'
+import { TenantDetail } from '~/components/TenantDetail'
 import {
-  Button,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog'
+import { Badge } from '~/components/ui/badge'
+import { Button } from '~/components/ui/button'
+import {
   Card,
-  CardBody,
+  CardAction,
+  CardContent,
+  CardDescription,
   CardHeader,
-  Chip,
-  Input,
+  CardTitle,
+} from '~/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '~/components/ui/dialog'
+import { Field } from '~/components/ui/field'
+import { Spinner } from '~/components/ui/spinner'
+import {
   Table,
   TableBody,
   TableCell,
-  TableColumn,
+  TableHead,
   TableHeader,
   TableRow,
-} from '@heroui/react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import type { RoleGrant } from '@cobra/contracts'
+} from '~/components/ui/table'
 import { api } from '~/lib/api'
+import { applyServerErrors, fieldError } from '~/lib/form'
 import { queryKeys } from '~/lib/queryClient'
+import type { TenantSummary } from '~/lib/tenants'
 
 /**
- * The platform section: creating companies and handing out the role that lets
- * someone else do it.
+ * The platform section: the companies on this installation, creating one, and
+ * handing out the role that lets someone else do it.
  *
  * Only an administrator reaches it, and the check that matters is the API's —
  * this only decides what is drawn.
  */
 export const PlatformPage = () => (
   <div className="flex flex-col gap-4 p-4">
-    <CreateTenantCard />
+    <TenantsCard />
     <GrantsCard />
   </div>
 )
 
-const CreateTenantCard = () => {
-  const queryClient = useQueryClient()
-  const [slug, setSlug] = useState('')
-  const [companyName, setCompanyName] = useState('')
-  const [supportPhone, setSupportPhone] = useState('')
-  const [adminPhone, setAdminPhone] = useState('')
+/* Companies ------------------------------------------------------------------ */
 
-  const create = useMutation({
-    mutationFn: async () => {
-      await api.post('/tenants', { slug, companyName, supportPhone, adminPhone })
+const TenantsCard = () => {
+  const queryClient = useQueryClient()
+  const [viewing, setViewing] = useState<TenantSummary | null>(null)
+  const [suspending, setSuspending] = useState<TenantSummary | null>(null)
+  const [creating, setCreating] = useState(false)
+
+  const tenants = useQuery({
+    queryKey: queryKeys.tenants,
+    queryFn: async () => {
+      const { data } = await api.get<TenantSummary[]>('/tenants')
+
+      return data
+    },
+  })
+
+  const setStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: TenantSummary['status'] }) => {
+      await api.patch(`/tenants/${id}/status`, { status })
     },
     onSuccess: () => {
-      setSlug('')
-      setCompanyName('')
-      setSupportPhone('')
-      setAdminPhone('')
+      setSuspending(null)
       void queryClient.invalidateQueries({ queryKey: queryKeys.tenants })
     },
   })
 
   return (
     <Card>
-      <CardHeader className="flex-col items-start">
-        <h2 className="font-medium">Crear empresa</h2>
-        <p className="text-default-500 text-sm">
-          Quedas como miembro de la empresa que crees. El identificador va dentro de la URL del
-          webhook y no se puede cambiar después.
-        </p>
+      <CardHeader>
+        <CardTitle>Empresas</CardTitle>
+        <CardDescription>
+          Suspender una empresa detiene su agente: deja de recibir mensajes de WhatsApp y deja de
+          responderle a sus clientes.
+        </CardDescription>
+        <CardAction>
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <PlusIcon />
+            Nueva empresa
+          </Button>
+        </CardAction>
       </CardHeader>
 
-      <CardBody className="flex flex-wrap items-end gap-2 sm:flex-row">
-        <Input
-          className="w-44"
-          label="Identificador"
-          placeholder="netplus"
-          value={slug}
-          onValueChange={setSlug}
-        />
-        <Input
-          className="w-56"
-          label="Nombre de la empresa"
-          value={companyName}
-          onValueChange={setCompanyName}
-        />
-        <Input
-          className="w-52"
-          label="Teléfono de soporte"
-          placeholder="573114926993"
-          value={supportPhone}
-          onValueChange={setSupportPhone}
-        />
-        <Input
-          className="w-52"
-          label="Teléfono del administrador"
-          placeholder="573158767678"
-          value={adminPhone}
-          onValueChange={setAdminPhone}
-        />
+      <CardContent className="flex flex-col gap-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Empresa</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Miembros</TableHead>
+              <TableHead> </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tenants.isLoading ? (
+              <TableRow>
+                <TableCell colSpan={4} className="h-20 text-center">
+                  <Spinner className="mx-auto" />
+                </TableCell>
+              </TableRow>
+            ) : tenants.data?.length ? (
+              tenants.data.map((tenant) => (
+                <TableRow key={tenant.id}>
+                  <TableCell className="font-medium">{tenant.companyName}</TableCell>
+                  <TableCell>
+                    <Badge variant={tenant.status === 'active' ? 'success' : 'default'}>
+                      {tenant.status === 'active' ? 'Activa' : 'Suspendida'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{tenant.memberCount}</TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => setViewing(tenant)}>
+                        Ver
+                      </Button>
+                      {tenant.status === 'active' ? (
+                        <Button size="sm" variant="secondary" onClick={() => setSuspending(tenant)}>
+                          Suspender
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          loading={setStatus.isPending}
+                          onClick={() => setStatus.mutate({ id: tenant.id, status: 'active' })}
+                        >
+                          Reactivar
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">
+                  Todavía no hay empresas
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
 
-        <Button
-          color="primary"
-          isLoading={create.isPending}
-          isDisabled={!slug || !companyName || !supportPhone || !adminPhone}
-          onPress={() => create.mutate()}
-        >
-          Crear
-        </Button>
+        {setStatus.error && <p className="text-sm text-destructive">{setStatus.error.message}</p>}
+      </CardContent>
 
-        {create.error && <p className="text-danger w-full text-sm">{create.error.message}</p>}
-      </CardBody>
+      <TenantDetail tenant={viewing} onClose={() => setViewing(null)} />
+
+      <CreateTenantDialog open={creating} onClose={() => setCreating(false)} />
+
+      {/* Suspending is not "are you sure": it says what stops happening. */}
+      <AlertDialog
+        open={!!suspending}
+        onOpenChange={(open) => {
+          if (!open) setSuspending(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Suspender {suspending?.companyName}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Su número deja de recibir mensajes de WhatsApp y el agente deja de responderle a sus
+              clientes. Lo que llegue mientras esté suspendida se descarta: al reactivarla no se
+              recupera. El histórico y la configuración no se tocan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                if (suspending) setStatus.mutate({ id: suspending.id, status: 'suspended' })
+              }}
+            >
+              Suspender
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
 
+/* Create --------------------------------------------------------------------- */
+
+const CreateTenantDialog = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+  const queryClient = useQueryClient()
+  const [failure, setFailure] = useState<string | null>(null)
+
+  const form = useForm({
+    defaultValues: { companyName: '', supportPhone: '', adminPhone: '' },
+    validators: { onChange: createTenantSchema },
+    onSubmit: async ({ value, formApi }) => {
+      setFailure(null)
+
+      try {
+        await api.post('/tenants', value)
+      } catch (error) {
+        const [unmatched] = applyServerErrors(form, error)
+
+        setFailure(unmatched ?? (error as Error).message)
+        throw error
+      }
+
+      formApi.reset()
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tenants })
+      onClose()
+    },
+  })
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Nueva empresa</DialogTitle>
+          <DialogDescription>
+            Quedas como miembro de la empresa que crees. Después hay que cargarle sus credenciales y
+            conectarle un número de WhatsApp.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void form.handleSubmit()
+          }}
+        >
+          <form.Field name="companyName">
+            {(field) => (
+              <Field
+                label="Nombre de la empresa"
+                placeholder="Acme Telecomunicaciones"
+                required
+                value={field.state.value}
+                error={fieldError(field)}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            )}
+          </form.Field>
+
+          <form.Field name="supportPhone">
+            {(field) => (
+              <Field
+                label="Teléfono de soporte"
+                hint="El número que el agente le da a quien pregunta por el servicio. Con indicativo de país y sin signos."
+                placeholder="573001234567"
+                required
+                value={field.state.value}
+                error={fieldError(field)}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            )}
+          </form.Field>
+
+          <form.Field name="adminPhone">
+            {(field) => (
+              <Field
+                label="Teléfono del administrador"
+                hint="A dónde llegan los avisos cuando el agente necesita que alguien intervenga."
+                placeholder="573001234568"
+                required
+                value={field.state.value}
+                error={fieldError(field)}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            )}
+          </form.Field>
+
+          {failure && <p className="text-sm text-destructive">{failure}</p>}
+
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancelar
+            </Button>
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) => (
+                <Button type="submit" loading={isSubmitting}>
+                  Crear
+                </Button>
+              )}
+            </form.Subscribe>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/* Platform administrators ---------------------------------------------------- */
+
 const GrantsCard = () => {
   const queryClient = useQueryClient()
-  const [email, setEmail] = useState('')
+  const [failure, setFailure] = useState<string | null>(null)
 
   const grants = useQuery({
     queryKey: ['platform', 'roles'],
@@ -121,16 +335,6 @@ const GrantsCard = () => {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['platform', 'roles'] })
 
-  const grant = useMutation({
-    mutationFn: async () => {
-      await api.post('/platform/roles', { email, role: 'ADMIN' })
-    },
-    onSuccess: () => {
-      setEmail('')
-      void invalidate()
-    },
-  })
-
   const revoke = useMutation({
     mutationFn: async (grantId: string) => {
       await api.delete(`/platform/roles/${grantId}`)
@@ -138,71 +342,109 @@ const GrantsCard = () => {
     onSuccess: () => void invalidate(),
   })
 
+  const form = useForm({
+    defaultValues: { email: '' },
+    // Only the address is asked for: ADMIN is the one platform role there is.
+    validators: { onChange: grantRoleSchema.pick({ email: true }) },
+    onSubmit: async ({ value, formApi }) => {
+      setFailure(null)
+
+      try {
+        await api.post('/platform/roles', { ...value, role: 'ADMIN' })
+      } catch (error) {
+        const [unmatched] = applyServerErrors(form, error)
+
+        setFailure(unmatched ?? (error as Error).message)
+        throw error
+      }
+
+      formApi.reset()
+      await invalidate()
+    },
+  })
+
   return (
     <Card>
-      <CardHeader className="flex-col items-start">
-        <h2 className="font-medium">Administradores de la plataforma</h2>
-        <p className="text-default-500 text-sm">
+      <CardHeader>
+        <CardTitle>Administradores de la plataforma</CardTitle>
+        <CardDescription>
           Se otorga por correo, aunque esa persona todavía no tenga cuenta: el rol se amarra a su
           identidad la primera vez que entra. Revocar conserva el registro.
-        </p>
+        </CardDescription>
       </CardHeader>
 
-      <CardBody className="flex flex-col gap-4">
-        <Table aria-label="Concesiones de rol" removeWrapper>
+      <CardContent className="flex flex-col gap-4">
+        <Table>
           <TableHeader>
-            <TableColumn>Correo</TableColumn>
-            <TableColumn>Otorgado</TableColumn>
-            <TableColumn>Estado</TableColumn>
-            <TableColumn> </TableColumn>
+            <TableRow>
+              <TableHead>Correo</TableHead>
+              <TableHead>Otorgado</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead> </TableHead>
+            </TableRow>
           </TableHeader>
-          <TableBody emptyContent="Sin concesiones">
-            {(grants.data ?? []).map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>{row.email}</TableCell>
-                <TableCell>{new Date(row.grantedAt).toLocaleDateString('es-CO')}</TableCell>
-                <TableCell>
-                  <Chip size="sm" variant="flat" color={row.revokedAt ? 'default' : 'success'}>
-                    {row.revokedAt ? 'Revocado' : 'Activo'}
-                  </Chip>
-                </TableCell>
-                <TableCell>
-                  {!row.revokedAt && (
-                    <Button
-                      size="sm"
-                      variant="light"
-                      color="danger"
-                      onPress={() => revoke.mutate(row.id)}
-                    >
-                      Revocar
-                    </Button>
-                  )}
+          <TableBody>
+            {grants.data?.length ? (
+              grants.data.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>{row.email}</TableCell>
+                  <TableCell>{new Date(row.grantedAt).toLocaleDateString('es-CO')}</TableCell>
+                  <TableCell>
+                    <Badge variant={row.revokedAt ? 'default' : 'success'}>
+                      {row.revokedAt ? 'Revocado' : 'Activo'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {!row.revokedAt && (
+                      <Button size="sm" variant="destructive" onClick={() => revoke.mutate(row.id)}>
+                        Revocar
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">
+                  Sin concesiones
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
 
-        <div className="flex flex-wrap items-end gap-2">
-          <Input
-            className="w-72"
-            label="Correo"
-            type="email"
-            value={email}
-            onValueChange={setEmail}
-          />
-          <Button
-            color="primary"
-            isLoading={grant.isPending}
-            isDisabled={!email}
-            onPress={() => grant.mutate()}
-          >
-            Otorgar administrador
-          </Button>
-        </div>
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void form.handleSubmit()
+          }}
+        >
+          <form.Field name="email">
+            {(field) => (
+              <Field
+                className="w-72"
+                label="Correo"
+                type="email"
+                value={field.state.value}
+                error={fieldError(field)}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            )}
+          </form.Field>
 
-        {grant.error && <p className="text-danger text-sm">{grant.error.message}</p>}
-      </CardBody>
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <Button type="submit" loading={isSubmitting}>
+                Otorgar administrador
+              </Button>
+            )}
+          </form.Subscribe>
+        </form>
+
+        {failure && <p className="text-sm text-destructive">{failure}</p>}
+      </CardContent>
     </Card>
   )
 }

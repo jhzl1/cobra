@@ -61,6 +61,15 @@ export class SendMessageJobHandler {
 
     const runtime = await this.tenants.load(tenantId)
 
+    // Checked here and not when the job was queued: a company can be suspended
+    // while its message waits in the queue, and sending it anyway is the one
+    // thing suspension is supposed to stop.
+    if (runtime.raw.status === 'suspended') {
+      await this.discard(tenantId, messageId, 'La empresa está suspendida')
+
+      return { sent: false }
+    }
+
     try {
       const wamid = await runtime.meta.sendText(
         conversation.phone ?? conversation.personId,

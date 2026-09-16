@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { PaymentMethod } from './types'
 import { resolvePaymentMethod } from './payment-methods'
+import type { PaymentMethod } from './types'
 
 const method = (over: Partial<PaymentMethod>): PaymentMethod => ({
   id: 'pm',
@@ -31,10 +31,7 @@ describe('resolvePaymentMethod', () => {
   })
 
   it('gives up when the tie cannot be broken, which rule 3 turns into a rejection', () => {
-    const methods = [
-      method({ id: 'a', wisphubId: '7' }),
-      method({ id: 'b', wisphubId: '9' }),
-    ]
+    const methods = [method({ id: 'a', wisphubId: '7' }), method({ id: 'b', wisphubId: '9' })]
 
     expect(resolvePaymentMethod(methods, '3001234567', 'OTHER')).toBeNull()
   })

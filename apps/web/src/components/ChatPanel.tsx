@@ -1,9 +1,13 @@
-import { Button, Card, CardBody, CardFooter, CardHeader, Chip, Textarea } from '@heroui/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import type { ConversationSummary, HandoffInput, Message } from '@cobra/contracts'
+import { Badge } from '~/components/ui/badge'
+import { Button } from '~/components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader } from '~/components/ui/card'
+import { Textarea } from '~/components/ui/textarea'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
+import { cn } from '~/lib/utils'
 import { ServiceWindow, remainingWindowMs } from './ServiceWindow'
 
 interface Props {
@@ -51,9 +55,9 @@ export const ChatPanel = ({ conversation }: Props) => {
   const isHuman = conversation.status === 'human'
 
   return (
-    <Card className="flex h-full flex-col">
-      <CardHeader className="flex items-center justify-between gap-2">
-        <div>
+    <Card className="flex h-full flex-col gap-0 overflow-hidden py-0">
+      <CardHeader className="flex items-center justify-between gap-2 py-4">
+        <div className="flex flex-col items-start gap-1">
           <p className="font-medium">
             {conversation.contact.displayName ??
               conversation.contact.phone ??
@@ -65,31 +69,32 @@ export const ChatPanel = ({ conversation }: Props) => {
         <div className="flex gap-2">
           <Button
             size="sm"
-            color={isHuman ? 'default' : 'primary'}
-            variant={isHuman ? 'flat' : 'solid'}
-            isLoading={handoff.isPending}
-            onPress={() => handoff.mutate(isHuman ? 'release' : 'take')}
+            variant={isHuman ? 'secondary' : 'default'}
+            loading={handoff.isPending}
+            onClick={() => handoff.mutate(isHuman ? 'release' : 'take')}
           >
             {isHuman ? 'Devolver al agente' : 'Tomar el control'}
           </Button>
 
           {/* Hands the accumulated messages to the agent as one turn. */}
-          <Button size="sm" variant="bordered" onPress={() => handoff.mutate('replay')}>
+          <Button size="sm" variant="outline" onClick={() => handoff.mutate('replay')}>
             Reenviar al agente
           </Button>
         </div>
       </CardHeader>
 
-      <CardBody className="flex flex-col gap-2 overflow-y-auto">
+      {/* The transcript drops to `background` so the bubbles have something to
+          sit on: an incoming bubble on `card` inside a `card` is invisible. */}
+      <CardContent className="flex flex-1 flex-col gap-2 overflow-y-auto border-y border-border bg-background p-4">
         {messages.data?.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
         <div ref={bottom} />
-      </CardBody>
+      </CardContent>
 
-      <CardFooter className="flex flex-col items-stretch gap-2">
+      <CardFooter className="flex flex-col items-stretch gap-2 py-4">
         {!isHuman && (
-          <p className="text-default-500 text-xs">
+          <p className="text-xs text-muted-foreground">
             El agente está respondiendo. Toma el control para escribirle tú.
           </p>
         )}
@@ -98,7 +103,7 @@ export const ChatPanel = ({ conversation }: Props) => {
             the operator write a message WhatsApp refuses with 131047, and they
             would only find out from the customer. */}
         {windowClosed && (
-          <p className="text-danger text-xs">
+          <p className="text-xs text-destructive">
             Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp no permite
             escribirle sin una plantilla aprobada.
           </p>
@@ -107,24 +112,23 @@ export const ChatPanel = ({ conversation }: Props) => {
         <div className="flex items-end gap-2">
           <Textarea
             aria-label="Mensaje"
-            minRows={1}
-            maxRows={4}
+            rows={1}
+            className="max-h-32 min-h-9 resize-none"
             value={draft}
-            onValueChange={setDraft}
-            isDisabled={!isHuman || windowClosed}
+            onChange={(event) => setDraft(event.target.value)}
+            disabled={!isHuman || windowClosed}
             placeholder={isHuman ? 'Escribe tu respuesta' : 'Toma el control para escribir'}
           />
           <Button
-            color="primary"
-            isDisabled={!isHuman || windowClosed || !draft.trim()}
-            isLoading={send.isPending}
-            onPress={() => send.mutate(draft.trim())}
+            disabled={!isHuman || windowClosed || !draft.trim()}
+            loading={send.isPending}
+            onClick={() => send.mutate(draft.trim())}
           >
             Enviar
           </Button>
         </div>
 
-        {send.error && <p className="text-danger text-xs">{send.error.message}</p>}
+        {send.error && <p className="text-xs text-destructive">{send.error.message}</p>}
       </CardFooter>
     </Card>
   )
@@ -141,15 +145,20 @@ const MessageBubble = ({ message }: { message: Message }) => {
 
   return (
     <div className={mine ? 'flex justify-end' : 'flex justify-start'}>
+      {/* Raised grey for what goes out, sunken grey for what comes in. White is
+          the primary action and does not compete with the transcript. */}
       <div
-        className={`rounded-medium max-w-[75%] px-3 py-2 text-sm ${
-          mine ? 'bg-primary text-primary-foreground' : 'bg-default-100'
-        }`}
+        className={cn(
+          'max-w-[75%] rounded-lg px-3 py-2 text-sm',
+          mine
+            ? 'bg-secondary text-secondary-foreground'
+            : 'border border-border bg-card text-card-foreground',
+        )}
       >
         <p className="mb-1 text-[10px] uppercase opacity-70">{AUTHOR_LABEL[message.author]}</p>
 
         {message.mediaUrl && (
-          <img src={message.mediaUrl} alt="Comprobante" className="rounded-medium mb-1 max-h-64" />
+          <img src={message.mediaUrl} alt="Comprobante" className="mb-1 max-h-64 rounded-lg" />
         )}
 
         {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
@@ -161,16 +170,8 @@ const MessageBubble = ({ message }: { message: Message }) => {
               minute: '2-digit',
             })}
           </span>
-          {message.deliveryState === 'pending' && (
-            <Chip size="sm" variant="flat">
-              Enviando
-            </Chip>
-          )}
-          {message.deliveryState === 'failed' && (
-            <Chip size="sm" color="danger" variant="flat">
-              No entregado
-            </Chip>
-          )}
+          {message.deliveryState === 'pending' && <Badge>Enviando</Badge>}
+          {message.deliveryState === 'failed' && <Badge variant="destructive">No entregado</Badge>}
         </div>
       </div>
     </div>
