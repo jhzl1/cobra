@@ -13,6 +13,7 @@ import { NotifyAdminJobHandler } from '../jobs/notify-admin.job.js'
 import { ProcessReceiptJobHandler } from '../jobs/process-receipt.job.js'
 import { ProcessTurnJobHandler } from '../jobs/process-turn.job.js'
 import { SendMessageJobHandler } from '../jobs/send-message.job.js'
+import { followUpsFor } from '../jobs/turn-follow-ups.js'
 
 /**
  * The worker owns pg-boss: it migrates the schema, supervises, and works the
@@ -109,16 +110,8 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
         for (const job of jobs) {
           const outcome = await this.turns.handle(job.data)
 
-          /**
-           * The burst window, re-queued rather than slept through: holding the
-           * job open would occupy a worker slot doing nothing, and `stately`
-           * would refuse the next message's job behind it.
-           */
-          if (outcome.retryInMs) {
-            await this.boss.send(QUEUES.processTurn, withWindow(job.data), {
-              singletonKey: job.data.conversationId,
-              startAfter: Math.ceil(outcome.retryInMs / 1000),
-            })
+          for (const followUp of followUpsFor(job.data, outcome)) {
+            await this.boss.send(followUp.queue, followUp.data, followUp.options ?? {})
           }
         }
       },
@@ -141,12 +134,3 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
     })
   }
 }
-
-/**
- * Carries the moment the window opened across re-queues, so the hard cap is
- * measured from the first unread message and not from the last retry.
- */
-const withWindow = (job: ProcessTurnJob): ProcessTurnJob => ({
-  ...job,
-  windowStartedAt: job.windowStartedAt ?? new Date().toISOString(),
-})
