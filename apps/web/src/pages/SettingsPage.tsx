@@ -1,6 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2Icon, CircleDashedIcon } from 'lucide-react'
+import { CheckCircle2Icon, CircleDashedIcon, PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { z } from 'zod'
 import {
@@ -12,17 +12,17 @@ import {
 } from '@cobra/contracts'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
-import { CopyField } from '~/components/ui/copy-field'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '~/components/ui/dialog'
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card'
+import { CopyField } from '~/components/ui/copy-field'
 import { Field } from '~/components/ui/field'
+import { FormDialog } from '~/components/ui/form-dialog'
 import {
   Table,
   TableBody,
@@ -182,12 +182,17 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
         </div>
       </CardContent>
 
-      <CredentialDialog
-        tenantId={tenantId}
-        spec={editing}
-        rotating={!!editing && !!loadedFor(editing.provider)}
-        onClose={() => setEditing(null)}
-      />
+      {/* Keyed per provider: a secret left over in a reused form is a secret
+          sent to the wrong provider. */}
+      {editing && (
+        <CredentialDialog
+          key={editing.provider}
+          tenantId={tenantId}
+          spec={editing}
+          rotating={!!loadedFor(editing.provider)}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </Card>
   )
 }
@@ -199,7 +204,7 @@ const CredentialDialog = ({
   onClose,
 }: {
   tenantId: string
-  spec: ProviderSpec | null
+  spec: ProviderSpec
   rotating: boolean
   onClose: () => void
 }) => {
@@ -210,8 +215,6 @@ const CredentialDialog = ({
     defaultValues: { secret: '', appSecret: '' },
     validators: { onChange: credentialFormSchema },
     onSubmit: async ({ value }) => {
-      if (!spec) return
-
       setFailure(null)
 
       try {
@@ -235,97 +238,59 @@ const CredentialDialog = ({
   })
 
   return (
-    <Dialog
-      open={!!spec}
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
+    <FormDialog
+      open
+      onClose={onClose}
+      title={`${rotating ? 'Rotar' : 'Conectar'} ${spec.name}`}
+      description={
+        rotating
+          ? 'La credencial anterior se reemplaza. El agente empieza a usar la nueva de inmediato.'
+          : spec.purpose
+      }
+      submitLabel="Guardar"
+      form={form}
+      error={failure}
     >
-      {/* Remounted per provider: a secret left over in a reused form is a secret
-          sent to the wrong provider. */}
-      <DialogContent key={spec?.provider}>
-        <DialogHeader>
-          <DialogTitle>
-            {rotating ? 'Rotar' : 'Conectar'} {spec?.name}
-          </DialogTitle>
-          <DialogDescription>
-            {rotating
-              ? 'La credencial anterior se reemplaza. El agente empieza a usar la nueva de inmediato.'
-              : spec?.purpose}
-          </DialogDescription>
-        </DialogHeader>
+      <form.Field name="secret">
+        {(field) => (
+          <Field
+            label={spec.secretLabel}
+            hint={spec.secretHint}
+            type="password"
+            autoComplete="off"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
 
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
-          }}
-        >
-          <form.Field name="secret">
-            {(field) => (
-              <Field
-                label={spec?.secretLabel ?? 'Clave de acceso'}
-                hint={spec?.secretHint}
-                type="password"
-                autoComplete="off"
-                required
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          {spec?.hasAppSecret && (
-            <>
-              <form.Field name="appSecret">
-                {(field) => (
-                  <Field
-                    label="Clave secreta de la aplicación"
-                    hint="En Meta: Configuración de la app → Básica, campo «App secret»."
-                    type="password"
-                    autoComplete="off"
-                    value={field.state.value}
-                    error={fieldError(field)}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                  />
-                )}
-              </form.Field>
-
-              <p className="text-xs text-muted-foreground">
-                Sin el app secret el webhook queda autenticado solo por el token de su URL.
-              </p>
-            </>
+      {spec.hasAppSecret && (
+        <form.Field name="appSecret">
+          {(field) => (
+            <Field
+              label="Clave secreta de la aplicación"
+              hint="En Meta: Configuración de la app → Básica, campo «App secret». Sin ella el webhook queda autenticado solo por el token de su URL."
+              type="password"
+              autoComplete="off"
+              value={field.state.value}
+              error={fieldError(field)}
+              onBlur={field.handleBlur}
+              onChange={(event) => field.handleChange(event.target.value)}
+            />
           )}
-
-          {failure && <p className="text-sm text-destructive">{failure}</p>}
-
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose}>
-              Cancelar
-            </Button>
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(isSubmitting) => (
-                <Button type="submit" loading={isSubmitting}>
-                  Guardar
-                </Button>
-              )}
-            </form.Subscribe>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </form.Field>
+      )}
+    </FormDialog>
   )
 }
 
 /* WhatsApp numbers ----------------------------------------------------------- */
 
 const NumbersCard = ({ tenantId }: { tenantId: string }) => {
-  const queryClient = useQueryClient()
-  const [failure, setFailure] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
 
   const numbers = useQuery({
     queryKey: queryKeys.numbers(tenantId),
@@ -336,10 +301,52 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
     },
   })
 
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Números de WhatsApp</CardTitle>
+        <CardDescription>
+          Copia la URL y el token de verificación en la configuración del webhook de Meta.
+        </CardDescription>
+        <CardAction>
+          <Button size="sm" onClick={() => setConnecting(true)}>
+            <PlusIcon />
+            Conectar número
+          </Button>
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="flex flex-col gap-4">
+        {numbers.data?.length ? (
+          numbers.data.map((number) => (
+            <div key={number.id} className="flex flex-col gap-1">
+              <p className="text-sm font-medium">
+                {number.displayNumber} · {number.phoneNumberId}
+              </p>
+              <CopyField className="max-w-full" value={`${webhookOrigin}${number.webhookPath}`} />
+              <CopyField label="Token de verificación:" value={number.verifyToken} />
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Todavía no hay ningún número conectado. Sin uno, la empresa no recibe mensajes.
+          </p>
+        )}
+      </CardContent>
+
+      {connecting && <NumberDialog tenantId={tenantId} onClose={() => setConnecting(false)} />}
+    </Card>
+  )
+}
+
+const NumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose: () => void }) => {
+  const queryClient = useQueryClient()
+  const [failure, setFailure] = useState<string | null>(null)
+
   const form = useForm({
     defaultValues: { phoneNumberId: '', displayNumber: '' },
     validators: { onChange: registerWhatsappNumberSchema },
-    onSubmit: async ({ value, formApi }) => {
+    onSubmit: async ({ value }) => {
       setFailure(null)
 
       try {
@@ -351,79 +358,50 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
         throw error
       }
 
-      formApi.reset()
       await queryClient.invalidateQueries({ queryKey: queryKeys.numbers(tenantId) })
+      onClose()
     },
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Números de WhatsApp</CardTitle>
-        <CardDescription>
-          Copia la URL y el verify token en la configuración del webhook de Meta.
-        </CardDescription>
-      </CardHeader>
+    <FormDialog
+      open
+      onClose={onClose}
+      title="Conectar un número"
+      description="Los dos datos salen de la app de Meta. Al guardarlos, el panel genera la URL del webhook y su token de verificación."
+      submitLabel="Conectar"
+      form={form}
+      error={failure}
+    >
+      <form.Field name="phoneNumberId">
+        {(field) => (
+          <Field
+            label="Identificador del número"
+            hint="En Meta: WhatsApp → Configuración de la API, campo «Phone number ID»."
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
 
-      <CardContent className="flex flex-col gap-4">
-        {(numbers.data ?? []).map((number) => (
-          <div key={number.id} className="flex flex-col gap-1">
-            <p className="text-sm font-medium">
-              {number.displayNumber} · {number.phoneNumberId}
-            </p>
-            <CopyField className="max-w-full" value={`${webhookOrigin}${number.webhookPath}`} />
-            <CopyField label="Token de verificación:" value={number.verifyToken} />
-          </div>
-        ))}
-
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
-          }}
-        >
-          <form.Field name="phoneNumberId">
-            {(field) => (
-              <Field
-                className="w-64"
-                label="Identificador del número"
-                hint="En Meta: WhatsApp → Configuración de la API, campo «Phone number ID»."
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Field name="displayNumber">
-            {(field) => (
-              <Field
-                className="w-64"
-                label="Número de WhatsApp"
-                hint="Con indicativo de país y sin signos."
-                placeholder="573001234567"
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <Button type="submit" loading={isSubmitting}>
-                Registrar
-              </Button>
-            )}
-          </form.Subscribe>
-        </form>
-
-        {failure && <p className="text-sm text-destructive">{failure}</p>}
-      </CardContent>
-    </Card>
+      <form.Field name="displayNumber">
+        {(field) => (
+          <Field
+            label="Número de WhatsApp"
+            hint="Con indicativo de país y sin signos."
+            placeholder="573001234567"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+    </FormDialog>
   )
 }
 
@@ -439,8 +417,7 @@ const paymentMethodFormSchema = paymentMethodSchema
   .extend({ zone: z.string().max(80), wisphubId: z.string().max(40) })
 
 const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
-  const queryClient = useQueryClient()
-  const [failure, setFailure] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
 
   const methods = useQuery({
     queryKey: queryKeys.paymentMethods(tenantId),
@@ -451,32 +428,6 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
     },
   })
 
-  const form = useForm({
-    defaultValues: { entityName: '', paymentAddress: '', zone: '', wisphubId: '' },
-    validators: { onChange: paymentMethodFormSchema },
-    onSubmit: async ({ value, formApi }) => {
-      setFailure(null)
-
-      try {
-        await api.post(`/tenants/${tenantId}/payment-methods`, {
-          entityName: value.entityName,
-          paymentAddress: value.paymentAddress,
-          // The schema takes null for "not set"; an input can only hold ''.
-          zone: value.zone || null,
-          wisphubId: value.wisphubId || null,
-        })
-      } catch (error) {
-        const [unmatched] = applyServerErrors(form, error)
-
-        setFailure(unmatched ?? (error as Error).message)
-        throw error
-      }
-
-      formApi.reset()
-      await queryClient.invalidateQueries({ queryKey: queryKeys.paymentMethods(tenantId) })
-    },
-  })
-
   return (
     <Card>
       <CardHeader>
@@ -484,9 +435,15 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
         <CardDescription>
           Un comprobante pagado a una cuenta que no esté aquí se retiene para revisión manual.
         </CardDescription>
+        <CardAction>
+          <Button size="sm" onClick={() => setAdding(true)}>
+            <PlusIcon />
+            Agregar cuenta
+          </Button>
+        </CardAction>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-4">
+      <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
@@ -515,81 +472,106 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
             )}
           </TableBody>
         </Table>
-
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
-          }}
-        >
-          <form.Field name="entityName">
-            {(field) => (
-              <Field
-                className="w-44"
-                label="Entidad"
-                hint="Bancolombia, Nequi, Daviplata…"
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Field name="paymentAddress">
-            {(field) => (
-              <Field
-                className="w-56"
-                label="Cuenta o llave"
-                hint="El número de cuenta, o la llave de Nequi o Daviplata."
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Field name="zone">
-            {(field) => (
-              <Field
-                className="w-36"
-                label="Zona"
-                hint="Opcional."
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Field name="wisphubId">
-            {(field) => (
-              <Field
-                className="w-40"
-                label="Forma de pago"
-                hint="Su id en Wisphub."
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <Button type="submit" loading={isSubmitting}>
-                Agregar
-              </Button>
-            )}
-          </form.Subscribe>
-        </form>
-
-        {failure && <p className="text-sm text-destructive">{failure}</p>}
       </CardContent>
+
+      {adding && <PaymentMethodDialog tenantId={tenantId} onClose={() => setAdding(false)} />}
     </Card>
+  )
+}
+
+const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose: () => void }) => {
+  const queryClient = useQueryClient()
+  const [failure, setFailure] = useState<string | null>(null)
+
+  const form = useForm({
+    defaultValues: { entityName: '', paymentAddress: '', zone: '', wisphubId: '' },
+    validators: { onChange: paymentMethodFormSchema },
+    onSubmit: async ({ value }) => {
+      setFailure(null)
+
+      try {
+        await api.post(`/tenants/${tenantId}/payment-methods`, {
+          entityName: value.entityName,
+          paymentAddress: value.paymentAddress,
+          // The schema takes null for "not set"; an input can only hold ''.
+          zone: value.zone || null,
+          wisphubId: value.wisphubId || null,
+        })
+      } catch (error) {
+        const [unmatched] = applyServerErrors(form, error)
+
+        setFailure(unmatched ?? (error as Error).message)
+        throw error
+      }
+
+      await queryClient.invalidateQueries({ queryKey: queryKeys.paymentMethods(tenantId) })
+      onClose()
+    },
+  })
+
+  return (
+    <FormDialog
+      open
+      onClose={onClose}
+      title="Agregar una cuenta de recaudo"
+      description="El agente compara la cuenta de cada comprobante contra esta lista. Lo que no esté aquí se escala para revisión manual."
+      submitLabel="Agregar"
+      form={form}
+      error={failure}
+    >
+      <form.Field name="entityName">
+        {(field) => (
+          <Field
+            label="Entidad"
+            hint="Bancolombia, Nequi, Daviplata…"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="paymentAddress">
+        {(field) => (
+          <Field
+            label="Cuenta o llave"
+            hint="El número de cuenta, o la llave de Nequi o Daviplata."
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="zone">
+        {(field) => (
+          <Field
+            label="Zona"
+            hint="Opcional. Sirve cuando la empresa recauda por zona."
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="wisphubId">
+        {(field) => (
+          <Field
+            label="Forma de pago"
+            hint="Opcional. Su id en Wisphub, para que el pago quede registrado con la forma correcta."
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+    </FormDialog>
   )
 }
