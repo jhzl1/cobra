@@ -58,9 +58,9 @@ interface WhatsappNumber {
 interface PaymentMethodRow {
   id: string
   zone: string | null
-  entity_name: string
-  payment_address: string
-  wisphub_id: string | null
+  entityName: string
+  paymentAddress: string
+  wisphubId: string | null
 }
 
 export const SettingsPage = ({ tenantId }: { tenantId: string }) => (
@@ -541,10 +541,10 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
             {methods.data?.length ? (
               methods.data.map((method) => (
                 <TableRow key={method.id}>
-                  <TableCell>{method.entity_name}</TableCell>
-                  <TableCell>{method.payment_address}</TableCell>
+                  <TableCell>{method.entityName}</TableCell>
+                  <TableCell>{method.paymentAddress}</TableCell>
                   <TableCell>{method.zone ?? '—'}</TableCell>
-                  <TableCell>{method.wisphub_id ?? '—'}</TableCell>
+                  <TableCell>{method.wisphubId ?? '—'}</TableCell>
                 </TableRow>
               ))
             ) : (

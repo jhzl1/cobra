@@ -408,7 +408,7 @@ export class TenantsService {
 
     if (error) throw this.toHttpError(error)
 
-    return data
+    return data.map(toPaymentMethod)
   }
 
   async addPaymentMethod(client: SupabaseClient, tenantId: string, input: PaymentMethodInput) {
@@ -560,6 +560,20 @@ export const slugify = (name: string): string => {
 
   return slug || 'empresa'
 }
+
+/**
+ * Every other endpoint answers in the contract's names, and this one answered in
+ * Postgres'. The panel then read one table in snake_case and the rest in camel —
+ * which is how the timeline came to read `agent_steps` as `steps` and crash.
+ */
+const toPaymentMethod = (row: Record<string, unknown>) => ({
+  id: row['id'] as string,
+  zone: (row['zone'] as string | null) ?? null,
+  entityName: row['entity_name'] as string,
+  paymentAddress: row['payment_address'] as string,
+  wisphubId: (row['wisphub_id'] as string | null) ?? null,
+  description: (row['description'] as string | null) ?? null,
+})
 
 const toTenant = (row: Record<string, unknown>): Tenant => ({
   id: row['id'] as string,
