@@ -35,6 +35,17 @@ const envSchema = z.object({
    */
   CREDENTIALS_MASTER_KEY: z.string().min(1),
 
+  /**
+   * Where this API answers from outside, if it cannot tell on its own.
+   *
+   * Optional, and usually left empty: the webhook URL the panel shows is built
+   * from the incoming request, which is what makes a tunnel work with nothing
+   * configured — ngrok sets `X-Forwarded-Proto` and `Host` to the public pair.
+   * Set it when the API sits behind a host it never sees, or when the URL has to
+   * stay fixed no matter which one answered.
+   */
+  PUBLIC_URL: z.url().optional(),
+
   CORS_ORIGINS: z
     .string()
     .default('')

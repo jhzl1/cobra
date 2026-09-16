@@ -6,12 +6,6 @@ const { VITE_API_URL } = import.meta.env
 
 export const api = axios.create({ baseURL: VITE_API_URL, timeout: 60_000 })
 
-/**
- * The webhook lives outside the `/api` prefix — `apps/api/src/main.ts` excludes
- * it — so its URL is the API's origin, not the panel's, and not the API's prefix.
- */
-export const webhookOrigin = String(VITE_API_URL).replace(/\/api\/?$/, '')
-
 /** The per-field detail the API sends with a 400, once the interceptor keeps it. */
 export const fieldErrorsOf = (error: unknown): ApiFieldError[] =>
   (error as { fieldErrors?: ApiFieldError[] })?.fieldErrors ?? []

@@ -45,7 +45,12 @@ export interface WhatsappNumber {
   phoneNumberId: string
   displayNumber: string
   verifyToken: string
-  webhookPath: string
+  /**
+   * The complete URL to paste into Meta. Built here and not in the panel: the
+   * panel knows the address it calls, which behind a tunnel is not the one Meta
+   * has to reach.
+   */
+  webhookUrl: string
   validTo: string | null
 }
 
@@ -220,7 +225,11 @@ export class TenantsService {
     return { provider: data.provider, last4: data.last4, rotatedAt: data.rotated_at }
   }
 
-  async listNumbers(client: SupabaseClient, tenantId: string): Promise<WhatsappNumber[]> {
+  async listNumbers(
+    client: SupabaseClient,
+    tenantId: string,
+    publicUrl: string,
+  ): Promise<WhatsappNumber[]> {
     const { data, error } = await client
       .from('whatsapp_numbers')
       .select('id, phone_number_id, display_number, verify_token, webhook_token, valid_to')
@@ -236,7 +245,7 @@ export class TenantsService {
       phoneNumberId: row.phone_number_id,
       displayNumber: row.display_number,
       verifyToken: row.verify_token,
-      webhookPath: `/wh/wa/${tenant?.slug ?? ''}/${row.webhook_token}`,
+      webhookUrl: `${publicUrl}/wh/wa/${tenant?.slug ?? ''}/${row.webhook_token}`,
       validTo: row.valid_to,
     }))
   }
@@ -253,6 +262,7 @@ export class TenantsService {
     userId: string,
     tenantId: string,
     input: RegisterWhatsappNumberInput,
+    publicUrl: string,
   ): Promise<WhatsappNumber> {
     await this.assertMembership(userId, tenantId)
 
@@ -286,7 +296,7 @@ export class TenantsService {
       phoneNumberId: data.phone_number_id,
       displayNumber: data.display_number,
       verifyToken: data.verify_token,
-      webhookPath: `/wh/wa/${tenant?.slug ?? ''}/${data.webhook_token}`,
+      webhookUrl: `${publicUrl}/wh/wa/${tenant?.slug ?? ''}/${data.webhook_token}`,
       validTo: data.valid_to,
     }
   }

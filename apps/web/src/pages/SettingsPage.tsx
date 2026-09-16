@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '~/components/ui/table'
-import { api, webhookOrigin } from '~/lib/api'
+import { api } from '~/lib/api'
 import { applyServerErrors, fieldError } from '~/lib/form'
 import { queryKeys } from '~/lib/queryClient'
 
@@ -40,7 +40,7 @@ interface WhatsappNumber {
   phoneNumberId: string
   displayNumber: string
   verifyToken: string
-  webhookPath: string
+  webhookUrl: string
 }
 
 interface PaymentMethodRow {
@@ -323,7 +323,7 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
               <p className="text-sm font-medium">
                 {number.displayNumber} · {number.phoneNumberId}
               </p>
-              <CopyField className="max-w-full" value={`${webhookOrigin}${number.webhookPath}`} />
+              <CopyField className="max-w-full" value={number.webhookUrl} />
               <CopyField label="Token de verificación:" value={number.verifyToken} />
             </div>
           ))
