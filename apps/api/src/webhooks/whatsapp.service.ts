@@ -96,6 +96,15 @@ export class WhatsappService {
     }
 
     if (!verifyMetaSignature(rawBody, header, route.appSecret)) {
+      // The 403 alone says nothing, and the two causes need different fixes: an
+      // empty body means the raw buffer never arrived, a full one means the app
+      // secret does not belong to the app that signed. Neither the secret nor
+      // the body is logged.
+      this.logger.warn(
+        `Signature mismatch for tenant ${route.tenantId}: ${rawBody.length} bytes of body, ` +
+          `header ${header ? 'present' : 'absent'}`,
+      )
+
       throw new ForbiddenException()
     }
   }
@@ -145,6 +154,15 @@ export class WhatsappService {
 
         // The hard rule: the body's number has to be the route's number.
         if (declared && declared !== route.phoneNumberId) {
+          // Both values are logged because the only two causes look identical
+          // from outside: someone aiming another company's events at this URL,
+          // and an operator who registered the wrong id. Neither is a secret —
+          // the id is public in Meta's dashboard.
+          this.logger.warn(
+            `Rejecting an event for tenant ${route.tenantId}: it declares ` +
+              `phone_number_id ${declared} and this route is registered as ${route.phoneNumberId}`,
+          )
+
           throw new ForbiddenException()
         }
 

@@ -198,6 +198,16 @@ export class TenantsController {
     )
   }
 
+  @Delete(':tenantId/whatsapp-numbers/:numberId')
+  @ApiOperation({ summary: 'Dar de baja un número: deja de recibir, y su historia queda' })
+  retireNumber(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('numberId', ParseUUIDPipe) numberId: string,
+  ) {
+    return this.tenants.retireNumber(ctx.supabase, tenantId, numberId)
+  }
+
   @Delete(':tenantId/payment-methods/:methodId')
   @ApiOperation({ summary: 'Quitar una cuenta de recaudo' })
   removePaymentMethod(

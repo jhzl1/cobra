@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2Icon, CircleDashedIcon, PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { z } from 'zod'
@@ -10,6 +10,16 @@ import {
   registerWhatsappNumberSchema,
   saveCredentialSchema,
 } from '@cobra/contracts'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import {
@@ -41,6 +51,8 @@ interface WhatsappNumber {
   displayNumber: string
   verifyToken: string
   webhookUrl: string
+  /** Set once the number is out of service. Its history stays. */
+  validTo: string | null
 }
 
 interface PaymentMethodRow {
@@ -290,7 +302,9 @@ const CredentialDialog = ({
 /* WhatsApp numbers ----------------------------------------------------------- */
 
 const NumbersCard = ({ tenantId }: { tenantId: string }) => {
+  const queryClient = useQueryClient()
   const [connecting, setConnecting] = useState(false)
+  const [retiring, setRetiring] = useState<WhatsappNumber | null>(null)
 
   const numbers = useQuery({
     queryKey: queryKeys.numbers(tenantId),
@@ -300,6 +314,20 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
       return data
     },
   })
+
+  const retire = useMutation({
+    mutationFn: async (numberId: string) => {
+      await api.delete(`/tenants/${tenantId}/whatsapp-numbers/${numberId}`)
+    },
+    onSuccess: async () => {
+      setRetiring(null)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.numbers(tenantId) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.setup(tenantId) })
+    },
+  })
+
+  const active = numbers.data?.filter((number) => !number.validTo) ?? []
+  const retired = numbers.data?.filter((number) => number.validTo) ?? []
 
   return (
     <Card>
@@ -318,12 +346,17 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        {numbers.data?.length ? (
-          numbers.data.map((number) => (
+        {active.length ? (
+          active.map((number) => (
             <div key={number.id} className="flex flex-col gap-1">
-              <p className="text-sm font-medium">
-                {number.displayNumber} · {number.phoneNumberId}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  {number.displayNumber} · {number.phoneNumberId}
+                </p>
+                <Button size="sm" variant="secondary" onClick={() => setRetiring(number)}>
+                  Dar de baja
+                </Button>
+              </div>
               <CopyField className="max-w-full" value={number.webhookUrl} />
               <CopyField label="Token de verificación:" value={number.verifyToken} />
             </div>
@@ -334,9 +367,55 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
             de webhook no existe todavía: se genera al conectarlo.
           </p>
         )}
+
+        {/* Retired numbers are kept in sight rather than hidden: their history is
+            still here, and seeing one explains why its id can be reused. */}
+        {retired.length > 0 && (
+          <div className="flex flex-col gap-2 border-t border-border pt-4">
+            {retired.map((number) => (
+              <div key={number.id} className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {number.displayNumber} · {number.phoneNumberId}
+                </span>
+                <Badge>Dado de baja</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {retire.error && <p className="text-sm text-destructive">{retire.error.message}</p>}
       </CardContent>
 
       {connecting && <NumberDialog tenantId={tenantId} onClose={() => setConnecting(false)} />}
+
+      <AlertDialog
+        open={!!retiring}
+        onOpenChange={(open) => {
+          if (!open) setRetiring(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dar de baja {retiring?.displayNumber}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deja de recibir mensajes y su URL de webhook deja de servir, así que hay que quitarla
+              de la configuración de Meta. Las conversaciones que entraron por él se conservan, y su
+              identificador queda libre para volver a registrarlo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                if (retiring) retire.mutate(retiring.id)
+              }}
+            >
+              Dar de baja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }

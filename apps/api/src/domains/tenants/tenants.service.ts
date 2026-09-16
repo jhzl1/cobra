@@ -292,7 +292,14 @@ export class TenantsService {
 
     if (error) {
       if (error.code === UNIQUE_VIOLATION) {
-        throw new ConflictException('Ese número ya está activo en otra empresa')
+        // The index is global, so the collision may be here or somewhere else.
+        // Saying "otra empresa" when it is already registered on this very
+        // screen sends the operator looking for a company that has nothing to
+        // do with it.
+        throw new ConflictException(
+          'Ese identificador ya está registrado y activo. Si es de esta empresa, está en la ' +
+            'lista de arriba; dalo de baja antes de volver a registrarlo.',
+        )
       }
       throw this.toHttpError(error)
     }
@@ -426,6 +433,27 @@ export class TenantsService {
     }
 
     return data
+  }
+
+  /**
+   * Takes a number out of service. The row stays.
+   *
+   * `whatsapp_numbers` is a validity table on purpose: a number that leaves one
+   * company and is activated at another must not carry the first one's history
+   * with it. Deleting the row would take the record of which number received
+   * what along with it, and the partial unique index already frees the
+   * `phone_number_id` the moment `valid_to` is set — which is what makes
+   * registering it again work.
+   */
+  async retireNumber(client: SupabaseClient, tenantId: string, numberId: string) {
+    const { error } = await client
+      .from('whatsapp_numbers')
+      .update({ valid_to: new Date().toISOString() })
+      .eq('tenant_id', tenantId)
+      .eq('id', numberId)
+      .is('valid_to', null)
+
+    if (error) throw this.toHttpError(error)
   }
 
   async removePaymentMethod(client: SupabaseClient, tenantId: string, methodId: string) {
