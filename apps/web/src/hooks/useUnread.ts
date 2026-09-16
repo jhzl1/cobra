@@ -44,10 +44,14 @@ export const useUnread = (conversations: ConversationSummary[], openId: string |
   }, [])
 
   // Having it on screen is what counts as looking at it, and new messages that
-  // arrive while it is open are seen as they land.
+  // arrive while it is open are seen as they land. Keyed on the conversation's
+  // own last inbound rather than on the list, which changes identity on every
+  // refetch and had this writing to storage for nothing.
+  const openLastInboundAt = conversations.find((c) => c.id === openId)?.lastInboundAt ?? null
+
   useEffect(() => {
     if (openId) markSeen(openId)
-  }, [openId, markSeen, conversations])
+  }, [openId, openLastInboundAt, markSeen])
 
   const isUnread = (conversation: ConversationSummary): boolean => {
     if (!conversation.lastInboundAt) return false

@@ -1,41 +1,83 @@
 const STORAGE_KEY = 'cobra.sound'
 
 /**
- * A short blip, synthesised rather than fetched.
+ * One audio context for the page, resumed the first time anyone touches it.
  *
- * A file would be one more asset to serve and to cache-bust, and this is two
- * sine tones. The context is created on demand because a browser refuses one
- * built before the page has been interacted with.
+ * A browser hands back a context in `suspended` until the page has had a real
+ * gesture, and a suspended context plays nothing and throws nothing — which is
+ * exactly how the alert was silent while every other part of it worked. Creating
+ * one per blip made it worse: each new context started suspended again.
  */
-export const playBlip = () => {
+let context: AudioContext | null = null
+
+const contextOf = (): AudioContext | null => {
+  if (context) return context
+
   const Ctor =
     window.AudioContext ??
     (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
 
-  if (!Ctor) return
+  if (!Ctor) return null
 
-  const context = new Ctor()
-  const gain = context.createGain()
+  context = new Ctor()
 
-  gain.connect(context.destination)
-  gain.gain.setValueAtTime(0.0001, context.currentTime)
-  gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.01)
-  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.35)
+  return context
+}
+
+/** Any gesture unlocks the audio, and one is enough for the life of the page. */
+export const unlockSound = (): void => {
+  void contextOf()?.resume()
+}
+
+if (typeof window !== 'undefined') {
+  const unlock = () => {
+    unlockSound()
+    window.removeEventListener('pointerdown', unlock)
+    window.removeEventListener('keydown', unlock)
+  }
+
+  window.addEventListener('pointerdown', unlock)
+  window.addEventListener('keydown', unlock)
+}
+
+/**
+ * A short blip: two sine tones, synthesised rather than fetched.
+ *
+ * A file would be one more asset to serve and to cache-bust, and this is two
+ * notes.
+ */
+export const playBlip = (): void => {
+  const audio = contextOf()
+
+  if (!audio) return
+
+  // Still suspended when nobody has touched the page yet. Resuming is async, so
+  // this blip is lost and the next one lands — better than a silence with no
+  // explanation.
+  if (audio.state === 'suspended') {
+    void audio.resume()
+    return
+  }
+
+  const gain = audio.createGain()
+
+  gain.connect(audio.destination)
+  gain.gain.setValueAtTime(0.0001, audio.currentTime)
+  gain.gain.exponentialRampToValueAtTime(0.2, audio.currentTime + 0.01)
+  gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.35)
 
   for (const [frequency, at] of [
     [880, 0],
     [1174, 0.09],
   ] as const) {
-    const oscillator = context.createOscillator()
+    const oscillator = audio.createOscillator()
 
     oscillator.type = 'sine'
     oscillator.frequency.value = frequency
     oscillator.connect(gain)
-    oscillator.start(context.currentTime + at)
-    oscillator.stop(context.currentTime + at + 0.12)
+    oscillator.start(audio.currentTime + at)
+    oscillator.stop(audio.currentTime + at + 0.12)
   }
-
-  setTimeout(() => void context.close(), 600)
 }
 
 export const soundEnabled = (): boolean => localStorage.getItem(STORAGE_KEY) !== 'off'

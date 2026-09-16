@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { tenantTopic } from '@cobra/contracts'
 import { queryKeys } from '~/lib/queryClient'
 import { supabase } from '~/lib/supabase'
@@ -20,6 +20,20 @@ export const useTenantStream = (
 ): void => {
   const queryClient = useQueryClient()
 
+  /**
+   * The callback is held in a ref and kept out of the dependencies.
+   *
+   * It closes over the conversation list, so it changed identity on every
+   * refetch — and since every broadcast triggers one, the channel was torn down
+   * and rejoined on each message. Joining is asynchronous, so the subscription
+   * spent its life half-open and the alert fired for almost nothing.
+   */
+  const notify = useRef(onInbound)
+
+  useEffect(() => {
+    notify.current = onInbound
+  }, [onInbound])
+
   useEffect(() => {
     if (!tenantId) return
 
@@ -38,7 +52,7 @@ export const useTenantStream = (
           body.operation === 'INSERT' &&
           record?.['direction'] === 'inbound'
         ) {
-          onInbound(record['conversation_id'] as string)
+          notify.current(record['conversation_id'] as string)
         }
       })
       .subscribe()
@@ -46,5 +60,5 @@ export const useTenantStream = (
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [tenantId, queryClient, onInbound])
+  }, [tenantId, queryClient])
 }
