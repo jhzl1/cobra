@@ -2,8 +2,13 @@
 <!--
   translate="no": with Google Translate active the browser swaps text nodes
   underneath React and the reconciler dies on removeChild.
+
+  class="dark": the colours already live in :root. The class is here so the
+  `dark:` utilities that shadcn's outline, destructive and ghost variants ship
+  with resolve. Removing it does not change the palette, it degrades those three
+  variants silently.
 -->
-<html lang="es" translate="no">
+<html lang="es" translate="no" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

@@ -1,4 +1,14 @@
 {
   "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+
+  // Dead weight for `tsc -b`, which compiles the referenced projects and never
+  // this one. It is here for the shadcn CLI: it resolves the `~` alias through
+  // tsconfig-paths, which reads this file and requires `baseUrl`. Without it
+  // `shadcn add` aborts before writing anything. `baseUrl` cannot live in
+  // tsconfig.app.json instead — TypeScript 6 deprecated it and the build fails.
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "~/*": ["./src/*"] }
+  }
 }
