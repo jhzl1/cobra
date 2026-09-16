@@ -34,7 +34,7 @@ export interface TurnOutcome {
   /** Re-queue this turn after the given delay instead of running it now. */
   retryInMs?: number
   reply?: string | null
-  skipped?: 'no-messages' | 'human' | 'no-conversation'
+  skipped?: 'no-messages' | 'human' | 'no-conversation' | 'suspended'
 }
 
 @Injectable()
@@ -79,6 +79,26 @@ export class ProcessTurnJobHandler {
     if (wait > 0) return { retryInMs: wait }
 
     const runtime = await this.tenants.load(tenantId)
+
+    /**
+     * Suspension is checked here rather than when the job was queued, for the
+     * same reason the handoff status is: the company can be suspended while this
+     * turn sits in the queue, and nothing after this line is free — it reaches
+     * Meta, OpenRouter and Wisphub.
+     *
+     * The messages are marked as read so the queue stops spinning on them. They
+     * are not replayed on reactivation; the webhook is dropping anything new by
+     * then anyway.
+     */
+    if (runtime.raw.status === 'suspended') {
+      this.logger.log(`Skipping a turn for suspended tenant ${tenantId}`)
+      await this.conversations.markProcessed(
+        tenantId,
+        inbound.map((message) => message.id),
+      )
+
+      return { skipped: 'suspended' }
+    }
 
     // The read receipt and the typing indicator go out before anything slow
     // happens: it is what makes a 1,5-second window feel like no wait at all.

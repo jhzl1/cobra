@@ -23,6 +23,28 @@ export type CreateTenantInput = z.infer<typeof createTenantSchema>
 
 export const updateTenantSchema = createTenantSchema.omit({ slug: true }).partial()
 
+export const tenantStatusSchema = z.enum(['active', 'suspended'])
+
+export type TenantStatus = z.infer<typeof tenantStatusSchema>
+
+/**
+ * Suspending is a platform action, not a company one, so it gets its own schema
+ * and its own endpoint. Folded into `updateTenantSchema` it would let any member
+ * of a company lift their own suspension, because that route is theirs to call.
+ */
+export const updateTenantStatusSchema = z.object({ status: tenantStatusSchema })
+
+export type UpdateTenantStatusInput = z.infer<typeof updateTenantStatusSchema>
+
+export const tenantMemberSchema = z.object({
+  userId: z.uuid(),
+  /** Null when the account was removed from auth but the membership row stayed. */
+  email: z.string().nullable(),
+  joinedAt: z.string(),
+})
+
+export type TenantMember = z.infer<typeof tenantMemberSchema>
+
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>
 
 /**

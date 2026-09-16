@@ -14,6 +14,8 @@ import type {
   PaymentMethodInput,
   RegisterWhatsappNumberInput,
   SaveCredentialInput,
+  TenantMember,
+  TenantStatus,
   UpdateTenantInput,
 } from '@cobra/contracts'
 import { CredentialsCryptoService } from '~/crypto/credentials-crypto.service'
@@ -21,13 +23,18 @@ import { SupabaseService } from '~/supabase/supabase.service'
 
 const UNIQUE_VIOLATION = '23505'
 
+const TENANT_COLUMNS =
+  'id, slug, company_name, support_phone, admin_phone, status, tenant_members(count)'
+
 export interface Tenant {
   id: string
   slug: string
   companyName: string
   supportPhone: string
   adminPhone: string
-  status: 'active' | 'suspended'
+  status: TenantStatus
+  /** How many people belong to it. Zero means it is unreachable to everyone. */
+  memberCount: number
 }
 
 export interface WhatsappNumber {
@@ -48,16 +55,69 @@ export class TenantsService {
     private readonly crypto: CredentialsCryptoService,
   ) {}
 
-  /** The caller's tenants, filtered by RLS rather than by a where clause here. */
+  /**
+   * The caller's tenants, filtered by RLS rather than by a where clause here.
+   *
+   * `tenant_members(count)` rides along on the same policy: a member counts the
+   * company they belong to, an administrator counts every one.
+   */
   async listMine(client: SupabaseClient): Promise<Tenant[]> {
     const { data, error } = await client
       .from('tenants')
-      .select('id, slug, company_name, support_phone, admin_phone, status')
+      .select(TENANT_COLUMNS)
       .order('company_name')
 
     if (error) throw this.toHttpError(error)
 
     return data.map(toTenant)
+  }
+
+  /**
+   * Who belongs to a company, for the platform's own view.
+   *
+   * The membership rows come from the table; the addresses come from auth, which
+   * no policy reaches, so they are resolved one id at a time with the secret
+   * key. `listUsers()` would page through every account in the project to find
+   * three.
+   */
+  async listMembers(tenantId: string): Promise<TenantMember[]> {
+    const { data, error } = await this.supabase.admin
+      .from('tenant_members')
+      .select('user_id, created_at')
+      .eq('tenant_id', tenantId)
+      .order('created_at')
+
+    if (error) throw this.toHttpError(error)
+
+    return Promise.all(
+      data.map(async (row) => {
+        const { data: found } = await this.supabase.admin.auth.admin.getUserById(row.user_id)
+
+        return {
+          userId: row.user_id as string,
+          email: found?.user?.email ?? null,
+          joinedAt: row.created_at as string,
+        }
+      }),
+    )
+  }
+
+  /**
+   * Suspending stops the pipeline: the webhook drops that company's events and
+   * the worker refuses to run a turn for it. Reactivating only restores that —
+   * nothing that arrived while it was suspended is replayed.
+   */
+  async setStatus(tenantId: string, status: TenantStatus): Promise<Tenant> {
+    const { data, error } = await this.supabase.admin
+      .from('tenants')
+      .update({ status })
+      .eq('id', tenantId)
+      .select(TENANT_COLUMNS)
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    return toTenant(data)
   }
 
   /**
@@ -98,7 +158,9 @@ export class TenantsService {
       throw this.toHttpError(membership.error)
     }
 
-    return toTenant(data)
+    // The count is stated rather than read: the membership above was inserted
+    // after the row came back, so the aggregate would say zero.
+    return { ...toTenant(data), memberCount: 1 }
   }
 
   async update(
@@ -114,7 +176,7 @@ export class TenantsService {
         ...(input.adminPhone ? { admin_phone: input.adminPhone } : {}),
       })
       .eq('id', tenantId)
-      .select('id, slug, company_name, support_phone, admin_phone, status')
+      .select(TENANT_COLUMNS)
       .single()
 
     if (error) throw this.toHttpError(error)
@@ -315,11 +377,13 @@ export class TenantsService {
   }
 }
 
-const toTenant = (row: Record<string, string>): Tenant => ({
+const toTenant = (row: Record<string, unknown>): Tenant => ({
   id: row['id'] as string,
   slug: row['slug'] as string,
   companyName: row['company_name'] as string,
   supportPhone: row['support_phone'] as string,
   adminPhone: row['admin_phone'] as string,
-  status: row['status'] as 'active' | 'suspended',
+  status: row['status'] as TenantStatus,
+  // Supabase returns an aggregate relation as an array with one row.
+  memberCount: (row['tenant_members'] as Array<{ count: number }> | undefined)?.[0]?.count ?? 0,
 })
