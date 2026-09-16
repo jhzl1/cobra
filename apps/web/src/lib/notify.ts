@@ -7,7 +7,7 @@ const STORAGE_KEY = 'cobra.sound'
  * sine tones. The context is created on demand because a browser refuses one
  * built before the page has been interacted with.
  */
-const blip = () => {
+export const playBlip = () => {
   const Ctor =
     window.AudioContext ??
     (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
@@ -52,23 +52,25 @@ export const askForNotifications = async (): Promise<void> => {
 }
 
 /**
- * The interruption, in the order that respects the operator.
+ * The interruption, in two tiers, because "not looking at it" has two meanings.
  *
- * Nothing at all while the tab is in front: they are already looking at it, and
- * the list updates on its own. The desktop notification only exists for the tab
- * that is behind something else, which is the case that prompted this.
+ * The sound fires whenever the message is not in the conversation on screen —
+ * being on Configuración with the panel in front is exactly the case this was
+ * built for, and keying it to tab visibility meant it never played there.
+ *
+ * The desktop notification stays for the hidden tab only. With the panel in
+ * front it would say what is already on it.
  */
 export const announce = (title: string, body: string): void => {
-  if (document.visibilityState === 'visible') return
-
   if (soundEnabled()) {
     try {
-      blip()
+      playBlip()
     } catch {
-      // Autoplay policies. The notification below still lands.
+      // Autoplay policies, before any click has happened on the page.
     }
   }
 
+  if (document.visibilityState === 'visible') return
   if (!('Notification' in window) || Notification.permission !== 'granted') return
 
   try {

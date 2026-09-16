@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '~/components/ui/select'
 import { usePlatformIdentity } from '~/hooks/usePlatform'
-import { askForNotifications, setSoundEnabled, soundEnabled } from '~/lib/notify'
+import { askForNotifications, playBlip, setSoundEnabled, soundEnabled } from '~/lib/notify'
 import { supabase } from '~/lib/supabase'
 import { useInbox } from '~/providers/InboxProvider'
 import { useTenant } from '~/providers/TenantProvider'
@@ -136,7 +136,22 @@ const AlertControls = () => {
         variant="ghost"
         title={sound ? 'Silenciar el aviso' : 'Sonar cuando llegue un mensaje'}
         aria-label={sound ? 'Silenciar el aviso' : 'Activar el sonido'}
-        onClick={() => setSound((on) => !on)}
+        onClick={() => {
+          setSound((on) => {
+            // Turning it on plays it once: it is the only way to know what it
+            // sounds like, and the click is also the gesture the audio context
+            // needs before a browser will let it make noise at all.
+            if (!on) {
+              try {
+                playBlip()
+              } catch {
+                // Nothing to recover from; the toggle still flips.
+              }
+            }
+
+            return !on
+          })
+        }}
       >
         {sound ? <Volume2Icon /> : <VolumeXIcon />}
       </Button>
