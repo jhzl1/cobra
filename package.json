@@ -17,6 +17,7 @@
     "db:deploy": "pnpm --filter @cobra/db db:deploy",
     "db:reset": "pnpm --filter @cobra/db db:reset",
     "db:types": "pnpm --filter @cobra/db db:types",
+    "skills:sync": "node .claude/skills/skill-sync/assets/sync.mjs",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write ."
   },
