@@ -1,5 +1,8 @@
 import { z } from 'zod'
 import { credentialProviderSchema } from './domain'
+// Side effect: zod answers in Spanish. Imported per module, not only from
+// index, so importing this file directly cannot skip it.
+import './locale'
 
 const phoneSchema = z
   .string()
@@ -15,7 +18,10 @@ const phoneSchema = z
  * company name rather than asking someone to build one by hand.
  */
 export const createTenantSchema = z.object({
-  companyName: z.string().min(2).max(120),
+  companyName: z
+    .string()
+    .min(2, 'Escribe el nombre de la empresa')
+    .max(120, 'El nombre de la empresa no puede pasar de 120 caracteres'),
   supportPhone: phoneSchema,
   adminPhone: phoneSchema,
 })
@@ -58,7 +64,7 @@ export type UpdateTenantInput = z.infer<typeof updateTenantSchema>
  */
 export const saveCredentialSchema = z.object({
   provider: credentialProviderSchema,
-  secret: z.string().min(8),
+  secret: z.string().min(8, 'La credencial es muy corta. Revisa que la hayas copiado completa'),
   extra: z.record(z.string(), z.string()).optional(),
 })
 
@@ -73,18 +79,34 @@ export const credentialStatusSchema = z.object({
 export type CredentialStatus = z.infer<typeof credentialStatusSchema>
 
 export const registerWhatsappNumberSchema = z.object({
-  phoneNumberId: z.string().min(5),
+  phoneNumberId: z
+    .string()
+    .min(5, 'El identificador del número es muy corto. Cópialo de la app de Meta'),
   displayNumber: phoneSchema,
 })
 
 export type RegisterWhatsappNumberInput = z.infer<typeof registerWhatsappNumberSchema>
 
 export const paymentMethodSchema = z.object({
-  zone: z.string().max(80).nullable().optional(),
-  entityName: z.string().min(2).max(80),
-  paymentAddress: z.string().min(3).max(60),
-  wisphubId: z.string().max(40).nullable().optional(),
-  description: z.string().max(200).nullable().optional(),
+  zone: z.string().max(80, 'La zona no puede pasar de 80 caracteres').nullable().optional(),
+  entityName: z
+    .string()
+    .min(2, 'Escribe el nombre de la entidad')
+    .max(80, 'El nombre de la entidad no puede pasar de 80 caracteres'),
+  paymentAddress: z
+    .string()
+    .min(3, 'Escribe el número de cuenta o la llave')
+    .max(60, 'La cuenta o llave no puede pasar de 60 caracteres'),
+  wisphubId: z
+    .string()
+    .max(40, 'La forma de pago no puede pasar de 40 caracteres')
+    .nullable()
+    .optional(),
+  description: z
+    .string()
+    .max(200, 'La descripción no puede pasar de 200 caracteres')
+    .nullable()
+    .optional(),
 })
 
 export type PaymentMethodInput = z.infer<typeof paymentMethodSchema>

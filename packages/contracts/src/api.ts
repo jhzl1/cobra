@@ -1,4 +1,7 @@
 import { z } from 'zod'
+// Side effect: zod answers in Spanish. Imported per module, not only from
+// index, so importing this file directly cannot skip it.
+import './locale'
 
 /**
  * Every response the API sends, success or failure, in one shape. The web client

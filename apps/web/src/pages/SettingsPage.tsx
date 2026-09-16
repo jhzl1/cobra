@@ -414,7 +414,10 @@ const NumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose: () => 
  */
 const paymentMethodFormSchema = paymentMethodSchema
   .pick({ entityName: true, paymentAddress: true })
-  .extend({ zone: z.string().max(80), wisphubId: z.string().max(40) })
+  .extend({
+    zone: z.string().max(80, 'La zona no puede pasar de 80 caracteres'),
+    wisphubId: z.string().max(40, 'La forma de pago no puede pasar de 40 caracteres'),
+  })
 
 const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
   const [adding, setAdding] = useState(false)
