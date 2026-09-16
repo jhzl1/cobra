@@ -66,19 +66,31 @@ export const ChatPanel = ({ conversation }: Props) => {
           <ServiceWindow lastInboundAt={conversation.lastInboundAt} />
         </div>
 
+        {/* Two actions that used to read as one. `release` decides who answers
+            from now on; `replay` makes the agent answer what is already there,
+            which is what recovers a turn that failed. */}
         <div className="flex gap-2">
           <Button
             size="sm"
             variant={isHuman ? 'secondary' : 'default'}
             loading={handoff.isPending}
+            title={
+              isHuman
+                ? 'El agente vuelve a responder los mensajes que entren'
+                : 'El agente deja de responder y escribes tú'
+            }
             onClick={() => handoff.mutate(isHuman ? 'release' : 'take')}
           >
-            {isHuman ? 'Devolver al agente' : 'Tomar el control'}
+            {isHuman ? 'Devolver el control' : 'Tomar el control'}
           </Button>
 
-          {/* Hands the accumulated messages to the agent as one turn. */}
-          <Button size="sm" variant="outline" onClick={() => handoff.mutate('replay')}>
-            Reenviar al agente
+          <Button
+            size="sm"
+            variant="outline"
+            title="El agente lee de nuevo lo que hay en la conversación y responde ahora"
+            onClick={() => handoff.mutate('replay')}
+          >
+            Que responda ahora
           </Button>
         </div>
       </CardHeader>
