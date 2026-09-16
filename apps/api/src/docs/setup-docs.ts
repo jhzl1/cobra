@@ -33,5 +33,8 @@ export const setupDocs = (app: INestApplication): void => {
     res.json(document)
   })
 
-  app.use(DOCS_PATH, apiReference({ url: OPENAPI_JSON_PATH, title: 'Cobra API', persistAuth: true }))
+  app.use(
+    DOCS_PATH,
+    apiReference({ url: OPENAPI_JSON_PATH, title: 'Cobra API', persistAuth: true }),
+  )
 }

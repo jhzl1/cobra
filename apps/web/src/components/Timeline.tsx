@@ -25,7 +25,9 @@ const STEP_LABEL: Record<AgentStep['status'], string> = {
  */
 export const Timeline = ({ runs }: { runs: AgentRun[] }) => {
   if (!runs.length) {
-    return <p className="text-default-500 p-4 text-sm">Todavía no hay turnos en esta conversación.</p>
+    return (
+      <p className="text-default-500 p-4 text-sm">Todavía no hay turnos en esta conversación.</p>
+    )
   }
 
   return (
@@ -72,7 +74,11 @@ export const Timeline = ({ runs }: { runs: AgentRun[] }) => {
                         Ver argumentos y resultado
                       </summary>
                       <pre className="bg-default-100 mt-1 overflow-x-auto rounded p-2 text-xs">
-                        {JSON.stringify({ input: step.input, output: step.output, error: step.error }, null, 2)}
+                        {JSON.stringify(
+                          { input: step.input, output: step.output, error: step.error },
+                          null,
+                          2,
+                        )}
                       </pre>
                     </details>
                   )}

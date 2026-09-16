@@ -281,7 +281,12 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
         </Table>
 
         <div className="flex flex-wrap items-end gap-2">
-          <Input className="w-40" label="Entidad" value={entityName} onValueChange={setEntityName} />
+          <Input
+            className="w-40"
+            label="Entidad"
+            value={entityName}
+            onValueChange={setEntityName}
+          />
           <Input
             className="w-56"
             label="Cuenta o llave"

@@ -101,7 +101,11 @@ export class TenantsService {
     return toTenant(data)
   }
 
-  async update(client: SupabaseClient, tenantId: string, input: UpdateTenantInput): Promise<Tenant> {
+  async update(
+    client: SupabaseClient,
+    tenantId: string,
+    input: UpdateTenantInput,
+  ): Promise<Tenant> {
     const { data, error } = await client
       .from('tenants')
       .update({

@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { join } from 'node:path'
+// Provided here, not only in PlatformModule: TenantsController's gate needs it too.
+import { PlatformAdminGuard } from './auth/platform-admin.guard'
 import { loadEnv } from './config/env'
 import { CryptoModule } from './crypto/crypto.module'
 import { ConversationsModule } from './domains/conversations/conversations.module'
 import { HealthController } from './domains/health/health.controller'
+import { PlatformModule } from './domains/platform/platform.module'
 import { TenantsModule } from './domains/tenants/tenants.module'
 import { QueueModule } from './queue/queue.module'
 import { SupabaseModule } from './supabase/supabase.module'
@@ -23,10 +26,12 @@ import { WhatsappModule } from './webhooks/whatsapp.module'
     SupabaseModule,
     CryptoModule,
     QueueModule,
+    PlatformModule,
     TenantsModule,
     ConversationsModule,
     WhatsappModule,
   ],
   controllers: [HealthController],
+  providers: [PlatformAdminGuard],
 })
 export class AppModule {}

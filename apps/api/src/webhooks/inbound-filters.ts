@@ -14,8 +14,7 @@ export const SUPPORTED_TYPES = new Set(['text', 'image'])
  */
 export const MAX_MESSAGE_AGE_MS = 60 * 60 * 1000
 
-export const isSupportedType = (message: MetaMessage): boolean =>
-  SUPPORTED_TYPES.has(message.type)
+export const isSupportedType = (message: MetaMessage): boolean => SUPPORTED_TYPES.has(message.type)
 
 export const isFresh = (message: MetaMessage, now: Date = new Date()): boolean => {
   const seconds = Number(message.timestamp)

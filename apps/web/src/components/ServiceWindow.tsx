@@ -2,7 +2,10 @@ import { Chip } from '@heroui/react'
 import { useEffect, useState } from 'react'
 import { SERVICE_WINDOW_MS } from '@cobra/contracts'
 
-export const remainingWindowMs = (lastInboundAt: string | null, now: number = Date.now()): number => {
+export const remainingWindowMs = (
+  lastInboundAt: string | null,
+  now: number = Date.now(),
+): number => {
   if (!lastInboundAt) return 0
 
   return Math.max(SERVICE_WINDOW_MS - (now - new Date(lastInboundAt).getTime()), 0)

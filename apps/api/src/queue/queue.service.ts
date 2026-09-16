@@ -2,9 +2,9 @@ import { Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nest
 import { ConfigService } from '@nestjs/config'
 import PgBoss from 'pg-boss'
 import {
-  QUEUES,
   type ProcessReceiptJob,
   type ProcessTurnJob,
+  QUEUES,
   type SendMessageJob,
 } from '@cobra/contracts'
 

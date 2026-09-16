@@ -119,6 +119,33 @@ Settings → Networking → Outbound IPv6 y se redespliega. El pooler no es
 alternativa — en modo transacción desactiva `LISTEN/NOTIFY`, que es de lo que
 vive pg-boss, y en modo sesión limita los clientes al tamaño del pool.
 
+### El primer administrador
+
+Hay dos ejes de acceso y no se mezclan:
+
+- **ADMIN de plataforma** — opera Cobra. Crea empresas, otorga y revoca este mismo
+  rol, y entra a cualquier empresa.
+- **Miembro de una empresa** — entra a la suya y a ninguna otra. Adentro no hay
+  jerarquía: todo miembro ve las conversaciones, hace handoff, carga credenciales
+  y edita la configuración.
+
+De ahí en adelante los administradores se otorgan desde el panel, por correo,
+aunque esa persona todavía no tenga cuenta. El primero no puede: nadie existe
+para otorgárselo. Se siembra una vez por ambiente, con la cuenta ya creada:
+
+```bash
+set -a; source apps/worker/.env; set +a
+psql "$DATABASE_URL" -c "insert into public.user_roles (email, role) values ('tu@correo.com', 'ADMIN')"
+```
+
+El `user_id` queda vacío y un trigger lo amarra en el siguiente ingreso; si la
+cuenta ya existía, otorgar desde el panel lo amarra de inmediato.
+
+**Opcional:** Authentication → Hooks → Custom Access Token, apuntando a
+`public.custom_access_token_hook`. Estampa los roles dentro del JWT. No activarlo
+no relaja nada — la autorización la deciden la API y las políticas leyendo la
+tabla, nunca el token.
+
 ### Conectar un número de WhatsApp
 
 1. Cargar en el panel las tres credenciales del cliente: el access token

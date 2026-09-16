@@ -59,8 +59,7 @@ export class WhatsappService {
     }
 
     const tenant = (Array.isArray(data?.tenants) ? data?.tenants[0] : data?.tenants) as
-      | { slug: string }
-      | undefined
+      { slug: string } | undefined
 
     if (!data || tenant?.slug !== slug) {
       // Same answer for a wrong token and a wrong slug: anything more specific
@@ -115,7 +114,9 @@ export class WhatsappService {
         }
 
         if (value.errors?.length) {
-          this.logger.warn(`Meta reported errors for ${route.tenantId}: ${JSON.stringify(value.errors)}`)
+          this.logger.warn(
+            `Meta reported errors for ${route.tenantId}: ${JSON.stringify(value.errors)}`,
+          )
           continue
         }
 
@@ -236,7 +237,11 @@ export class WhatsappService {
 
   private async applyStatuses(
     route: WebhookRoute,
-    statuses: Array<{ id: string; status: string; errors?: Array<{ code: number; title?: string }> }>,
+    statuses: Array<{
+      id: string
+      status: string
+      errors?: Array<{ code: number; title?: string }>
+    }>,
   ): Promise<void> {
     for (const status of statuses) {
       const failed = status.status === 'failed'

@@ -55,7 +55,9 @@ export const ChatPanel = ({ conversation }: Props) => {
       <CardHeader className="flex items-center justify-between gap-2">
         <div>
           <p className="font-medium">
-            {conversation.contact.displayName ?? conversation.contact.phone ?? conversation.contact.personId}
+            {conversation.contact.displayName ??
+              conversation.contact.phone ??
+              conversation.contact.personId}
           </p>
           <ServiceWindow lastInboundAt={conversation.lastInboundAt} />
         </div>

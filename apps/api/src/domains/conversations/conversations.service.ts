@@ -52,8 +52,7 @@ export class ConversationsService {
 
     return data.map((row) => {
       const contact = (Array.isArray(row.contacts) ? row.contacts[0] : row.contacts) as
-        | Record<string, string | null>
-        | undefined
+        Record<string, string | null> | undefined
 
       return {
         id: row.id as string,
@@ -264,7 +263,9 @@ export class ConversationsService {
   private async signMedia(client: SupabaseClient, path: string | null): Promise<string | null> {
     if (!path) return null
 
-    const { data } = await client.storage.from('receipts').createSignedUrl(path, SIGNED_URL_TTL_SECONDS)
+    const { data } = await client.storage
+      .from('receipts')
+      .createSignedUrl(path, SIGNED_URL_TTL_SECONDS)
 
     return data?.signedUrl ?? null
   }
