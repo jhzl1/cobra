@@ -24,7 +24,9 @@ export const Field = ({ label, error, className, id: idProp, required, ...props 
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <Label htmlFor={id}>
+      {/* gap-0: shadcn's Label spaces its children, which would push the
+          asterisk away from the word it belongs to. */}
+      <Label htmlFor={id} className="gap-0">
         {label}
         {required ? (
           <span className="text-destructive" aria-hidden="true">

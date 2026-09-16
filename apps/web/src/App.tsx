@@ -1,29 +1,31 @@
-import { Button, HeroUIProvider, Select, SelectItem, Spinner, Tab, Tabs } from '@heroui/react'
 import { QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import { Button } from '~/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select'
+import { Spinner } from '~/components/ui/spinner'
 import { usePlatformIdentity } from '~/hooks/usePlatform'
 import { api } from '~/lib/api'
 import { queryClient, queryKeys } from '~/lib/queryClient'
 import { supabase } from '~/lib/supabase'
+import type { TenantSummary } from '~/lib/tenants'
 import { LoginPage } from '~/pages/LoginPage'
 import { PlatformPage } from '~/pages/PlatformPage'
 import { SettingsPage } from '~/pages/SettingsPage'
 import { WorkspacePage } from '~/pages/WorkspacePage'
 import { SessionProvider, useSession } from '~/providers/SessionProvider'
 
-interface Tenant {
-  id: string
-  companyName: string
-}
-
 export const App = () => (
-  <HeroUIProvider>
-    <QueryClientProvider client={queryClient}>
-      <SessionProvider>
-        <Shell />
-      </SessionProvider>
-    </QueryClientProvider>
-  </HeroUIProvider>
+  <QueryClientProvider client={queryClient}>
+    <SessionProvider>
+      <Shell />
+    </SessionProvider>
+  </QueryClientProvider>
 )
 
 const Shell = () => {
@@ -32,7 +34,7 @@ const Shell = () => {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Spinner />
+        <Spinner className="size-6" />
       </div>
     )
   }
@@ -41,6 +43,12 @@ const Shell = () => {
 }
 
 type View = 'chats' | 'settings' | 'platform'
+
+const VIEW_LABEL: Record<View, string> = {
+  chats: 'Conversaciones',
+  settings: 'Configuración',
+  platform: 'Plataforma',
+}
 
 const Authenticated = () => {
   const [tenantId, setTenantId] = useState<string | null>(null)
@@ -51,7 +59,7 @@ const Authenticated = () => {
   const tenants = useQuery({
     queryKey: queryKeys.tenants,
     queryFn: async () => {
-      const { data } = await api.get<Tenant[]>('/tenants')
+      const { data } = await api.get<TenantSummary[]>('/tenants')
 
       return data
     },
@@ -61,41 +69,50 @@ const Authenticated = () => {
     if (!tenantId && tenants.data?.length) setTenantId(tenants.data[0]?.id ?? null)
   }, [tenantId, tenants.data])
 
+  // Only for whoever administers the platform. Anyone else never sees the tab,
+  // and reaching it anyway still gets a 403 from the API.
+  const views: View[] = isAdmin ? ['chats', 'settings', 'platform'] : ['chats', 'settings']
+
   return (
     <div className="flex h-screen flex-col gap-3 p-3">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">Cobra</h1>
 
-          <Select
-            aria-label="Empresa"
-            className="w-56"
-            size="sm"
-            selectedKeys={tenantId ? [tenantId] : []}
-            onChange={(event) => setTenantId(event.target.value)}
-          >
-            {(tenants.data ?? []).map((tenant) => (
-              <SelectItem key={tenant.id}>{tenant.companyName}</SelectItem>
-            ))}
+          <Select value={tenantId ?? ''} onValueChange={setTenantId}>
+            <SelectTrigger aria-label="Empresa" size="sm" className="w-56">
+              <SelectValue placeholder="Empresa" />
+            </SelectTrigger>
+            <SelectContent>
+              {(tenants.data ?? []).map((tenant) => (
+                <SelectItem key={tenant.id} value={tenant.id}>
+                  {tenant.companyName}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
 
-          <Tabs
-            aria-label="Vista"
-            size="sm"
-            selectedKey={view}
-            onSelectionChange={(key) => setView(key as View)}
-          >
-            <Tab key="chats" title="Conversaciones" />
-            <Tab key="settings" title="Configuración" />
-            {/* Only for whoever administers the platform. Anyone else never sees
-                the tab, and reaching it anyway still gets a 403 from the API. */}
-            {isAdmin ? <Tab key="platform" title="Plataforma" /> : null}
-          </Tabs>
+          {/* Buttons and not Tabs: the views are rendered below rather than in a
+              panel, and Radix's triggers would advertise an aria-controls that
+              points at nothing. */}
+          <nav aria-label="Vista" className="flex items-center gap-1">
+            {views.map((key) => (
+              <Button
+                key={key}
+                size="sm"
+                variant={view === key ? 'secondary' : 'ghost'}
+                aria-current={view === key ? 'page' : undefined}
+                onClick={() => setView(key)}
+              >
+                {VIEW_LABEL[key]}
+              </Button>
+            ))}
+          </nav>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-default-400">v{__APP_VERSION__}</span>
-          <Button size="sm" variant="flat" onPress={() => void supabase.auth.signOut()}>
+          <span className="text-xs text-muted-foreground">v{__APP_VERSION__}</span>
+          <Button size="sm" variant="secondary" onClick={() => void supabase.auth.signOut()}>
             Salir
           </Button>
         </div>
@@ -111,13 +128,15 @@ const Authenticated = () => {
           sent to create the first company, anyone else to whoever can. */}
       {view !== 'platform' && !tenantId && !identity.isLoading && (
         <div className="flex flex-col items-start gap-2">
-          <p className="text-sm text-default-500">Todavía no hay ninguna empresa a tu nombre.</p>
+          <p className="text-sm text-muted-foreground">
+            Todavía no hay ninguna empresa a tu nombre.
+          </p>
           {isAdmin ? (
-            <Button size="sm" color="primary" onPress={() => setView('platform')}>
+            <Button size="sm" onClick={() => setView('platform')}>
               Crear la primera empresa
             </Button>
           ) : (
-            <p className="text-sm text-default-500">
+            <p className="text-sm text-muted-foreground">
               Pídele a quien administra la plataforma que te agregue a una.
             </p>
           )}

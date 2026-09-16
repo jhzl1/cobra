@@ -1,6 +1,6 @@
-import { Chip } from '@heroui/react'
 import { useEffect, useState } from 'react'
 import { SERVICE_WINDOW_MS } from '@cobra/contracts'
+import { Badge } from '~/components/ui/badge'
 
 export const remainingWindowMs = (
   lastInboundAt: string | null,
@@ -38,16 +38,12 @@ export const ServiceWindow = ({ lastInboundAt }: { lastInboundAt: string | null 
   }, [lastInboundAt])
 
   if (remaining <= 0) {
-    return (
-      <Chip color="danger" size="sm" variant="flat">
-        Ventana cerrada
-      </Chip>
-    )
+    return <Badge variant="destructive">Ventana cerrada</Badge>
   }
 
   return (
-    <Chip color={remaining < 2 * 60 * 60 * 1000 ? 'warning' : 'default'} size="sm" variant="flat">
+    <Badge variant={remaining < 2 * 60 * 60 * 1000 ? 'warning' : 'default'}>
       Quedan {format(remaining)} para escribirle
-    </Chip>
+    </Badge>
   )
 }

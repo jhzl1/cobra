@@ -1,5 +1,6 @@
-import { Chip, Listbox, ListboxItem } from '@heroui/react'
 import type { ConversationSummary } from '@cobra/contracts'
+import { Badge } from '~/components/ui/badge'
+import { cn } from '~/lib/utils'
 
 interface Props {
   conversations: ConversationSummary[]
@@ -13,46 +14,54 @@ const STATUS_LABEL: Record<ConversationSummary['status'], string> = {
   closed: 'Cerrada',
 }
 
+/**
+ * HeroUI gave this as a Listbox. shadcn has no equivalent and its `Command` is
+ * a palette with a filter of its own, which here only gets in the way: all this
+ * has to do is pick a conversation. A list of buttons gives focus and keyboard
+ * navigation for free.
+ *
+ * The selected row uses `bg-secondary` without the secondary button's border.
+ * That is deliberate: here the grey means *selected*, not *available action*.
+ */
 export const ConversationList = ({ conversations, selectedId, onSelect }: Props) => (
-  <Listbox
-    aria-label="Conversaciones"
-    selectionMode="single"
-    selectedKeys={selectedId ? [selectedId] : []}
-    onAction={(key) => onSelect(String(key))}
-    className="p-0"
-  >
-    {conversations.map((conversation) => (
-      <ListboxItem key={conversation.id} textValue={conversation.contact.displayName ?? ''}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
-              {conversation.contact.displayName ??
-                conversation.contact.phone ??
-                conversation.contact.personId}
-            </p>
-            <p className="truncate text-xs text-default-500">
-              {conversation.lastMessagePreview ?? 'Sin mensajes'}
-            </p>
-          </div>
+  <ul aria-label="Conversaciones" className="flex flex-col p-1">
+    {conversations.map((conversation) => {
+      const active = conversation.id === selectedId
 
-          <div className="flex shrink-0 items-center gap-1">
-            {/* The failed-turn tray: a conversation whose last run died has to be
-                visible here, not buried in a log. */}
-            {conversation.lastRunFailed && (
-              <Chip size="sm" color="danger" variant="flat">
-                Falló
-              </Chip>
+      return (
+        <li key={conversation.id}>
+          <button
+            type="button"
+            aria-current={active ? 'true' : undefined}
+            onClick={() => onSelect(conversation.id)}
+            className={cn(
+              'flex w-full cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-2 text-left transition-colors',
+              'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              active ? 'bg-secondary text-secondary-foreground' : 'hover:bg-accent/50',
             )}
-            <Chip
-              size="sm"
-              variant="flat"
-              color={conversation.status === 'human' ? 'warning' : 'default'}
-            >
-              {STATUS_LABEL[conversation.status]}
-            </Chip>
-          </div>
-        </div>
-      </ListboxItem>
-    ))}
-  </Listbox>
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {conversation.contact.displayName ??
+                  conversation.contact.phone ??
+                  conversation.contact.personId}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {conversation.lastMessagePreview ?? 'Sin mensajes'}
+              </p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1">
+              {/* The failed-turn tray: a conversation whose last run died has to be
+                  visible here, not buried in a log. */}
+              {conversation.lastRunFailed && <Badge variant="destructive">Falló</Badge>}
+              <Badge variant={conversation.status === 'human' ? 'warning' : 'default'}>
+                {STATUS_LABEL[conversation.status]}
+              </Badge>
+            </div>
+          </button>
+        </li>
+      )
+    })}
+  </ul>
 )

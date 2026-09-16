@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@cobra/contracts": "workspace:*",
-    "@heroui/react": "^2.8.10",
     "@supabase/supabase-js": "^2.116.0",
+    "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-query": "^5.102.8",
     "axios": "^1.19.0",
     "class-variance-authority": "^0.7.1",

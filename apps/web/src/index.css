@@ -2,12 +2,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-/* Migration window: HeroUI's plugin stays loaded until the last component that
-   needs it is gone, so the panel keeps its styles while it is being rewritten.
-   While both are loaded the tokens below win, so a HeroUI `color="primary"`
-   renders white instead of teal. That is expected and temporary. */
-@plugin './theme.ts';
-@source '../../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
 @source './**/*.{ts,tsx}';
 
 /* The panel is dark only: the tokens live in :root and there is no .dark block.
