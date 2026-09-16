@@ -54,7 +54,21 @@ export const ChatPanel = ({ conversation }: Props) => {
     },
   })
 
+  /**
+   * Opening a conversation lands at the bottom, and a new message slides there.
+   *
+   * It used to animate in both cases, which is what left the panel half-way up
+   * on open: a smooth scroll starts from wherever the container is and is still
+   * travelling while the rest of the thread renders, so it finishes short of a
+   * target that kept moving. Opening is a jump.
+   */
   useEffect(() => {
+    bottom.current?.scrollIntoView({ behavior: 'auto' })
+  }, [conversation.id])
+
+  useEffect(() => {
+    if (!messages.data?.length) return
+
     bottom.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.data?.length])
 
@@ -94,7 +108,13 @@ export const ChatPanel = ({ conversation }: Props) => {
           sit on: an incoming bubble on `card` inside a `card` is invisible. */}
       <CardContent className="flex flex-1 flex-col gap-2 overflow-y-auto border-y border-border bg-background p-4">
         {messages.data?.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            /* An image has no height until it has loaded, so the scroll that ran
+               before it decoded lands above the last bubble. */
+            onMediaLoad={() => bottom.current?.scrollIntoView({ behavior: 'auto' })}
+          />
         ))}
         <div ref={bottom} />
       </CardContent>
@@ -156,7 +176,7 @@ const AUTHOR_LABEL: Record<Message['author'], string> = {
   operator: 'Operador',
 }
 
-const MessageBubble = ({ message }: { message: Message }) => {
+const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad: () => void }) => {
   const mine = message.direction === 'outbound'
 
   return (
@@ -173,7 +193,9 @@ const MessageBubble = ({ message }: { message: Message }) => {
       >
         <p className="mb-1 text-[10px] uppercase opacity-70">{AUTHOR_LABEL[message.author]}</p>
 
-        {message.mediaUrl && <Receipt url={message.mediaUrl} receivedAt={message.receivedAt} />}
+        {message.mediaUrl && (
+          <Receipt url={message.mediaUrl} receivedAt={message.receivedAt} onLoad={onMediaLoad} />
+        )}
 
         {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
 
@@ -199,7 +221,15 @@ const MessageBubble = ({ message }: { message: Message }) => {
  * illegible — the amount and the reference are the whole point of looking. The
  * full-size view is what lets the operator check what the agent read.
  */
-const Receipt = ({ url, receivedAt }: { url: string; receivedAt: string }) => {
+const Receipt = ({
+  url,
+  receivedAt,
+  onLoad,
+}: {
+  url: string
+  receivedAt: string
+  onLoad: () => void
+}) => {
   const [open, setOpen] = useState(false)
 
   return (
@@ -210,7 +240,7 @@ const Receipt = ({ url, receivedAt }: { url: string; receivedAt: string }) => {
         title="Ver el comprobante completo"
         className="mb-1 block cursor-zoom-in overflow-hidden rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
-        <img src={url} alt="Comprobante" className="max-h-64" />
+        <img src={url} alt="Comprobante" className="max-h-64" onLoad={onLoad} />
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
