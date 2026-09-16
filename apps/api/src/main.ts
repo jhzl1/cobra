@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { NestFactory } from '@nestjs/core'
+import { NestFactory, Reflector } from '@nestjs/core'
 import helmet from 'helmet'
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter'
@@ -28,7 +28,7 @@ const bootstrap = async (): Promise<void> => {
 
   app.enableCors({ origin: config.getOrThrow<string[]>('CORS_ORIGINS') })
 
-  app.useGlobalInterceptors(new ResponseEnvelopeInterceptor())
+  app.useGlobalInterceptors(new ResponseEnvelopeInterceptor(app.get(Reflector)))
   app.useGlobalFilters(new HttpExceptionFilter())
 
   setupDocs(app)

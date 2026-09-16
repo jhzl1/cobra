@@ -11,6 +11,7 @@ import { ErrorPage, NotFoundPage } from '~/pages/ErrorPage'
 import { LoginPage } from '~/pages/LoginPage'
 import { PlatformPage } from '~/pages/PlatformPage'
 import { SettingsPage } from '~/pages/SettingsPage'
+import { SetupPage } from '~/pages/SetupPage'
 import { WorkspacePage } from '~/pages/WorkspacePage'
 import { SessionProvider, useSession } from '~/providers/SessionProvider'
 import { TenantProvider, useTenant } from '~/providers/TenantProvider'
@@ -84,6 +85,22 @@ const Workspace = () => {
   return <WorkspacePage tenantId={tenantId} conversationId={params.conversationId ?? null} />
 }
 
+const setupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/setup',
+  component: () => {
+    const { tenantId } = useTenant()
+
+    if (!tenantId) return <NoTenant />
+
+    return (
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <SetupPage tenantId={tenantId} />
+      </div>
+    )
+  },
+})
+
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
@@ -114,6 +131,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   chatsRoute,
   conversationRoute,
+  setupRoute,
   settingsRoute,
   platformRoute,
 ])

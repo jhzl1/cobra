@@ -34,6 +34,12 @@ export interface TurnOutcome {
   /** Re-queue this turn after the given delay instead of running it now. */
   retryInMs?: number
   reply?: string | null
+  /**
+   * The stored reply, waiting to go out. Sending is its own queue with its own
+   * retries: re-running a whole turn because the HTTP call failed is expensive
+   * and risks running its tools twice, while retrying the send costs nothing.
+   */
+  sendMessageId?: string | null
   skipped?: 'no-messages' | 'human' | 'no-conversation' | 'suspended'
 }
 
@@ -191,7 +197,12 @@ export class ProcessTurnJobHandler {
       },
     })
 
-    await this.conversations.finishTurn(tenantId, conversationId, consumed, result.reply)
+    const outboundId = await this.conversations.finishTurn(
+      tenantId,
+      conversationId,
+      consumed,
+      result.reply,
+    )
 
     await this.trace.finishRun(tenantId, run.runId, {
       status: result.error ? 'error' : 'done',
@@ -209,7 +220,7 @@ export class ProcessTurnJobHandler {
       await this.conversations.resetContext(tenantId, conversationId)
     }
 
-    return { reply: result.reply }
+    return { reply: result.reply, sendMessageId: outboundId }
   }
 
   /** Bounded: a receipt job that never finishes must not hold the turn forever. */

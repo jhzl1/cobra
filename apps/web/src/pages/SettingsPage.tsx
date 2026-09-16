@@ -1,6 +1,6 @@
 import { useForm } from '@tanstack/react-form'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2Icon, CircleDashedIcon } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle2Icon, CircleDashedIcon, PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { z } from 'zod'
 import {
@@ -10,19 +10,29 @@ import {
   registerWhatsappNumberSchema,
   saveCredentialSchema,
 } from '@cobra/contracts'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
-import { CopyField } from '~/components/ui/copy-field'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '~/components/ui/dialog'
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card'
+import { CopyField } from '~/components/ui/copy-field'
 import { Field } from '~/components/ui/field'
+import { FormDialog } from '~/components/ui/form-dialog'
 import {
   Table,
   TableBody,
@@ -31,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from '~/components/ui/table'
-import { api, webhookOrigin } from '~/lib/api'
+import { api } from '~/lib/api'
 import { applyServerErrors, fieldError } from '~/lib/form'
 import { queryKeys } from '~/lib/queryClient'
 
@@ -40,15 +50,17 @@ interface WhatsappNumber {
   phoneNumberId: string
   displayNumber: string
   verifyToken: string
-  webhookPath: string
+  webhookUrl: string
+  /** Set once the number is out of service. Its history stays. */
+  validTo: string | null
 }
 
 interface PaymentMethodRow {
   id: string
   zone: string | null
-  entity_name: string
-  payment_address: string
-  wisphub_id: string | null
+  entityName: string
+  paymentAddress: string
+  wisphubId: string | null
 }
 
 export const SettingsPage = ({ tenantId }: { tenantId: string }) => (
@@ -182,12 +194,17 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
         </div>
       </CardContent>
 
-      <CredentialDialog
-        tenantId={tenantId}
-        spec={editing}
-        rotating={!!editing && !!loadedFor(editing.provider)}
-        onClose={() => setEditing(null)}
-      />
+      {/* Keyed per provider: a secret left over in a reused form is a secret
+          sent to the wrong provider. */}
+      {editing && (
+        <CredentialDialog
+          key={editing.provider}
+          tenantId={tenantId}
+          spec={editing}
+          rotating={!!loadedFor(editing.provider)}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </Card>
   )
 }
@@ -199,7 +216,7 @@ const CredentialDialog = ({
   onClose,
 }: {
   tenantId: string
-  spec: ProviderSpec | null
+  spec: ProviderSpec
   rotating: boolean
   onClose: () => void
 }) => {
@@ -210,8 +227,6 @@ const CredentialDialog = ({
     defaultValues: { secret: '', appSecret: '' },
     validators: { onChange: credentialFormSchema },
     onSubmit: async ({ value }) => {
-      if (!spec) return
-
       setFailure(null)
 
       try {
@@ -235,89 +250,52 @@ const CredentialDialog = ({
   })
 
   return (
-    <Dialog
-      open={!!spec}
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
+    <FormDialog
+      open
+      onClose={onClose}
+      title={`${rotating ? 'Rotar' : 'Conectar'} ${spec.name}`}
+      description={
+        rotating
+          ? 'La credencial anterior se reemplaza. El agente empieza a usar la nueva de inmediato.'
+          : spec.purpose
+      }
+      submitLabel="Guardar"
+      form={form}
+      error={failure}
     >
-      {/* Remounted per provider: a secret left over in a reused form is a secret
-          sent to the wrong provider. */}
-      <DialogContent key={spec?.provider}>
-        <DialogHeader>
-          <DialogTitle>
-            {rotating ? 'Rotar' : 'Conectar'} {spec?.name}
-          </DialogTitle>
-          <DialogDescription>
-            {rotating
-              ? 'La credencial anterior se reemplaza. El agente empieza a usar la nueva de inmediato.'
-              : spec?.purpose}
-          </DialogDescription>
-        </DialogHeader>
+      <form.Field name="secret">
+        {(field) => (
+          <Field
+            label={spec.secretLabel}
+            hint={spec.secretHint}
+            type="password"
+            autoComplete="off"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
 
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
-          }}
-        >
-          <form.Field name="secret">
-            {(field) => (
-              <Field
-                label={spec?.secretLabel ?? 'Clave de acceso'}
-                hint={spec?.secretHint}
-                type="password"
-                autoComplete="off"
-                required
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          {spec?.hasAppSecret && (
-            <>
-              <form.Field name="appSecret">
-                {(field) => (
-                  <Field
-                    label="Clave secreta de la aplicación"
-                    hint="En Meta: Configuración de la app → Básica, campo «App secret»."
-                    type="password"
-                    autoComplete="off"
-                    value={field.state.value}
-                    error={fieldError(field)}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                  />
-                )}
-              </form.Field>
-
-              <p className="text-xs text-muted-foreground">
-                Sin el app secret el webhook queda autenticado solo por el token de su URL.
-              </p>
-            </>
+      {spec.hasAppSecret && (
+        <form.Field name="appSecret">
+          {(field) => (
+            <Field
+              label="Clave secreta de la aplicación"
+              hint="En Meta: Configuración de la app → Básica, campo «App secret». Sin ella el webhook queda autenticado solo por el token de su URL."
+              type="password"
+              autoComplete="off"
+              value={field.state.value}
+              error={fieldError(field)}
+              onBlur={field.handleBlur}
+              onChange={(event) => field.handleChange(event.target.value)}
+            />
           )}
-
-          {failure && <p className="text-sm text-destructive">{failure}</p>}
-
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose}>
-              Cancelar
-            </Button>
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(isSubmitting) => (
-                <Button type="submit" loading={isSubmitting}>
-                  Guardar
-                </Button>
-              )}
-            </form.Subscribe>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </form.Field>
+      )}
+    </FormDialog>
   )
 }
 
@@ -325,7 +303,8 @@ const CredentialDialog = ({
 
 const NumbersCard = ({ tenantId }: { tenantId: string }) => {
   const queryClient = useQueryClient()
-  const [failure, setFailure] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
+  const [retiring, setRetiring] = useState<WhatsappNumber | null>(null)
 
   const numbers = useQuery({
     queryKey: queryKeys.numbers(tenantId),
@@ -336,10 +315,119 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
     },
   })
 
+  const retire = useMutation({
+    mutationFn: async (numberId: string) => {
+      await api.delete(`/tenants/${tenantId}/whatsapp-numbers/${numberId}`)
+    },
+    onSuccess: async () => {
+      setRetiring(null)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.numbers(tenantId) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.setup(tenantId) })
+    },
+  })
+
+  const active = numbers.data?.filter((number) => !number.validTo) ?? []
+  const retired = numbers.data?.filter((number) => number.validTo) ?? []
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Números de WhatsApp</CardTitle>
+        <CardDescription>
+          Al conectar un número se generan su URL de webhook y su token de verificación, que van en
+          la configuración de Meta.
+        </CardDescription>
+        <CardAction>
+          <Button size="sm" onClick={() => setConnecting(true)}>
+            <PlusIcon />
+            Conectar número
+          </Button>
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="flex flex-col gap-4">
+        {active.length ? (
+          active.map((number) => (
+            <div key={number.id} className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  {number.displayNumber} · {number.phoneNumberId}
+                </p>
+                <Button size="sm" variant="secondary" onClick={() => setRetiring(number)}>
+                  Dar de baja
+                </Button>
+              </div>
+              <CopyField className="max-w-full" value={number.webhookUrl} />
+              <CopyField label="Token de verificación:" value={number.verifyToken} />
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Todavía no hay ningún número conectado, así que la empresa no recibe mensajes y su URL
+            de webhook no existe todavía: se genera al conectarlo.
+          </p>
+        )}
+
+        {/* Retired numbers are kept in sight rather than hidden: their history is
+            still here, and seeing one explains why its id can be reused. */}
+        {retired.length > 0 && (
+          <div className="flex flex-col gap-2 border-t border-border pt-4">
+            {retired.map((number) => (
+              <div key={number.id} className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {number.displayNumber} · {number.phoneNumberId}
+                </span>
+                <Badge>Dado de baja</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {retire.error && <p className="text-sm text-destructive">{retire.error.message}</p>}
+      </CardContent>
+
+      {connecting && <NumberDialog tenantId={tenantId} onClose={() => setConnecting(false)} />}
+
+      <AlertDialog
+        open={!!retiring}
+        onOpenChange={(open) => {
+          if (!open) setRetiring(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dar de baja {retiring?.displayNumber}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deja de recibir mensajes y su URL de webhook deja de servir, así que hay que quitarla
+              de la configuración de Meta. Las conversaciones que entraron por él se conservan, y su
+              identificador queda libre para volver a registrarlo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                if (retiring) retire.mutate(retiring.id)
+              }}
+            >
+              Dar de baja
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
+  )
+}
+
+const NumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose: () => void }) => {
+  const queryClient = useQueryClient()
+  const [failure, setFailure] = useState<string | null>(null)
+
   const form = useForm({
     defaultValues: { phoneNumberId: '', displayNumber: '' },
     validators: { onChange: registerWhatsappNumberSchema },
-    onSubmit: async ({ value, formApi }) => {
+    onSubmit: async ({ value }) => {
       setFailure(null)
 
       try {
@@ -351,79 +439,50 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
         throw error
       }
 
-      formApi.reset()
       await queryClient.invalidateQueries({ queryKey: queryKeys.numbers(tenantId) })
+      onClose()
     },
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Números de WhatsApp</CardTitle>
-        <CardDescription>
-          Copia la URL y el verify token en la configuración del webhook de Meta.
-        </CardDescription>
-      </CardHeader>
+    <FormDialog
+      open
+      onClose={onClose}
+      title="Conectar un número"
+      description="Los dos datos salen de la app de Meta. Al guardarlos, el panel genera la URL del webhook y su token de verificación."
+      submitLabel="Conectar"
+      form={form}
+      error={failure}
+    >
+      <form.Field name="phoneNumberId">
+        {(field) => (
+          <Field
+            label="Identificador del número"
+            hint="En Meta: WhatsApp → Configuración de la API, campo «Phone number ID»."
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
 
-      <CardContent className="flex flex-col gap-4">
-        {(numbers.data ?? []).map((number) => (
-          <div key={number.id} className="flex flex-col gap-1">
-            <p className="text-sm font-medium">
-              {number.displayNumber} · {number.phoneNumberId}
-            </p>
-            <CopyField className="max-w-full" value={`${webhookOrigin}${number.webhookPath}`} />
-            <CopyField label="Token de verificación:" value={number.verifyToken} />
-          </div>
-        ))}
-
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
-          }}
-        >
-          <form.Field name="phoneNumberId">
-            {(field) => (
-              <Field
-                className="w-64"
-                label="Identificador del número"
-                hint="En Meta: WhatsApp → Configuración de la API, campo «Phone number ID»."
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Field name="displayNumber">
-            {(field) => (
-              <Field
-                className="w-64"
-                label="Número de WhatsApp"
-                hint="Con indicativo de país y sin signos."
-                placeholder="573001234567"
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <Button type="submit" loading={isSubmitting}>
-                Registrar
-              </Button>
-            )}
-          </form.Subscribe>
-        </form>
-
-        {failure && <p className="text-sm text-destructive">{failure}</p>}
-      </CardContent>
-    </Card>
+      <form.Field name="displayNumber">
+        {(field) => (
+          <Field
+            label="Número de WhatsApp"
+            hint="Con indicativo de país y sin signos."
+            placeholder="573001234567"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+    </FormDialog>
   )
 }
 
@@ -436,11 +495,13 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
  */
 const paymentMethodFormSchema = paymentMethodSchema
   .pick({ entityName: true, paymentAddress: true })
-  .extend({ zone: z.string().max(80), wisphubId: z.string().max(40) })
+  .extend({
+    zone: z.string().max(80, 'La zona no puede pasar de 80 caracteres'),
+    wisphubId: z.string().max(40, 'La forma de pago no puede pasar de 40 caracteres'),
+  })
 
 const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
-  const queryClient = useQueryClient()
-  const [failure, setFailure] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
 
   const methods = useQuery({
     queryKey: queryKeys.paymentMethods(tenantId),
@@ -451,10 +512,65 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
     },
   })
 
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Cuentas de recaudo</CardTitle>
+        <CardDescription>
+          Un comprobante pagado a una cuenta que no esté aquí se retiene para revisión manual.
+        </CardDescription>
+        <CardAction>
+          <Button size="sm" onClick={() => setAdding(true)}>
+            <PlusIcon />
+            Agregar cuenta
+          </Button>
+        </CardAction>
+      </CardHeader>
+
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Entidad</TableHead>
+              <TableHead>Cuenta</TableHead>
+              <TableHead>Zona</TableHead>
+              <TableHead>Forma de pago</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {methods.data?.length ? (
+              methods.data.map((method) => (
+                <TableRow key={method.id}>
+                  <TableCell>{method.entityName}</TableCell>
+                  <TableCell>{method.paymentAddress}</TableCell>
+                  <TableCell>{method.zone ?? '—'}</TableCell>
+                  <TableCell>{method.wisphubId ?? '—'}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">
+                  Sin cuentas registradas
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+
+      {adding && <PaymentMethodDialog tenantId={tenantId} onClose={() => setAdding(false)} />}
+    </Card>
+  )
+}
+
+const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose: () => void }) => {
+  const queryClient = useQueryClient()
+  const [failure, setFailure] = useState<string | null>(null)
+
   const form = useForm({
     defaultValues: { entityName: '', paymentAddress: '', zone: '', wisphubId: '' },
     validators: { onChange: paymentMethodFormSchema },
-    onSubmit: async ({ value, formApi }) => {
+    onSubmit: async ({ value }) => {
       setFailure(null)
 
       try {
@@ -472,124 +588,74 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
         throw error
       }
 
-      formApi.reset()
       await queryClient.invalidateQueries({ queryKey: queryKeys.paymentMethods(tenantId) })
+      onClose()
     },
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Cuentas de recaudo</CardTitle>
-        <CardDescription>
-          Un comprobante pagado a una cuenta que no esté aquí se retiene para revisión manual.
-        </CardDescription>
-      </CardHeader>
+    <FormDialog
+      open
+      onClose={onClose}
+      title="Agregar una cuenta de recaudo"
+      description="El agente compara la cuenta de cada comprobante contra esta lista. Lo que no esté aquí se escala para revisión manual."
+      submitLabel="Agregar"
+      form={form}
+      error={failure}
+    >
+      <form.Field name="entityName">
+        {(field) => (
+          <Field
+            label="Entidad"
+            hint="Bancolombia, Nequi, Daviplata…"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
 
-      <CardContent className="flex flex-col gap-4">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Entidad</TableHead>
-              <TableHead>Cuenta</TableHead>
-              <TableHead>Zona</TableHead>
-              <TableHead>Forma de pago</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {methods.data?.length ? (
-              methods.data.map((method) => (
-                <TableRow key={method.id}>
-                  <TableCell>{method.entity_name}</TableCell>
-                  <TableCell>{method.payment_address}</TableCell>
-                  <TableCell>{method.zone ?? '—'}</TableCell>
-                  <TableCell>{method.wisphub_id ?? '—'}</TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">
-                  Sin cuentas registradas
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+      <form.Field name="paymentAddress">
+        {(field) => (
+          <Field
+            label="Cuenta o llave"
+            hint="El número de cuenta, o la llave de Nequi o Daviplata."
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
 
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
-          }}
-        >
-          <form.Field name="entityName">
-            {(field) => (
-              <Field
-                className="w-44"
-                label="Entidad"
-                hint="Bancolombia, Nequi, Daviplata…"
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
+      <form.Field name="zone">
+        {(field) => (
+          <Field
+            label="Zona"
+            hint="Opcional. Sirve cuando la empresa recauda por zona."
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
 
-          <form.Field name="paymentAddress">
-            {(field) => (
-              <Field
-                className="w-56"
-                label="Cuenta o llave"
-                hint="El número de cuenta, o la llave de Nequi o Daviplata."
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Field name="zone">
-            {(field) => (
-              <Field
-                className="w-36"
-                label="Zona"
-                hint="Opcional."
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Field name="wisphubId">
-            {(field) => (
-              <Field
-                className="w-40"
-                label="Forma de pago"
-                hint="Su id en Wisphub."
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <Button type="submit" loading={isSubmitting}>
-                Agregar
-              </Button>
-            )}
-          </form.Subscribe>
-        </form>
-
-        {failure && <p className="text-sm text-destructive">{failure}</p>}
-      </CardContent>
-    </Card>
+      <form.Field name="wisphubId">
+        {(field) => (
+          <Field
+            label="Forma de pago"
+            hint="Opcional. Su id en Wisphub, para que el pago quede registrado con la forma correcta."
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+    </FormDialog>
   )
 }

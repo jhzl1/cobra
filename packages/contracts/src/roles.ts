@@ -1,4 +1,7 @@
 import { z } from 'zod'
+// Side effect: zod answers in Spanish. Imported per module, not only from
+// index, so importing this file directly cannot skip it.
+import './locale'
 
 /**
  * Platform authorisation, which is a different axis from tenant membership.
@@ -12,7 +15,7 @@ export const platformRoleSchema = z.enum(['ADMIN'])
 export type PlatformRole = z.infer<typeof platformRoleSchema>
 
 export const grantRoleSchema = z.object({
-  email: z.email(),
+  email: z.email('Escribe un correo válido'),
   role: platformRoleSchema.default('ADMIN'),
 })
 

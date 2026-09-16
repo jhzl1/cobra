@@ -8,10 +8,13 @@ import {
   Patch,
   Post,
   Put,
+  Req,
 } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
+import type { Request } from 'express'
 import {
   createTenantSchema,
   paymentMethodSchema,
@@ -24,6 +27,7 @@ import { AuthClient } from '~/auth/auth-client.decorator'
 import { readCallerId } from '~/auth/caller'
 import { RequireAdmin } from '~/auth/require-admin.decorator'
 import { ZodValidationPipe } from '~/common/pipes/zod-validation.pipe'
+import { publicUrlOf } from '~/config/public-url'
 import { TenantsService } from './tenants.service'
 
 /**
@@ -36,7 +40,10 @@ import { TenantsService } from './tenants.service'
 @Controller('tenants')
 @AuthClient()
 export class TenantsController {
-  constructor(private readonly tenants: TenantsService) {}
+  constructor(
+    private readonly tenants: TenantsService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Listar las empresas del usuario' })
@@ -100,6 +107,16 @@ export class TenantsController {
     return this.tenants.listMembers(tenantId)
   }
 
+  @Get(':tenantId/setup')
+  @ApiOperation({ summary: 'Qué le falta a la empresa para que su bot responda' })
+  setup(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Req() request: Request,
+  ) {
+    return this.tenants.setup(readCallerId(ctx.userClaims), tenantId, this.publicUrl(request))
+  }
+
   @Get(':tenantId/credentials')
   @ApiOperation({ summary: 'Ver qué credenciales están cargadas (nunca su valor)' })
   listCredentials(
@@ -124,12 +141,13 @@ export class TenantsController {
   }
 
   @Get(':tenantId/whatsapp-numbers')
-  @ApiOperation({ summary: 'Números de WhatsApp y la ruta de webhook de cada uno' })
+  @ApiOperation({ summary: 'Números de WhatsApp y la URL de webhook de cada uno' })
   listNumbers(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Req() request: Request,
   ) {
-    return this.tenants.listNumbers(ctx.supabase, tenantId)
+    return this.tenants.listNumbers(ctx.supabase, tenantId, this.publicUrl(request))
   }
 
   @Post(':tenantId/whatsapp-numbers')
@@ -138,12 +156,23 @@ export class TenantsController {
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Body(new ZodValidationPipe(registerWhatsappNumberSchema)) body: unknown,
+    @Req() request: Request,
   ) {
     return this.tenants.registerNumber(
       readCallerId(ctx.userClaims),
       tenantId,
       body as Parameters<TenantsService['registerNumber']>[2],
+      this.publicUrl(request),
     )
+  }
+
+  /**
+   * The base of the webhook URL the panel shows. It comes from the request so a
+   * tunnel needs no configuration; `PUBLIC_URL` overrides it where the API never
+   * sees the host that fronts it.
+   */
+  private publicUrl(request: Request): string {
+    return publicUrlOf(request, this.config.get<string>('PUBLIC_URL'))
   }
 
   @Get(':tenantId/payment-methods')
@@ -167,6 +196,16 @@ export class TenantsController {
       tenantId,
       body as Parameters<TenantsService['addPaymentMethod']>[2],
     )
+  }
+
+  @Delete(':tenantId/whatsapp-numbers/:numberId')
+  @ApiOperation({ summary: 'Dar de baja un número: deja de recibir, y su historia queda' })
+  retireNumber(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('numberId', ParseUUIDPipe) numberId: string,
+  ) {
+    return this.tenants.retireNumber(readCallerId(ctx.userClaims), tenantId, numberId)
   }
 
   @Delete(':tenantId/payment-methods/:methodId')

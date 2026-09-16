@@ -45,9 +45,9 @@ CJS compila y luego falla en el primer import en producción.
 
 ## Los prompts son transcripciones, no redacciones
 
-El prompt del sistema y el del extractor salieron del workflow de n8n
-`Netplus Pagos v4` (`UBzsVy2q0l228DVo`). **Cada regla que traen se escribió
-después de un incidente.**
+El prompt del sistema y el del extractor salieron del workflow de n8n original
+(`UBzsVy2q0l228DVo`). **Cada regla que traen se escribió después de un
+incidente.**
 
 - No los reescribas "para que lean mejor". Si una frase suena redundante, lo es a
   propósito: el modelo la necesitaba repetida.

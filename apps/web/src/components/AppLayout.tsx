@@ -19,6 +19,7 @@ interface Section {
 
 const SECTIONS: Section[] = [
   { to: '/chats', label: 'Conversaciones' },
+  { to: '/setup', label: 'Puesta en marcha' },
   { to: '/settings', label: 'Configuración' },
   { to: '/platform', label: 'Plataforma', adminOnly: true },
 ]

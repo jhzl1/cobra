@@ -10,6 +10,9 @@ import {
   messageDirectionSchema,
   messageTypeSchema,
 } from './domain'
+// Side effect: zod answers in Spanish. Imported per module, not only from
+// index, so importing this file directly cannot skip it.
+import './locale'
 
 export const conversationSummarySchema = z.object({
   id: z.uuid(),
@@ -47,7 +50,10 @@ export const messageSchema = z.object({
 export type Message = z.infer<typeof messageSchema>
 
 export const sendMessageSchema = z.object({
-  body: z.string().min(1).max(4096),
+  body: z
+    .string()
+    .min(1, 'El mensaje está vacío')
+    .max(4096, 'WhatsApp no acepta mensajes de más de 4096 caracteres'),
 })
 
 export type SendMessageInput = z.infer<typeof sendMessageSchema>

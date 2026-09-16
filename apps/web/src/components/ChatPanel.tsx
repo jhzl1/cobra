@@ -4,6 +4,13 @@ import type { ConversationSummary, HandoffInput, Message } from '@cobra/contract
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '~/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '~/components/ui/dialog'
 import { Textarea } from '~/components/ui/textarea'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
@@ -71,14 +78,14 @@ export const ChatPanel = ({ conversation }: Props) => {
             size="sm"
             variant={isHuman ? 'secondary' : 'default'}
             loading={handoff.isPending}
+            title={
+              isHuman
+                ? 'El agente vuelve a responder los mensajes que entren'
+                : 'El agente deja de responder y escribes tú'
+            }
             onClick={() => handoff.mutate(isHuman ? 'release' : 'take')}
           >
-            {isHuman ? 'Devolver al agente' : 'Tomar el control'}
-          </Button>
-
-          {/* Hands the accumulated messages to the agent as one turn. */}
-          <Button size="sm" variant="outline" onClick={() => handoff.mutate('replay')}>
-            Reenviar al agente
+            {isHuman ? 'Devolver el control' : 'Tomar el control'}
           </Button>
         </div>
       </CardHeader>
@@ -93,6 +100,15 @@ export const ChatPanel = ({ conversation }: Props) => {
       </CardContent>
 
       <CardFooter className="flex flex-col items-stretch gap-2 py-4">
+        {/* The failed turn still has to be visible — it is the reason the failed
+            tray exists — but the only way out on screen is now the operator. */}
+        {conversation.lastRunFailed && (
+          <p className="rounded-lg border border-destructive/40 bg-destructive/15 p-2 text-xs text-destructive">
+            El último turno del agente falló, así que el cliente se quedó sin respuesta. Toma el
+            control y escríbele tú.
+          </p>
+        )}
+
         {!isHuman && (
           <p className="text-xs text-muted-foreground">
             El agente está respondiendo. Toma el control para escribirle tú.
@@ -157,9 +173,7 @@ const MessageBubble = ({ message }: { message: Message }) => {
       >
         <p className="mb-1 text-[10px] uppercase opacity-70">{AUTHOR_LABEL[message.author]}</p>
 
-        {message.mediaUrl && (
-          <img src={message.mediaUrl} alt="Comprobante" className="mb-1 max-h-64 rounded-lg" />
-        )}
+        {message.mediaUrl && <Receipt url={message.mediaUrl} receivedAt={message.receivedAt} />}
 
         {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
 
@@ -175,5 +189,48 @@ const MessageBubble = ({ message }: { message: Message }) => {
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * The receipt, and a way to actually read it.
+ *
+ * In the bubble it is a thumbnail, and a thumbnail of a bank transfer is
+ * illegible — the amount and the reference are the whole point of looking. The
+ * full-size view is what lets the operator check what the agent read.
+ */
+const Receipt = ({ url, receivedAt }: { url: string; receivedAt: string }) => {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="Ver el comprobante completo"
+        className="mb-1 block cursor-zoom-in overflow-hidden rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        <img src={url} alt="Comprobante" className="max-h-64" />
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Comprobante</DialogTitle>
+            <DialogDescription>
+              Recibido el {new Date(receivedAt).toLocaleString('es-CO', { hour12: true })}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* `object-contain` and a viewport cap: a tall receipt photographed
+              from a phone is otherwise cropped exactly where the reference is. */}
+          <img
+            src={url}
+            alt="Comprobante"
+            className="max-h-[75vh] w-full rounded-lg object-contain"
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

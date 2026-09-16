@@ -64,9 +64,10 @@ esa suscripción, se va con ella.
 - **Los tipos vienen de `@cobra/contracts`.** Si el panel necesita una forma que
   la API devuelve, se define allá y se importa; no se vuelve a escribir aquí.
 
-## HeroUI y Tailwind v4
+## shadcn/ui y Tailwind v4
 
-No hay archivo de configuración de Tailwind: el plugin de HeroUI se carga desde
-`index.css` con `@plugin './theme.ts'`, y el `@source` que apunta a
-`node_modules/@heroui/theme/dist` es lo que hace que sus variantes se emitan.
-Borrarlo deja todos los componentes sin estilo, sin ningún error.
+No hay archivo de configuración de Tailwind. Todo el tema vive en `index.css`:
+los tokens en `:root`, sus utilidades en `@theme inline`. Las convenciones del
+panel —tema solo oscuro, crear siempre en modal, el secundario que no puede
+leerse como deshabilitado— están en la sección 6 de `CLAUDE.md`, y las dos
+correcciones que hay que hacer después de cada `shadcn add` también.

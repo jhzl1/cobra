@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { readReceipt, validateReceipt } from '@cobra/agent'
 import type { ProcessReceiptJob as ProcessReceiptPayload } from '@cobra/contracts'
+import { ConversationRepository } from '../repositories/conversation.repository.js'
 import { PaymentMethodRepository } from '../repositories/payment-method.repository.js'
 import { ReceiptRepository } from '../repositories/receipt.repository.js'
 import { SupabaseService } from '../runtime/supabase.service.js'
@@ -24,6 +25,7 @@ export class ProcessReceiptJobHandler {
     private readonly tenants: TenantRuntimeService,
     private readonly receipts: ReceiptRepository,
     private readonly paymentMethods: PaymentMethodRepository,
+    private readonly conversations: ConversationRepository,
     private readonly supabase: SupabaseService,
   ) {}
 
@@ -48,6 +50,11 @@ export class ProcessReceiptJobHandler {
       // The image is worth keeping but not worth stopping for: the reading below
       // works on the bytes in memory either way.
       this.logger.warn(`Could not store ${storagePath}: ${upload.error.message}`)
+    } else {
+      // Only once it is actually there. The panel signs this path to draw the
+      // bubble, and pointing at an object that failed to upload shows a broken
+      // image instead of the text that at least says one arrived.
+      await this.conversations.attachMedia(tenantId, messageId, storagePath)
     }
 
     const extraction = await readReceipt({ model: runtime.models.vision, image: bytes, mediaType })

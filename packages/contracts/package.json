@@ -18,13 +18,15 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "tscheck": "tsc -p tsconfig.json --noEmit"
+    "tscheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "tsup": "^8.5.1",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^4.0.6"
   }
 }

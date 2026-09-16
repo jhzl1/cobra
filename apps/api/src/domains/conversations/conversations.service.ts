@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common'
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import {
+  type AgentRun,
+  type AgentStep,
   type ConversationSummary,
   type HandoffInput,
   type Message,
@@ -232,7 +234,7 @@ export class ConversationsService {
 
     if (error) throw this.toHttpError(error)
 
-    return data
+    return (data ?? []).map(toAgentRun)
   }
 
   private async load(client: SupabaseClient, conversationId: string) {
@@ -317,3 +319,41 @@ export class ConversationsService {
     return new InternalServerErrorException('No se pudo completar la operación')
   }
 }
+
+/**
+ * Supabase answers with its column names, and the panel reads the contract.
+ *
+ * Returning the raw rows meant `run.steps` was never there — the timeline read
+ * `agent_steps` under another name and crashed the moment a conversation had a
+ * run to draw. The empty array matters as much as the renaming: a run that has
+ * only just started has no steps yet, which is precisely the state the live
+ * timeline exists to show.
+ */
+export const toAgentRun = (row: Record<string, unknown>): AgentRun => ({
+  id: row['id'] as string,
+  conversationId: row['conversation_id'] as string,
+  trigger: row['trigger'] as AgentRun['trigger'],
+  status: row['status'] as AgentRun['status'],
+  model: (row['model'] as string | null) ?? null,
+  inputTokens: (row['input_tokens'] as number | null) ?? null,
+  outputTokens: (row['output_tokens'] as number | null) ?? null,
+  error: (row['error'] as string | null) ?? null,
+  startedAt: row['started_at'] as string,
+  finishedAt: (row['finished_at'] as string | null) ?? null,
+  steps: ((row['agent_steps'] as Record<string, unknown>[] | null) ?? []).map(toAgentStep),
+})
+
+const toAgentStep = (row: Record<string, unknown>): AgentStep => ({
+  id: row['id'] as string,
+  runId: row['run_id'] as string,
+  seq: row['seq'] as number,
+  kind: row['kind'] as AgentStep['kind'],
+  name: row['name'] as string,
+  status: row['status'] as AgentStep['status'],
+  toolCallId: (row['tool_call_id'] as string | null) ?? null,
+  input: row['input'] ?? null,
+  output: row['output'] ?? null,
+  error: (row['error'] as string | null) ?? null,
+  durationMs: (row['duration_ms'] as number | null) ?? null,
+  createdAt: row['created_at'] as string,
+})

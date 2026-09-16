@@ -24,15 +24,8 @@ import {
   CardHeader,
   CardTitle,
 } from '~/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '~/components/ui/dialog'
 import { Field } from '~/components/ui/field'
+import { FormDialog } from '~/components/ui/form-dialog'
 import { Spinner } from '~/components/ui/spinner'
 import {
   Table,
@@ -169,7 +162,7 @@ const TenantsCard = () => {
 
       <TenantDetail tenant={viewing} onClose={() => setViewing(null)} />
 
-      <CreateTenantDialog open={creating} onClose={() => setCreating(false)} />
+      {creating && <CreateTenantDialog onClose={() => setCreating(false)} />}
 
       {/* Suspending is not "are you sure": it says what stops happening. */}
       <AlertDialog
@@ -206,14 +199,14 @@ const TenantsCard = () => {
 
 /* Create --------------------------------------------------------------------- */
 
-const CreateTenantDialog = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+const CreateTenantDialog = ({ onClose }: { onClose: () => void }) => {
   const queryClient = useQueryClient()
   const [failure, setFailure] = useState<string | null>(null)
 
   const form = useForm({
     defaultValues: { companyName: '', supportPhone: '', adminPhone: '' },
     validators: { onChange: createTenantSchema },
-    onSubmit: async ({ value, formApi }) => {
+    onSubmit: async ({ value }) => {
       setFailure(null)
 
       try {
@@ -225,96 +218,65 @@ const CreateTenantDialog = ({ open, onClose }: { open: boolean; onClose: () => v
         throw error
       }
 
-      formApi.reset()
       await queryClient.invalidateQueries({ queryKey: queryKeys.tenants })
       onClose()
     },
   })
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) onClose()
-      }}
+    <FormDialog
+      open
+      onClose={onClose}
+      title="Nueva empresa"
+      description="Quedas como miembro de la empresa que crees. Después hay que cargarle sus credenciales y conectarle un número de WhatsApp."
+      submitLabel="Crear"
+      form={form}
+      error={failure}
     >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Nueva empresa</DialogTitle>
-          <DialogDescription>
-            Quedas como miembro de la empresa que crees. Después hay que cargarle sus credenciales y
-            conectarle un número de WhatsApp.
-          </DialogDescription>
-        </DialogHeader>
+      <form.Field name="companyName">
+        {(field) => (
+          <Field
+            label="Nombre de la empresa"
+            placeholder="Acme Telecomunicaciones"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
 
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
-          }}
-        >
-          <form.Field name="companyName">
-            {(field) => (
-              <Field
-                label="Nombre de la empresa"
-                placeholder="Acme Telecomunicaciones"
-                required
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
+      <form.Field name="supportPhone">
+        {(field) => (
+          <Field
+            label="Teléfono de soporte"
+            hint="El número que el agente le da a quien pregunta por el servicio. Con indicativo de país y sin signos."
+            placeholder="573001234567"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
 
-          <form.Field name="supportPhone">
-            {(field) => (
-              <Field
-                label="Teléfono de soporte"
-                hint="El número que el agente le da a quien pregunta por el servicio. Con indicativo de país y sin signos."
-                placeholder="573001234567"
-                required
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Field name="adminPhone">
-            {(field) => (
-              <Field
-                label="Teléfono del administrador"
-                hint="A dónde llegan los avisos cuando el agente necesita que alguien intervenga."
-                placeholder="573001234568"
-                required
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          {failure && <p className="text-sm text-destructive">{failure}</p>}
-
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose}>
-              Cancelar
-            </Button>
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(isSubmitting) => (
-                <Button type="submit" loading={isSubmitting}>
-                  Crear
-                </Button>
-              )}
-            </form.Subscribe>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <form.Field name="adminPhone">
+        {(field) => (
+          <Field
+            label="Teléfono del administrador"
+            hint="A dónde llegan los avisos cuando el agente necesita que alguien intervenga."
+            placeholder="573001234568"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+    </FormDialog>
   )
 }
 
@@ -322,7 +284,7 @@ const CreateTenantDialog = ({ open, onClose }: { open: boolean; onClose: () => v
 
 const GrantsCard = () => {
   const queryClient = useQueryClient()
-  const [failure, setFailure] = useState<string | null>(null)
+  const [granting, setGranting] = useState(false)
 
   const grants = useQuery({
     queryKey: ['platform', 'roles'],
@@ -333,34 +295,11 @@ const GrantsCard = () => {
     },
   })
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['platform', 'roles'] })
-
   const revoke = useMutation({
     mutationFn: async (grantId: string) => {
       await api.delete(`/platform/roles/${grantId}`)
     },
-    onSuccess: () => void invalidate(),
-  })
-
-  const form = useForm({
-    defaultValues: { email: '' },
-    // Only the address is asked for: ADMIN is the one platform role there is.
-    validators: { onChange: grantRoleSchema.pick({ email: true }) },
-    onSubmit: async ({ value, formApi }) => {
-      setFailure(null)
-
-      try {
-        await api.post('/platform/roles', { ...value, role: 'ADMIN' })
-      } catch (error) {
-        const [unmatched] = applyServerErrors(form, error)
-
-        setFailure(unmatched ?? (error as Error).message)
-        throw error
-      }
-
-      formApi.reset()
-      await invalidate()
-    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['platform', 'roles'] }),
   })
 
   return (
@@ -371,9 +310,15 @@ const GrantsCard = () => {
           Se otorga por correo, aunque esa persona todavía no tenga cuenta: el rol se amarra a su
           identidad la primera vez que entra. Revocar conserva el registro.
         </CardDescription>
+        <CardAction>
+          <Button size="sm" onClick={() => setGranting(true)}>
+            <PlusIcon />
+            Otorgar
+          </Button>
+        </CardAction>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-4">
+      <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
@@ -395,11 +340,17 @@ const GrantsCard = () => {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {!row.revokedAt && (
-                      <Button size="sm" variant="destructive" onClick={() => revoke.mutate(row.id)}>
-                        Revocar
-                      </Button>
-                    )}
+                    <div className="flex justify-end">
+                      {!row.revokedAt && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => revoke.mutate(row.id)}
+                        >
+                          Revocar
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -413,38 +364,63 @@ const GrantsCard = () => {
           </TableBody>
         </Table>
 
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void form.handleSubmit()
-          }}
-        >
-          <form.Field name="email">
-            {(field) => (
-              <Field
-                className="w-72"
-                label="Correo"
-                type="email"
-                value={field.state.value}
-                error={fieldError(field)}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            )}
-          </form.Field>
-
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <Button type="submit" loading={isSubmitting}>
-                Otorgar administrador
-              </Button>
-            )}
-          </form.Subscribe>
-        </form>
-
-        {failure && <p className="text-sm text-destructive">{failure}</p>}
+        {revoke.error && <p className="mt-2 text-sm text-destructive">{revoke.error.message}</p>}
       </CardContent>
+
+      {granting && <GrantDialog onClose={() => setGranting(false)} />}
     </Card>
+  )
+}
+
+const GrantDialog = ({ onClose }: { onClose: () => void }) => {
+  const queryClient = useQueryClient()
+  const [failure, setFailure] = useState<string | null>(null)
+
+  const form = useForm({
+    defaultValues: { email: '' },
+    // Only the address is asked for: ADMIN is the one platform role there is.
+    validators: { onChange: grantRoleSchema.pick({ email: true }) },
+    onSubmit: async ({ value }) => {
+      setFailure(null)
+
+      try {
+        await api.post('/platform/roles', { ...value, role: 'ADMIN' })
+      } catch (error) {
+        const [unmatched] = applyServerErrors(form, error)
+
+        setFailure(unmatched ?? (error as Error).message)
+        throw error
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['platform', 'roles'] })
+      onClose()
+    },
+  })
+
+  return (
+    <FormDialog
+      open
+      onClose={onClose}
+      title="Otorgar administrador de la plataforma"
+      description="Quien reciba este rol podrá crear empresas, entrar a cualquiera de ellas y otorgar este mismo rol."
+      submitLabel="Otorgar"
+      form={form}
+      error={failure}
+    >
+      <form.Field name="email">
+        {(field) => (
+          <Field
+            label="Correo"
+            hint="Funciona aunque esa persona todavía no tenga cuenta."
+            type="email"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+    </FormDialog>
   )
 }

@@ -13,6 +13,7 @@ import { ApiExcludeController } from '@nestjs/swagger'
 import type { Request } from 'express'
 import { metaWebhookSchema } from '@cobra/contracts'
 import { PublicRoute } from '~/auth/public-route.decorator'
+import { RawResponse } from '~/common/decorators/raw-response.decorator'
 import { WhatsappService } from './whatsapp.service'
 
 interface RawBodyRequest extends Request {
@@ -41,6 +42,7 @@ export class WhatsappController {
    */
   @Get(':tenantSlug/:webhookToken')
   @PublicRoute()
+  @RawResponse()
   async verify(
     @Param('tenantSlug') tenantSlug: string,
     @Param('webhookToken') webhookToken: string,

@@ -1,8 +1,8 @@
 # Cobra — instrucciones del repositorio
 
 Agente de cobros por WhatsApp, multi-cliente, para ISP que facturan en Wisphub.
-Reemplaza el workflow de n8n `Netplus Pagos v4`, que sigue vivo y es la línea base
-contra la cual se compara todo.
+Reemplaza el workflow de n8n original, que sigue vivo y es la línea base contra
+la cual se compara todo.
 
 El plan completo está en [`PLAN.md`](./PLAN.md). Este archivo es lo que hay que
 respetar al escribir código.
@@ -43,7 +43,7 @@ pnpm format:fix
 pnpm db:new <nombre>     # nueva migración
 pnpm db:deploy           # aplicarlas al proyecto enlazado
 pnpm db:types            # regenerar los tipos de la base
-pnpm skills:sync         # regenerar la tabla de la sección 9
+pnpm skills:sync         # regenerar la tabla de la sección 10
 ```
 
 Node 22, pnpm 10. Un paquete se prueba solo: `pnpm --filter @cobra/agent test`.
@@ -55,7 +55,7 @@ Seis paquetes, y cada frontera existe por una razón concreta:
 ```
 apps/api      @cobra/api        CommonJS · NestJS 11 · HTTP + webhook de Meta
 apps/worker   @cobra/worker     ESM · NestJS standalone · pg-boss
-apps/web      @cobra/web        React 19 · Vite · Tailwind v4 · HeroUI
+apps/web      @cobra/web        React 19 · Vite · Tailwind v4 · shadcn/ui
 packages/contracts              esquemas zod compartidos
 packages/data                   acceso a datos compartido: TenantScope, cifrado
 packages/agent                  el runtime del agente, sin framework
@@ -104,7 +104,67 @@ packages/db                     migraciones de Supabase
   eso: una regla que solo se puede probar con una cuenta de Wisphub deja de
   probarse.
 
-## 6 · Base de datos
+## 6 · El panel
+
+Tema **solo oscuro**. Los tokens viven en `:root` y no existe bloque `.dark`: no
+hay tema claro, ni interruptor, ni `prefers-color-scheme`.
+
+**`<html class="dark">` se queda aunque parezca inútil.** Los colores ya están en
+`:root`, pero las variantes `outline`, `destructive` y `ghost` de shadcn traen
+utilidades `dark:` propias, y sin la clase Tailwind nunca las emite. Quitarla no
+cambia la paleta: degrada esas tres en silencio.
+
+**Crear siempre abre un modal.** Cualquier acción que cree algo va en un diálogo,
+nunca en un formulario dentro de la página. La tarjeta lleva el botón en su
+encabezado (`CardAction`) y el cuerpo solo muestra la lista o la tabla. No es
+preferencia estética: los formularios en línea iban alineados al borde inferior,
+y en cuanto un campo llevaba dos líneas de pista empujaba a sus vecinos —
+mientras más explicaba la etiqueta, más torcida quedaba la fila. El envoltorio es
+`~/components/ui/form-dialog.tsx` y no se repite a mano.
+
+**El blanco es la acción primaria y sale una vez por pantalla.** El secundario es
+gris y no puede leerse como deshabilitado. En oscuro el relleno no alcanza para
+distinguirlos —queda a 1,19:1 contra la tarjeta— así que la separación la cargan
+el borde, el contraste del texto (14,3:1 contra 3,7:1), un hover que sube en
+luminancia y el cursor. Está resuelto en `~/components/ui/button.tsx`; si algo se
+ve apagado, se arregla ahí y no en el sitio que lo usa. Corolario: la burbuja
+saliente del chat es gris elevado, no blanca.
+
+**Las rutas se escriben en inglés**, aunque la interfaz sea española:
+`/settings`, no `/configuracion`. La ruta es un identificador; la etiqueta del
+enlace sigue el idioma de la sección 1.
+
+**Los formularios validan con los esquemas de `@cobra/contracts`**, los mismos
+que corre la API, así que cliente y servidor no pueden discrepar. El esquema
+tiene que cubrir **todos** los valores por defecto del formulario: un `.pick()`
+que deje uno afuera no compila, y se usa `.pick().extend()`. El detalle por campo
+que devuelve la API se reparte con `applyServerErrors`; lo que no calce con
+ningún campo se muestra como un solo mensaje.
+
+**Los mensajes de validación se escriben, no se heredan.**
+`packages/contracts/src/locale.ts` pone a Zod en español y lo importa cada módulo
+del paquete, no solo el índice: importar un submódulo directo construye sus
+esquemas antes y los mensajes vuelven en inglés. Ese locale es la red, no la
+copia — responde como un compilador, así que cada regla que el operador puede
+tocar lleva su propio mensaje. Ver uno del locale en pantalla significa que a un
+campo le falta el suyo. `messages.spec.ts` lo verifica.
+
+**Ninguna etiqueta es un nombre técnico**, ni de la base ni del proveedor.
+`phone_number_id` es "Identificador del número"; `forma_pago`, "Forma de pago".
+El nombre que usa Meta o Wisphub va en el `hint` del campo, junto con dónde
+encontrarlo.
+
+**Añadir un componente de shadcn** es `cd apps/web && pnpm dlx shadcn@latest add
+<componente>`, más dos correcciones que hay que hacer cada vez: el CLI escribe
+`import { cn } from "cn"` y no reescribe el placeholder
+(`sd 'from "cn"' "from '~/lib/utils'" src/components/ui/*.tsx`), y con
+`--overwrite` un componente que dependa de `button` lo sobrescribe y se pierden
+los ajustes del secundario, así que hay que restaurarlo desde git. El `baseUrl`
+de `apps/web/tsconfig.json` existe solo para que el CLI resuelva el alias `~`: no
+puede moverse a `tsconfig.app.json`, porque TypeScript 6 lo deprecó y el build
+falla.
+
+## 7 · Base de datos
 
 Todo pasa por migraciones versionadas en `packages/db/supabase/migrations`, se
 escriben a mano y una aplicada no se edita: se corrige con otra encima.
@@ -119,7 +179,7 @@ Lo que el esquema hace cumplir por su cuenta está en la skill
   sentencias.
 - Nada se borra: la memoria del agente se corta moviendo `context_reset_at`.
 
-## 7 · Variables de entorno
+## 8 · Variables de entorno
 
 Cada aplicación tiene su `.env.example` al lado de su `package.json` y documenta
 solo lo suyo. Agregar una variable es agregarla **también** en el ejemplo, con el
@@ -134,7 +194,7 @@ comentario de qué pasa si falta.
 `DATABASE_URL` es la conexión directa, nunca el pooler: pg-boss vive de
 `LISTEN/NOTIFY`, que el pooler en modo transacción desactiva.
 
-## 8 · Git
+## 9 · Git
 
 - Ramas: `feat/`, `fix/`, `chore/`, `refactor/`, `docs/`. Nunca commits directos
   en `main`.
@@ -146,7 +206,7 @@ comentario de qué pasa si falta.
 - Los PR van contra `develop`, con título y descripción en español.
 - Nunca agregar "Co-Authored-By" ni atribución de IA.
 
-## 9 · Skills de invocación automática
+## 10 · Skills de invocación automática
 
 Al hacer cualquiera de estas acciones, **invoca primero la skill correspondiente**:
 
