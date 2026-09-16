@@ -306,7 +306,8 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
       <CardHeader>
         <CardTitle>Números de WhatsApp</CardTitle>
         <CardDescription>
-          Copia la URL y el token de verificación en la configuración del webhook de Meta.
+          Al conectar un número se generan su URL de webhook y su token de verificación, que van en
+          la configuración de Meta.
         </CardDescription>
         <CardAction>
           <Button size="sm" onClick={() => setConnecting(true)}>
@@ -329,7 +330,8 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
           ))
         ) : (
           <p className="text-sm text-muted-foreground">
-            Todavía no hay ningún número conectado. Sin uno, la empresa no recibe mensajes.
+            Todavía no hay ningún número conectado, así que la empresa no recibe mensajes y su URL
+            de webhook no existe todavía: se genera al conectarlo.
           </p>
         )}
       </CardContent>
