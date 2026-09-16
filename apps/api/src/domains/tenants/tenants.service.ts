@@ -15,6 +15,7 @@ import type {
   RegisterWhatsappNumberInput,
   SaveCredentialInput,
   TenantMember,
+  TenantSetup,
   TenantStatus,
   UpdateTenantInput,
 } from '@cobra/contracts'
@@ -25,6 +26,17 @@ const UNIQUE_VIOLATION = '23505'
 
 /** How many suffixed slugs to try before giving up. */
 const SLUG_ATTEMPTS = 20
+
+/** Without all three the agent cannot read, think or register a payment. */
+const REQUIRED_PROVIDERS = ['meta', 'openrouter', 'wisphub'] as const
+
+const PROVIDER_LABEL: Record<(typeof REQUIRED_PROVIDERS)[number], string> = {
+  meta: 'WhatsApp Cloud API',
+  openrouter: 'OpenRouter',
+  wisphub: 'Wisphub',
+}
+
+const labelOf = (provider: (typeof REQUIRED_PROVIDERS)[number]): string => PROVIDER_LABEL[provider]
 
 const TENANT_COLUMNS =
   'id, slug, company_name, support_phone, admin_phone, status, tenant_members(count)'
@@ -298,6 +310,85 @@ export class TenantsService {
       verifyToken: data.verify_token,
       webhookUrl: `${publicUrl}/wh/wa/${tenant?.slug ?? ''}/${data.webhook_token}`,
       validTo: data.valid_to,
+    }
+  }
+
+  /**
+   * What is still missing before this company's bot answers anyone.
+   *
+   * Runs with the secret key because it counts rows across five tables to answer
+   * one question, and a member who can read all of them individually gains
+   * nothing from doing it here — the caller's access is checked before this.
+   *
+   * The webhook step is the only one nobody can complete from the panel: it is
+   * done in Meta's dashboard, so the signal is the only honest one there is,
+   * that something actually arrived through it.
+   */
+  async setup(userId: string, tenantId: string, publicUrl: string): Promise<TenantSetup> {
+    await this.assertMembership(userId, tenantId)
+
+    const [tenant, credentials, numbers, methods, inbound] = await Promise.all([
+      this.supabase.admin.from('tenants').select('slug, status').eq('id', tenantId).single(),
+      this.supabase.admin.from('tenant_credentials').select('provider').eq('tenant_id', tenantId),
+      this.supabase.admin
+        .from('whatsapp_numbers')
+        .select('verify_token, webhook_token')
+        .eq('tenant_id', tenantId)
+        .is('valid_to', null)
+        .order('valid_from', { ascending: false })
+        .limit(1),
+      this.supabase.admin
+        .from('payment_methods')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId),
+      this.supabase.admin
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('direction', 'inbound'),
+    ])
+
+    if (tenant.error) throw this.toHttpError(tenant.error)
+
+    const loaded = new Set((credentials.data ?? []).map((row) => row.provider as string))
+    const missing = REQUIRED_PROVIDERS.filter((provider) => !loaded.has(provider))
+    const number = numbers.data?.[0]
+
+    const steps: TenantSetup['steps'] = [
+      {
+        id: 'credentials',
+        done: missing.length === 0,
+        pending: missing.length ? `Faltan ${missing.map(labelOf).join(' y ')}` : null,
+      },
+      {
+        id: 'number',
+        done: !!number,
+        pending: number ? null : 'Todavía no hay ningún número conectado',
+      },
+      {
+        id: 'webhook',
+        done: (inbound.count ?? 0) > 0,
+        pending:
+          (inbound.count ?? 0) > 0 ? null : 'Todavía no ha llegado ningún mensaje por el webhook',
+      },
+      {
+        id: 'paymentMethods',
+        done: (methods.count ?? 0) > 0,
+        pending:
+          (methods.count ?? 0) > 0
+            ? null
+            : 'Sin cuentas, todo comprobante se retiene para revisión manual',
+      },
+    ]
+
+    const slug = tenant.data.slug as string
+
+    return {
+      steps,
+      status: tenant.data.status as TenantStatus,
+      ready: steps.every((step) => step.done) && tenant.data.status === 'active',
+      webhookUrl: number ? `${publicUrl}/wh/wa/${slug}/${number.webhook_token}` : null,
+      verifyToken: (number?.verify_token as string | undefined) ?? null,
     }
   }
 

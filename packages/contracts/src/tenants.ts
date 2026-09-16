@@ -110,3 +110,31 @@ export const paymentMethodSchema = z.object({
 })
 
 export type PaymentMethodInput = z.infer<typeof paymentMethodSchema>
+
+/**
+ * What a company still needs before its bot answers anyone.
+ *
+ * Computed on the server rather than assembled by the panel: "has a message ever
+ * arrived" is a query the panel has no other reason to make, and a checklist
+ * split across two places drifts.
+ */
+export const setupStepSchema = z.object({
+  id: z.enum(['credentials', 'number', 'webhook', 'paymentMethods']),
+  done: z.boolean(),
+  /** What is missing, when something is. Null once the step is done. */
+  pending: z.string().nullable(),
+})
+
+export type SetupStep = z.infer<typeof setupStepSchema>
+
+export const tenantSetupSchema = z.object({
+  steps: z.array(setupStepSchema),
+  /** Every step done and the company active. */
+  ready: z.boolean(),
+  status: tenantStatusSchema,
+  /** What to paste into Meta. Null until a number is registered. */
+  webhookUrl: z.string().nullable(),
+  verifyToken: z.string().nullable(),
+})
+
+export type TenantSetup = z.infer<typeof tenantSetupSchema>

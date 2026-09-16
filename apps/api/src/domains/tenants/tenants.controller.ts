@@ -107,6 +107,16 @@ export class TenantsController {
     return this.tenants.listMembers(tenantId)
   }
 
+  @Get(':tenantId/setup')
+  @ApiOperation({ summary: 'Qué le falta a la empresa para que su bot responda' })
+  setup(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Req() request: Request,
+  ) {
+    return this.tenants.setup(readCallerId(ctx.userClaims), tenantId, this.publicUrl(request))
+  }
+
   @Get(':tenantId/credentials')
   @ApiOperation({ summary: 'Ver qué credenciales están cargadas (nunca su valor)' })
   listCredentials(

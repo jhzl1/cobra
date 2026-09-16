@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import type { AgentRun, ConversationSummary } from '@cobra/contracts'
 import { ChatPanel } from '~/components/ChatPanel'
 import { ConversationList } from '~/components/ConversationList'
 import { Timeline } from '~/components/Timeline'
+import { Button } from '~/components/ui/button'
 import { Card } from '~/components/ui/card'
 import { Spinner } from '~/components/ui/spinner'
 import { useConversationStream } from '~/hooks/useConversationStream'
@@ -56,14 +57,25 @@ export const WorkspacePage = ({ tenantId, conversationId }: Props) => {
           <div className="flex h-full items-center justify-center">
             <Spinner className="size-6" />
           </div>
-        ) : (
+        ) : conversations.data?.length ? (
           <ConversationList
-            conversations={conversations.data ?? []}
+            conversations={conversations.data}
             selectedId={conversationId}
             onSelect={(id) =>
               void navigate({ to: '/chats/$conversationId', params: { conversationId: id } })
             }
           />
+        ) : (
+          /* An empty list explains nothing: four things have to be true before a
+             message can arrive, and three of them live on another screen. */
+          <div className="flex h-full flex-col items-start justify-center gap-3 p-4">
+            <p className="text-sm text-muted-foreground">
+              Todavía no ha llegado ninguna conversación.
+            </p>
+            <Button asChild size="sm" variant="secondary">
+              <Link to="/setup">Ver qué falta</Link>
+            </Button>
+          </div>
         )}
       </Card>
 
