@@ -42,7 +42,11 @@ describe('validateReceipt', () => {
   it('rejects anything that is not a receipt first of all', () => {
     const result = validateReceipt({
       // Stale as well, and paid nowhere. Rule 1 still wins.
-      extraction: extraction({ isVoucher: false, paymentDatetime: '2026-01-01T09:00:00', destinationAccount: '999' }),
+      extraction: extraction({
+        isVoucher: false,
+        paymentDatetime: '2026-01-01T09:00:00',
+        destinationAccount: '999',
+      }),
       paymentMethods: [method],
       isReferenceUsed: true,
       now,
@@ -53,7 +57,10 @@ describe('validateReceipt', () => {
 
   it('rejects a readable date older than seven days before looking at the account', () => {
     const result = validateReceipt({
-      extraction: extraction({ paymentDatetime: '2026-09-01T09:00:00', destinationAccount: '999999' }),
+      extraction: extraction({
+        paymentDatetime: '2026-09-01T09:00:00',
+        destinationAccount: '999999',
+      }),
       paymentMethods: [method],
       isReferenceUsed: false,
       now,

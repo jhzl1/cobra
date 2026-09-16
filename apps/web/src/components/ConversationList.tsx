@@ -30,7 +30,7 @@ export const ConversationList = ({ conversations, selectedId, onSelect }: Props)
                 conversation.contact.phone ??
                 conversation.contact.personId}
             </p>
-            <p className="text-default-500 truncate text-xs">
+            <p className="truncate text-xs text-default-500">
               {conversation.lastMessagePreview ?? 'Sin mensajes'}
             </p>
           </div>

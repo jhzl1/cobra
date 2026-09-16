@@ -88,7 +88,7 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
     <Card>
       <CardHeader className="flex-col items-start">
         <h2 className="font-medium">Credenciales</h2>
-        <p className="text-default-500 text-sm">
+        <p className="text-sm text-default-500">
           Se guardan cifradas. El panel solo vuelve a ver los últimos cuatro caracteres.
         </p>
       </CardHeader>
@@ -101,7 +101,7 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
             </Chip>
           ))}
           {!credentials.data?.length && (
-            <p className="text-default-500 text-sm">Todavía no hay credenciales cargadas.</p>
+            <p className="text-sm text-default-500">Todavía no hay credenciales cargadas.</p>
           )}
         </div>
 
@@ -173,7 +173,7 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
     <Card>
       <CardHeader className="flex-col items-start">
         <h2 className="font-medium">Números de WhatsApp</h2>
-        <p className="text-default-500 text-sm">
+        <p className="text-sm text-default-500">
           Copia la URL y el verify token en la configuración del webhook de Meta.
         </p>
       </CardHeader>
@@ -211,7 +211,7 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
           </Button>
         </div>
 
-        {register.error && <p className="text-danger text-sm">{register.error.message}</p>}
+        {register.error && <p className="text-sm text-danger">{register.error.message}</p>}
       </CardBody>
     </Card>
   )
@@ -255,7 +255,7 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
     <Card>
       <CardHeader className="flex-col items-start">
         <h2 className="font-medium">Cuentas de recaudo</h2>
-        <p className="text-default-500 text-sm">
+        <p className="text-sm text-default-500">
           Un comprobante pagado a una cuenta que no esté aquí se retiene para revisión manual.
         </p>
       </CardHeader>
@@ -305,7 +305,7 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
           </Button>
         </div>
 
-        {add.error && <p className="text-danger text-sm">{add.error.message}</p>}
+        {add.error && <p className="text-sm text-danger">{add.error.message}</p>}
       </CardBody>
     </Card>
   )

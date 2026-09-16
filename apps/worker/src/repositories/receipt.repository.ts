@@ -200,7 +200,9 @@ export class ReceiptRepository {
   async forMessages(
     tenantId: string,
     messageIds: readonly string[],
-  ): Promise<Array<{ id: string; messageId: string; alertReason: string | null; mediaId: string | null }>> {
+  ): Promise<
+    Array<{ id: string; messageId: string; alertReason: string | null; mediaId: string | null }>
+  > {
     if (!messageIds.length) return []
 
     const { data, error } = await this.supabase
@@ -259,9 +261,9 @@ const hasLiveAttempt = (row: Record<string, unknown>): boolean => {
 }
 
 const toPendingReceipt = (row: Record<string, unknown>): PendingReceipt => {
-  const method = (Array.isArray(row['payment_methods'])
-    ? row['payment_methods'][0]
-    : row['payment_methods']) as { wisphub_id?: string } | undefined
+  const method = (
+    Array.isArray(row['payment_methods']) ? row['payment_methods'][0] : row['payment_methods']
+  ) as { wisphub_id?: string } | undefined
 
   return {
     id: row['id'] as string,

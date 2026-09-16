@@ -50,9 +50,9 @@ misma base. En `api` va solo para encolar.
 AI SDK v7 (`ai`) con `@openrouter/ai-sdk-provider`. Una sola API key de
 OpenRouter por cliente cubre los dos modelos:
 
-| Uso | Modelo |
-|---|---|
-| Agente | `anthropic/claude-haiku-4.5`, `temperature: 0` |
+| Uso                     | Modelo                                                 |
+| ----------------------- | ------------------------------------------------------ |
+| Agente                  | `anthropic/claude-haiku-4.5`, `temperature: 0`         |
 | Lectura de comprobantes | `google/gemini-3.5-flash`, salida estructurada con zod |
 
 El enrutamiento va con `require_parameters: true` y `allow_fallbacks: false`. El
@@ -79,11 +79,11 @@ Node 22, pnpm 10.
 Cada aplicación tiene su propio `.env.example` al lado de su `package.json`, y cada
 uno documenta solo lo que esa aplicación necesita:
 
-| Archivo | Para qué |
-|---|---|
-| `apps/api/.env.example` | HTTP, webhook, Supabase, cola |
-| `apps/worker/.env.example` | Supabase, cola, concurrencia de turnos |
-| `apps/web/.env.example` | Solo variables `VITE_`, que viajan al navegador |
+| Archivo                    | Para qué                                             |
+| -------------------------- | ---------------------------------------------------- |
+| `apps/api/.env.example`    | HTTP, webhook, Supabase, cola                        |
+| `apps/worker/.env.example` | Supabase, cola, concurrencia de turnos               |
+| `apps/web/.env.example`    | Solo variables `VITE_`, que viajan al navegador      |
 | `packages/db/.env.example` | El project ref, para los scripts del CLI de Supabase |
 
 `CREDENTIALS_MASTER_KEY` tiene que ser idéntica en `api` y en `worker`: el panel
@@ -92,14 +92,14 @@ el agente no puede hablar con Meta ni con Wisphub.
 
 ## Comandos
 
-| Comando | Qué hace |
-|---|---|
-| `pnpm build` | Construye todo el monorepo |
-| `pnpm tscheck` | Typecheck de cada paquete |
-| `pnpm test` | Tests |
-| `pnpm db:new <nombre>` | Nueva migración |
-| `pnpm db:deploy` | Aplica migraciones al proyecto enlazado |
-| `pnpm db:types` | Regenera los tipos de la base |
+| Comando                | Qué hace                                |
+| ---------------------- | --------------------------------------- |
+| `pnpm build`           | Construye todo el monorepo              |
+| `pnpm tscheck`         | Typecheck de cada paquete               |
+| `pnpm test`            | Tests                                   |
+| `pnpm db:new <nombre>` | Nueva migración                         |
+| `pnpm db:deploy`       | Aplica migraciones al proyecto enlazado |
+| `pnpm db:types`        | Regenera los tipos de la base           |
 
 ## Desplegar
 

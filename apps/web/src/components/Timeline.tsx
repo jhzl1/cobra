@@ -26,7 +26,7 @@ const STEP_LABEL: Record<AgentStep['status'], string> = {
 export const Timeline = ({ runs }: { runs: AgentRun[] }) => {
   if (!runs.length) {
     return (
-      <p className="text-default-500 p-4 text-sm">Todavía no hay turnos en esta conversación.</p>
+      <p className="p-4 text-sm text-default-500">Todavía no hay turnos en esta conversación.</p>
     )
   }
 
@@ -53,14 +53,14 @@ export const Timeline = ({ runs }: { runs: AgentRun[] }) => {
               .slice()
               .sort((a, b) => a.seq - b.seq)
               .map((step) => (
-                <li key={step.id} className="border-default-200 rounded-medium border p-2">
+                <li key={step.id} className="rounded-medium border border-default-200 p-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium">
                       {step.kind} · {step.name}
                     </span>
                     <div className="flex items-center gap-2">
                       {step.durationMs !== null && (
-                        <span className="text-default-500 text-xs">{step.durationMs} ms</span>
+                        <span className="text-xs text-default-500">{step.durationMs} ms</span>
                       )}
                       <Chip size="sm" variant="flat" color={STEP_COLOR[step.status]}>
                         {STEP_LABEL[step.status]}
@@ -70,10 +70,10 @@ export const Timeline = ({ runs }: { runs: AgentRun[] }) => {
 
                   {(step.input || step.output || step.error) && (
                     <details className="mt-1">
-                      <summary className="text-default-500 cursor-pointer text-xs">
+                      <summary className="cursor-pointer text-xs text-default-500">
                         Ver argumentos y resultado
                       </summary>
-                      <pre className="bg-default-100 mt-1 overflow-x-auto rounded p-2 text-xs">
+                      <pre className="mt-1 overflow-x-auto rounded bg-default-100 p-2 text-xs">
                         {JSON.stringify(
                           { input: step.input, output: step.output, error: step.error },
                           null,

@@ -94,7 +94,7 @@ const Authenticated = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-default-400 text-xs">v{__APP_VERSION__}</span>
+          <span className="text-xs text-default-400">v{__APP_VERSION__}</span>
           <Button size="sm" variant="flat" onPress={() => void supabase.auth.signOut()}>
             Salir
           </Button>
@@ -111,13 +111,13 @@ const Authenticated = () => {
           sent to create the first company, anyone else to whoever can. */}
       {view !== 'platform' && !tenantId && !identity.isLoading && (
         <div className="flex flex-col items-start gap-2">
-          <p className="text-default-500 text-sm">Todavía no hay ninguna empresa a tu nombre.</p>
+          <p className="text-sm text-default-500">Todavía no hay ninguna empresa a tu nombre.</p>
           {isAdmin ? (
             <Button size="sm" color="primary" onPress={() => setView('platform')}>
               Crear la primera empresa
             </Button>
           ) : (
-            <p className="text-default-500 text-sm">
+            <p className="text-sm text-default-500">
               Pídele a quien administra la plataforma que te agregue a una.
             </p>
           )}

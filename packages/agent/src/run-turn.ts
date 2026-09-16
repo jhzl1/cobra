@@ -1,4 +1,8 @@
 import { type LanguageModel, type ModelMessage, generateText, stepCountIs } from 'ai'
+import { buildSystemPrompt } from './prompts/system-prompt'
+import { buildTurnPrompt } from './prompts/turn-context'
+import type { Steering } from './steering'
+import { buildTools } from './tools'
 import type {
   ConversationMessage,
   MessagingPort,
@@ -10,10 +14,6 @@ import type {
   TenantConfig,
   WisphubPort,
 } from './types'
-import { buildSystemPrompt } from './prompts/system-prompt'
-import { buildTurnPrompt } from './prompts/turn-context'
-import type { Steering } from './steering'
-import { buildTools } from './tools'
 
 /**
  * What the customer reads when the model call does not come back.

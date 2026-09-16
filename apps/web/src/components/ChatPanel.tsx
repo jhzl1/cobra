@@ -89,7 +89,7 @@ export const ChatPanel = ({ conversation }: Props) => {
 
       <CardFooter className="flex flex-col items-stretch gap-2">
         {!isHuman && (
-          <p className="text-default-500 text-xs">
+          <p className="text-xs text-default-500">
             El agente está respondiendo. Toma el control para escribirle tú.
           </p>
         )}
@@ -98,7 +98,7 @@ export const ChatPanel = ({ conversation }: Props) => {
             the operator write a message WhatsApp refuses with 131047, and they
             would only find out from the customer. */}
         {windowClosed && (
-          <p className="text-danger text-xs">
+          <p className="text-xs text-danger">
             Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp no permite
             escribirle sin una plantilla aprobada.
           </p>
@@ -124,7 +124,7 @@ export const ChatPanel = ({ conversation }: Props) => {
           </Button>
         </div>
 
-        {send.error && <p className="text-danger text-xs">{send.error.message}</p>}
+        {send.error && <p className="text-xs text-danger">{send.error.message}</p>}
       </CardFooter>
     </Card>
   )
@@ -142,14 +142,14 @@ const MessageBubble = ({ message }: { message: Message }) => {
   return (
     <div className={mine ? 'flex justify-end' : 'flex justify-start'}>
       <div
-        className={`rounded-medium max-w-[75%] px-3 py-2 text-sm ${
+        className={`max-w-[75%] rounded-medium px-3 py-2 text-sm ${
           mine ? 'bg-primary text-primary-foreground' : 'bg-default-100'
         }`}
       >
         <p className="mb-1 text-[10px] uppercase opacity-70">{AUTHOR_LABEL[message.author]}</p>
 
         {message.mediaUrl && (
-          <img src={message.mediaUrl} alt="Comprobante" className="rounded-medium mb-1 max-h-64" />
+          <img src={message.mediaUrl} alt="Comprobante" className="mb-1 max-h-64 rounded-medium" />
         )}
 
         {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}

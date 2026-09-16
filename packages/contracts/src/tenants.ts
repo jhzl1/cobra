@@ -3,7 +3,10 @@ import { credentialProviderSchema } from './domain'
 
 const phoneSchema = z
   .string()
-  .regex(/^\d{10,15}$/, 'El teléfono va en formato internacional sin signos, por ejemplo 573001234567')
+  .regex(
+    /^\d{10,15}$/,
+    'El teléfono va en formato internacional sin signos, por ejemplo 573001234567',
+  )
 
 export const createTenantSchema = z.object({
   slug: z

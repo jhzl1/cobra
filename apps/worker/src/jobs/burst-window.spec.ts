@@ -4,7 +4,10 @@ import { burstWait } from './burst-window.js'
 
 const now = new Date('2026-09-15T12:00:00.000Z')
 
-const message = (secondsAgo: number, over: Partial<ConversationMessage> = {}): ConversationMessage => ({
+const message = (
+  secondsAgo: number,
+  over: Partial<ConversationMessage> = {},
+): ConversationMessage => ({
   id: `m-${secondsAgo}`,
   author: 'contact',
   type: 'text',

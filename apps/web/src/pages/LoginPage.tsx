@@ -25,7 +25,7 @@ export const LoginPage = () => {
       <Card className="w-full max-w-sm">
         <CardHeader className="flex-col items-start gap-1">
           <h1 className="text-xl font-semibold">Cobra</h1>
-          <p className="text-default-500 text-sm">Panel de cobros por WhatsApp</p>
+          <p className="text-sm text-default-500">Panel de cobros por WhatsApp</p>
         </CardHeader>
 
         <CardBody>
@@ -47,7 +47,7 @@ export const LoginPage = () => {
               autoComplete="current-password"
             />
 
-            {error && <p className="text-danger text-sm">{error}</p>}
+            {error && <p className="text-sm text-danger">{error}</p>}
 
             <Button color="primary" type="submit" isLoading={loading}>
               Entrar

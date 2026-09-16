@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import type { LanguageModel } from 'ai'
 import { type TenantConfig, WisphubClient, createModels } from '@cobra/agent'
-import { CredentialsCrypto, type TenantRuntimeConfig, loadTenantRuntime, requireCredential } from '@cobra/data'
+import {
+  CredentialsCrypto,
+  type TenantRuntimeConfig,
+  loadTenantRuntime,
+  requireCredential,
+} from '@cobra/data'
 import { MetaClient } from '../meta/meta.client.js'
 import { SupabaseService } from './supabase.service.js'
 

@@ -49,10 +49,7 @@ export class TenantScope {
   }
 
   delete(table: string): TenantQuery {
-    return this.client
-      .from(table)
-      .delete()
-      .eq('tenant_id', this.tenantId) as unknown as TenantQuery
+    return this.client.from(table).delete().eq('tenant_id', this.tenantId) as unknown as TenantQuery
   }
 
   /**

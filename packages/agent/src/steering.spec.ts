@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { ConversationMessage } from './types'
 import { Steering } from './steering'
+import type { ConversationMessage } from './types'
 
 const message = (id: string, body: string): ConversationMessage => ({
   id,
@@ -35,7 +35,9 @@ describe('Steering', () => {
   })
 
   it('hands the queued messages to the next model call and unlatches', async () => {
-    const steering = new Steering({ readUnconsumed: async () => [message('m1', 'y el 222 también')] })
+    const steering = new Steering({
+      readUnconsumed: async () => [message('m1', 'y el 222 también')],
+    })
 
     await steering.shouldSkipNextTool()
 

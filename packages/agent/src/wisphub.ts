@@ -1,5 +1,5 @@
-import type { WisphubCustomer, WisphubInvoice, WisphubPort } from './types'
 import { formatCop } from './normalize'
+import type { WisphubCustomer, WisphubInvoice, WisphubPort } from './types'
 
 const WISPHUB_BASE_URL = 'https://api.wisphub.net'
 
@@ -50,17 +50,21 @@ export class WisphubClient implements WisphubPort {
     const first = found?.results?.[0]
 
     if (!first) {
-      return emptyCustomer(document, `No existe ningún cliente registrado con el documento ${document}.`)
+      return emptyCustomer(
+        document,
+        `No existe ningún cliente registrado con el documento ${document}.`,
+      )
     }
 
     const serviceId = Number(first['id_servicio'])
     const zone = readZone(first)
 
     // No trailing slash. See the class comment.
-    const balance = await this.request<{ nombre?: string; facturas?: WisphubInvoice[]; saldo?: number }>(
-      'GET',
-      `/api/clientes/${serviceId}/saldo`,
-    )
+    const balance = await this.request<{
+      nombre?: string
+      facturas?: WisphubInvoice[]
+      saldo?: number
+    }>('GET', `/api/clientes/${serviceId}/saldo`)
 
     const invoices = Array.isArray(balance.facturas) ? balance.facturas : []
     const totalDebtRaw = Number(balance.saldo ?? 0)
@@ -120,7 +124,11 @@ export class WisphubClient implements WisphubPort {
       const parsed = text ? safeJson(text) : null
 
       if (!response.ok) {
-        throw new WisphubError(`Wisphub ${method} ${path} answered ${response.status}`, response.status, parsed)
+        throw new WisphubError(
+          `Wisphub ${method} ${path} answered ${response.status}`,
+          response.status,
+          parsed,
+        )
       }
 
       return parsed as T

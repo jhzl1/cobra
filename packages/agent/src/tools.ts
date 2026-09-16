@@ -1,5 +1,8 @@
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
+import { applyCredit } from './apply-credit'
+import { registerPayment } from './register-payment'
+import { SKIPPED_TOOL_RESULT, Steering } from './steering'
 import type {
   MessagingPort,
   PaymentMethod,
@@ -8,9 +11,6 @@ import type {
   StepRecorder,
   WisphubPort,
 } from './types'
-import { applyCredit } from './apply-credit'
-import { registerPayment } from './register-payment'
-import { SKIPPED_TOOL_RESULT, Steering } from './steering'
 
 export interface ToolDeps {
   tenantId: string
@@ -46,7 +46,10 @@ export const buildTools = (deps: ToolDeps): ToolSet => ({
     description:
       'Busca un cliente por su número de documento y devuelve si existe, sus facturas pendientes, el total que debe y las cuentas donde puede pagar. Una llamada por documento.',
     inputSchema: z.object({
-      documento: z.string().min(1).describe('El número de documento del cliente, sin puntos ni espacios'),
+      documento: z
+        .string()
+        .min(1)
+        .describe('El número de documento del cliente, sin puntos ni espacios'),
     }),
     execute: (input, options) =>
       run(deps, 'LookupCustomer', options.toolCallId, input, async () => {
@@ -111,8 +114,12 @@ export const buildTools = (deps: ToolDeps): ToolSet => ({
             await notifyQuietly(deps.messaging, result.adminMessage, deps.mediaId)
           }
 
-          const { adminMessage: _adminMessage, invoiceIds: _invoiceIds, failedInvoiceIds: _failed, ...forModel } =
-            result
+          const {
+            adminMessage: _adminMessage,
+            invoiceIds: _invoiceIds,
+            failedInvoiceIds: _failed,
+            ...forModel
+          } = result
 
           return forModel
         } catch (error) {
@@ -242,7 +249,6 @@ export const buildTools = (deps: ToolDeps): ToolSet => ({
       }),
   }),
 })
-
 
 /**
  * The wrapper every tool goes through: steering first, then the two step writes.

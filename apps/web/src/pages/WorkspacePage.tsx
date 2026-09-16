@@ -63,7 +63,7 @@ export const WorkspacePage = ({ tenantId }: { tenantId: string }) => {
           <ChatPanel conversation={selected} />
         ) : (
           <Card className="flex h-full items-center justify-center">
-            <p className="text-default-500 text-sm">Elige una conversación</p>
+            <p className="text-sm text-default-500">Elige una conversación</p>
           </Card>
         )}
       </div>

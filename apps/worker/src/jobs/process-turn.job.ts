@@ -116,13 +116,15 @@ export class ProcessTurnJobHandler {
         input: { alertReason: rejected.alertReason },
       })
 
-      await this.messaging.forTenant(runtime).notifyAdmin(
-        [
-          `COMPROBANTE RETENIDO — ${ALERT_REASON_TEXT[rejected.alertReason as AlertReason] ?? rejected.alertReason}`,
-          `Cliente: ${conversation.phone ?? conversation.personId}`,
-        ].join('\n'),
-        rejected.mediaId,
-      )
+      await this.messaging
+        .forTenant(runtime)
+        .notifyAdmin(
+          [
+            `COMPROBANTE RETENIDO — ${ALERT_REASON_TEXT[rejected.alertReason as AlertReason] ?? rejected.alertReason}`,
+            `Cliente: ${conversation.phone ?? conversation.personId}`,
+          ].join('\n'),
+          rejected.mediaId,
+        )
 
       await run.recorder.finish(step, { status: 'done', output: { reply: MANUAL_REVIEW_REPLY } })
       await this.conversations.finishTurn(tenantId, conversationId, consumed, MANUAL_REVIEW_REPLY)

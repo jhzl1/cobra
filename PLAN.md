@@ -26,7 +26,7 @@ Lo que hay que igualar, verificado contra n8n por MCP:
 
 - **7.039 ejecuciones** desde el 7 de agosto, unas 180 por día.
 - **14 errores en total**, 0,2%. Trece de ellos en una misma sesión de arreglo el 9 de septiembre;
-  los otros dos son fallos reales de producción, analizados en *Cuando algo falla* más abajo.
+  los otros dos son fallos reales de producción, analizados en _Cuando algo falla_ más abajo.
 - Un solo número en producción, con su `phone_number_id` propio.
 - Los eventos `statuses` (visto, entregado) entran por el mismo webhook y mueren en el filtro
   `Es un mensaje?`. Son la mayoría del tráfico entrante y hay que descartarlos antes de la cola.
@@ -41,8 +41,8 @@ Evolution API en vez de Dualhook, MiniMax en vez de OpenRouter, y un esquema de 
 corre hoy, pero su `STATUS.md` deja dos lecciones que aplican igual:
 
 - **El filtro de mensajes propios no es opcional.** Sin él, cada mensaje que envía el bot vuelve a
-  disparar el webhook: *"sin ese filtro los envíos del propio bot re-disparan el webhook en bucle
-  infinito"*. En la ruta de Meta esto reaparece como el evento `smb_message_echoes`.
+  disparar el webhook: _"sin ese filtro los envíos del propio bot re-disparan el webhook en bucle
+  infinito"_. En la ruta de Meta esto reaparece como el evento `smb_message_echoes`.
 - **El administrador tenía dos números**: uno para notificaciones y otro para fallos técnicos.
   El workflow original solo usa el primero. Hay que confirmar si eso fue una unificación
   deliberada o una pérdida, porque define si `tenants` lleva uno o dos teléfonos de administrador.
@@ -51,19 +51,19 @@ corre hoy, pero su `STATUS.md` deja dos lecciones que aplican igual:
 
 ## Decisiones ya tomadas
 
-| Tema | Decisión |
-|---|---|
-| Configurabilidad | Flujo idéntico para todos. Por cliente cambian: credenciales, nombre de compañía, teléfono de soporte, teléfono del administrador. |
-| Tiempo real | Supabase Realtime, sin gateway de WebSocket propio. |
-| Migración | Sin puentes hacia n8n. Se construye completo y se apaga n8n cuando esté listo. |
-| Traza | Timeline de pasos, no grafo de nodos. |
-| Infra | Railway (API + worker) + Supabase (Postgres, Auth, Realtime, Storage). Colas con `pg-boss`. Sin Redis. |
-| Ráfagas | Ventana de 1,5 s para texto. El media entra de inmediato, sin esperar. |
-| Mensajes a mitad de turno | `steer`: se revisa antes de lanzar cada tool, la que ya corre termina, las que no arrancaron se saltan. |
-| Facturación | Solo Wisphub. Cobra es un producto vertical para ISP que facturan ahí; las tools se escriben contra esa API sin capa de abstracción. |
-| Roles | Uno solo. Todo usuario de un cliente ve conversaciones, hace handoff, carga credenciales y edita la configuración de su empresa. |
-| Aviso de handoff | Bandeja en el panel **y** mensaje de WhatsApp al operador, igual que las alertas al administrador hoy. |
-| Datos actuales | Se arranca limpio. Nada de Mongo se migra. |
+| Tema                      | Decisión                                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Configurabilidad          | Flujo idéntico para todos. Por cliente cambian: credenciales, nombre de compañía, teléfono de soporte, teléfono del administrador.   |
+| Tiempo real               | Supabase Realtime, sin gateway de WebSocket propio.                                                                                  |
+| Migración                 | Sin puentes hacia n8n. Se construye completo y se apaga n8n cuando esté listo.                                                       |
+| Traza                     | Timeline de pasos, no grafo de nodos.                                                                                                |
+| Infra                     | Railway (API + worker) + Supabase (Postgres, Auth, Realtime, Storage). Colas con `pg-boss`. Sin Redis.                               |
+| Ráfagas                   | Ventana de 1,5 s para texto. El media entra de inmediato, sin esperar.                                                               |
+| Mensajes a mitad de turno | `steer`: se revisa antes de lanzar cada tool, la que ya corre termina, las que no arrancaron se saltan.                              |
+| Facturación               | Solo Wisphub. Cobra es un producto vertical para ISP que facturan ahí; las tools se escriben contra esa API sin capa de abstracción. |
+| Roles                     | Uno solo. Todo usuario de un cliente ve conversaciones, hace handoff, carga credenciales y edita la configuración de su empresa.     |
+| Aviso de handoff          | Bandeja en el panel **y** mensaje de WhatsApp al operador, igual que las alertas al administrador hoy.                               |
+| Datos actuales            | Se arranca limpio. Nada de Mongo se migra.                                                                                           |
 
 **Decisión abierta:** si el agente corre en el worker de Railway o en un Durable Object de
 Cloudflare. No bloquea nada: `packages/agent` queda aislado del runtime y el steering se resuelve
@@ -91,7 +91,7 @@ cobra/
 
 **`packages/agent` no sabe dónde corre.** Recibe una conversación y sus mensajes, devuelve una
 respuesta y la lista de pasos que dio. No importa NestJS, no importa `pg-boss`, no abre conexiones.
-Quien decide *cuándo* llamarlo es el worker.
+Quien decide _cuándo_ llamarlo es el worker.
 
 Esa frontera mantiene abierta una decisión que **no está tomada**: si el agente termina viviendo
 en un Durable Object de Cloudflare —un objeto vivo por conversación, escritor único— en vez de en
@@ -184,7 +184,7 @@ messages       (id, conversation_id, tenant_id, direction, author,
                -- delivery_state: 'pending' | 'sent' | 'failed'  (solo outbound)
 ```
 
-`unique(wamid)` — es la defensa contra los reintentos de Meta, que entrega *at-least-once*
+`unique(wamid)` — es la defensa contra los reintentos de Meta, que entrega _at-least-once_
 y reintenta con backoff hasta 7 días si no recibe 200.
 
 **Cambio frente a n8n:** hoy, tras un pago exitoso, `Memory Cleaner v3` **borra** la colección
@@ -256,6 +256,7 @@ El controller: `rawBody: true` en `NestFactory.create`, un solo INSERT en `messa
 encolar. Persistir y luego responder, no al revés.
 
 Filtros heredados de n8n, que se mantienen:
+
 - Solo `type` en `text` e `image`. Todo lo demás se descarta.
 - Solo mensajes de menos de 1 hora, medidos contra `messages[].timestamp` de Meta, no contra la
   hora de llegada.
@@ -296,8 +297,8 @@ misma transacción que el registro del mensaje saliente.
 ### 2.1 Steering: mensajes que llegan con el turno ya corriendo
 
 Es el comportamiento por defecto de OpenClaw (`messages.queue.mode: "steer"`) y se replica igual.
-El principio, en sus palabras: *"Stopping already-running work is a different intent from
-redirecting future work."*
+El principio, en sus palabras: _"Stopping already-running work is a different intent from
+redirecting future work."_
 
 El mensaje nuevo **no interrumpe nada**. Entra en un punto de chequeo, antes de lanzar cada tool:
 
@@ -334,6 +335,7 @@ después.
    justamente quien paga dos cuentas—, **el primero se descarta sin error, sin alerta y sin
    registro**. Es un defecto conocido del patrón, reportado también en otras integraciones de
    WhatsApp.
+
 2. **Si hay imagen**: descarga de `GET api.dualhook.com/v25.0/{mediaId}/content`, sube a Storage.
 3. **Visión**: Gemini 3.5 Flash vía OpenRouter con el prompt del extractor tal cual está hoy
    (está completo en el spec), salida estructurada validada con zod:
@@ -342,16 +344,16 @@ después.
    desempate por `entity_name`.
 5. **Validar**, cinco reglas excluyentes en este orden — el orden importa:
 
-   | # | Condición | `alertReason` |
-   |---|---|---|
-   | 1 | `isVoucher == false` | La imagen no es un comprobante de pago |
-   | 2 | fecha legible pero de más de 7 días | Comprobante con más de 7 días |
-   | 3 | cuenta destino no está en `payment_methods` | Cuenta destino no es de la empresa |
-   | 4 | referencia ya usada | Comprobante ya registrado antes |
-   | 5 | fecha ilegible | No se pudo leer la fecha del comprobante |
+   | #   | Condición                                   | `alertReason`                            |
+   | --- | ------------------------------------------- | ---------------------------------------- |
+   | 1   | `isVoucher == false`                        | La imagen no es un comprobante de pago   |
+   | 2   | fecha legible pero de más de 7 días         | Comprobante con más de 7 días            |
+   | 3   | cuenta destino no está en `payment_methods` | Cuenta destino no es de la empresa       |
+   | 4   | referencia ya usada                         | Comprobante ya registrado antes          |
+   | 5   | fecha ilegible                              | No se pudo leer la fecha del comprobante |
 
    Cualquier rechazo **saltea el agente**: responde el texto fijo al cliente
-   (*"Necesitamos revisar tu comprobante manualmente. Un asesor te escribe por aquí en breve."*)
+   (_"Necesitamos revisar tu comprobante manualmente. Un asesor te escribe por aquí en breve."_)
    y alerta al administrador. El `alertReason` es interno, nunca se le manda al cliente.
 
 6. **Guardar comprobante** y luego consultar pendientes — en ese orden, para que el comprobante
@@ -405,9 +407,9 @@ tiene cuatro estados y no dos:
 4. Timeout o error de red → `unknown`, y una rutina de reconciliación lee
    `GET /api/clientes/{id}/saldo` para resolverlo.
 
-Mientras hay un `unknown`, el bot dice exactamente lo que dice hoy: *"Recibimos tu comprobante y
+Mientras hay un `unknown`, el bot dice exactamente lo que dice hoy: _"Recibimos tu comprobante y
 está en verificación. No es necesario que lo envíes de nuevo; te confirmamos apenas quede
-aplicado."* Nunca "falló", para no inducir un segundo pago.
+aplicado."_ Nunca "falló", para no inducir un segundo pago.
 
 ### 6. Cuando algo falla, el cliente no se queda mudo
 
@@ -527,13 +529,13 @@ existe.
 
 Estimado para un desarrollador a tiempo completo.
 
-| # | Qué entrega | Cuándo está listo |
-|---|---|---|
-| 1 | Monorepo, Supabase, auth, tenants, miembros, credenciales cifradas, panel de administración | 1 semana |
-| 2 | Webhook, ingesta, conversaciones, chat en vivo, handoff, envío por Dualhook | 1,5 semanas |
-| 3 | Runtime del agente: debounce, steering, visión, validación, las 4 tools contra Wisphub, memoria | 3 semanas |
-| 4 | Timeline en vivo, `agent_runs` / `agent_steps`, reenviar al agente | 1 semana |
-| 5 | Onboarding de clientes, reconciliación de pagos, corte de n8n | 1 semana |
+| #   | Qué entrega                                                                                     | Cuándo está listo |
+| --- | ----------------------------------------------------------------------------------------------- | ----------------- |
+| 1   | Monorepo, Supabase, auth, tenants, miembros, credenciales cifradas, panel de administración     | 1 semana          |
+| 2   | Webhook, ingesta, conversaciones, chat en vivo, handoff, envío por Dualhook                     | 1,5 semanas       |
+| 3   | Runtime del agente: debounce, steering, visión, validación, las 4 tools contra Wisphub, memoria | 3 semanas         |
+| 4   | Timeline en vivo, `agent_runs` / `agent_steps`, reenviar al agente                              | 1 semana          |
+| 5   | Onboarding de clientes, reconciliación de pagos, corte de n8n                                   | 1 semana          |
 
 **Nada de Mongo se migra.** El corte arranca con la base vacía.
 

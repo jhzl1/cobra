@@ -124,9 +124,13 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
       },
     )
 
-    await this.boss.work<ProcessReceiptJob>(QUEUES.processReceipt, { batchSize: 2 }, async (jobs) => {
-      for (const job of jobs) await this.receipts.handle(job.data)
-    })
+    await this.boss.work<ProcessReceiptJob>(
+      QUEUES.processReceipt,
+      { batchSize: 2 },
+      async (jobs) => {
+        for (const job of jobs) await this.receipts.handle(job.data)
+      },
+    )
 
     await this.boss.work<SendMessageJob>(QUEUES.sendMessage, { batchSize: 5 }, async (jobs) => {
       for (const job of jobs) await this.sends.handle(job.data)

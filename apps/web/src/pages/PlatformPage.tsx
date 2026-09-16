@@ -56,7 +56,7 @@ const CreateTenantCard = () => {
     <Card>
       <CardHeader className="flex-col items-start">
         <h2 className="font-medium">Crear empresa</h2>
-        <p className="text-default-500 text-sm">
+        <p className="text-sm text-default-500">
           Quedas como miembro de la empresa que crees. El identificador va dentro de la URL del
           webhook y no se puede cambiar después.
         </p>
@@ -100,7 +100,7 @@ const CreateTenantCard = () => {
           Crear
         </Button>
 
-        {create.error && <p className="text-danger w-full text-sm">{create.error.message}</p>}
+        {create.error && <p className="w-full text-sm text-danger">{create.error.message}</p>}
       </CardBody>
     </Card>
   )
@@ -142,7 +142,7 @@ const GrantsCard = () => {
     <Card>
       <CardHeader className="flex-col items-start">
         <h2 className="font-medium">Administradores de la plataforma</h2>
-        <p className="text-default-500 text-sm">
+        <p className="text-sm text-default-500">
           Se otorga por correo, aunque esa persona todavía no tenga cuenta: el rol se amarra a su
           identidad la primera vez que entra. Revocar conserva el registro.
         </p>
@@ -201,7 +201,7 @@ const GrantsCard = () => {
           </Button>
         </div>
 
-        {grant.error && <p className="text-danger text-sm">{grant.error.message}</p>}
+        {grant.error && <p className="text-sm text-danger">{grant.error.message}</p>}
       </CardBody>
     </Card>
   )
