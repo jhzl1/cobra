@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+} from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
@@ -11,6 +21,7 @@ import {
 } from '@cobra/contracts'
 import { AuthClient } from '~/auth/auth-client.decorator'
 import { readCallerId } from '~/auth/caller'
+import { RequireAdmin } from '~/auth/require-admin.decorator'
 import { ZodValidationPipe } from '~/common/pipes/zod-validation.pipe'
 import { TenantsService } from './tenants.service'
 
@@ -32,7 +43,13 @@ export class TenantsController {
     return this.tenants.listMine(ctx.supabase)
   }
 
+  /**
+   * Only whoever administers the platform. Until this gate existed, anyone with
+   * a session could create a company and became its member — the only thing
+   * holding that back was that sign-up is closed.
+   */
   @Post()
+  @RequireAdmin()
   @ApiOperation({ summary: 'Crear una empresa y quedar como miembro' })
   create(
     @SupabaseCtx() ctx: SupabaseContext,

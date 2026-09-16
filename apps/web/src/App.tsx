@@ -1,13 +1,15 @@
 import { Button, HeroUIProvider, Select, SelectItem, Spinner, Tab, Tabs } from '@heroui/react'
 import { QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { LoginPage } from '~/pages/LoginPage'
-import { SettingsPage } from '~/pages/SettingsPage'
-import { WorkspacePage } from '~/pages/WorkspacePage'
-import { SessionProvider, useSession } from '~/providers/SessionProvider'
+import { usePlatformIdentity } from '~/hooks/usePlatform'
 import { api } from '~/lib/api'
 import { queryClient, queryKeys } from '~/lib/queryClient'
 import { supabase } from '~/lib/supabase'
+import { LoginPage } from '~/pages/LoginPage'
+import { PlatformPage } from '~/pages/PlatformPage'
+import { SettingsPage } from '~/pages/SettingsPage'
+import { WorkspacePage } from '~/pages/WorkspacePage'
+import { SessionProvider, useSession } from '~/providers/SessionProvider'
 
 interface Tenant {
   id: string
@@ -38,9 +40,13 @@ const Shell = () => {
   return session ? <Authenticated /> : <LoginPage />
 }
 
+type View = 'chats' | 'settings' | 'platform'
+
 const Authenticated = () => {
   const [tenantId, setTenantId] = useState<string | null>(null)
-  const [view, setView] = useState<'chats' | 'settings'>('chats')
+  const [view, setView] = useState<View>('chats')
+  const identity = usePlatformIdentity()
+  const isAdmin = identity.data?.isPlatformAdmin ?? false
 
   const tenants = useQuery({
     queryKey: queryKeys.tenants,
@@ -77,10 +83,13 @@ const Authenticated = () => {
             aria-label="Vista"
             size="sm"
             selectedKey={view}
-            onSelectionChange={(key) => setView(key as 'chats' | 'settings')}
+            onSelectionChange={(key) => setView(key as View)}
           >
             <Tab key="chats" title="Conversaciones" />
             <Tab key="settings" title="Configuración" />
+            {/* Only for whoever administers the platform. Anyone else never sees
+                the tab, and reaching it anyway still gets a 403 from the API. */}
+            {isAdmin ? <Tab key="platform" title="Plataforma" /> : null}
           </Tabs>
         </div>
 
@@ -92,10 +101,31 @@ const Authenticated = () => {
         </div>
       </header>
 
-      {!tenantId && <p className="text-default-500 text-sm">Todavía no perteneces a ninguna empresa.</p>}
+      {view === 'platform' && isAdmin && (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <PlatformPage />
+        </div>
+      )}
 
-      {tenantId && view === 'chats' && <WorkspacePage tenantId={tenantId} />}
-      {tenantId && view === 'settings' && (
+      {/* An empty panel with no way forward is a dead end: an administrator is
+          sent to create the first company, anyone else to whoever can. */}
+      {view !== 'platform' && !tenantId && !identity.isLoading && (
+        <div className="flex flex-col items-start gap-2">
+          <p className="text-default-500 text-sm">Todavía no hay ninguna empresa a tu nombre.</p>
+          {isAdmin ? (
+            <Button size="sm" color="primary" onPress={() => setView('platform')}>
+              Crear la primera empresa
+            </Button>
+          ) : (
+            <p className="text-default-500 text-sm">
+              Pídele a quien administra la plataforma que te agregue a una.
+            </p>
+          )}
+        </div>
+      )}
+
+      {view === 'chats' && tenantId && <WorkspacePage tenantId={tenantId} />}
+      {view === 'settings' && tenantId && (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <SettingsPage tenantId={tenantId} />
         </div>

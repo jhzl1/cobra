@@ -60,8 +60,11 @@ const buildHelmet = () => {
     },
   })
 
-  return (req: Parameters<ReturnType<typeof helmet>>[0], res: Parameters<ReturnType<typeof helmet>>[1], next: Parameters<ReturnType<typeof helmet>>[2]) =>
-    req.url?.startsWith(DOCS_PATH) ? forDocs(req, res, next) : strict(req, res, next)
+  return (
+    req: Parameters<ReturnType<typeof helmet>>[0],
+    res: Parameters<ReturnType<typeof helmet>>[1],
+    next: Parameters<ReturnType<typeof helmet>>[2],
+  ) => (req.url?.startsWith(DOCS_PATH) ? forDocs(req, res, next) : strict(req, res, next))
 }
 
 void bootstrap()

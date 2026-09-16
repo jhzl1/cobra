@@ -26,7 +26,9 @@ export const ConversationList = ({ conversations, selectedId, onSelect }: Props)
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">
-              {conversation.contact.displayName ?? conversation.contact.phone ?? conversation.contact.personId}
+              {conversation.contact.displayName ??
+                conversation.contact.phone ??
+                conversation.contact.personId}
             </p>
             <p className="text-default-500 truncate text-xs">
               {conversation.lastMessagePreview ?? 'Sin mensajes'}
@@ -41,7 +43,11 @@ export const ConversationList = ({ conversations, selectedId, onSelect }: Props)
                 Falló
               </Chip>
             )}
-            <Chip size="sm" variant="flat" color={conversation.status === 'human' ? 'warning' : 'default'}>
+            <Chip
+              size="sm"
+              variant="flat"
+              color={conversation.status === 'human' ? 'warning' : 'default'}
+            >
               {STATUS_LABEL[conversation.status]}
             </Chip>
           </div>
