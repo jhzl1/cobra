@@ -65,12 +65,30 @@ tools ya tocaron Wisphub.
 
 ```bash
 pnpm install
+cp apps/api/.env.example apps/api/.env
+cp apps/worker/.env.example apps/worker/.env
+cp apps/web/.env.example apps/web/.env
+cp packages/db/.env.example packages/db/.env
 pnpm --filter @cobra/db db:start      # Supabase local
 pnpm --filter @cobra/db db:reset      # aplica las migraciones
 pnpm dev                              # api + worker + web
 ```
 
 Node 22, pnpm 10.
+
+Cada aplicación tiene su propio `.env.example` al lado de su `package.json`, y cada
+uno documenta solo lo que esa aplicación necesita:
+
+| Archivo | Para qué |
+|---|---|
+| `apps/api/.env.example` | HTTP, webhook, Supabase, cola |
+| `apps/worker/.env.example` | Supabase, cola, concurrencia de turnos |
+| `apps/web/.env.example` | Solo variables `VITE_`, que viajan al navegador |
+| `packages/db/.env.example` | El project ref, para los scripts del CLI de Supabase |
+
+`CREDENTIALS_MASTER_KEY` tiene que ser idéntica en `api` y en `worker`: el panel
+cifra las credenciales del cliente con ella y el worker las descifra. Si difieren,
+el agente no puede hablar con Meta ni con Wisphub.
 
 ## Comandos
 
