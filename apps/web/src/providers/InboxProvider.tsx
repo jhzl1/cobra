@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { createContext, use, useCallback, useEffect, useState } from 'react'
+import { createContext, use, useEffect, useRef, useState } from 'react'
 import type { ConversationSummary } from '@cobra/contracts'
 import { useTenantStream } from '~/hooks/useTenantStream'
 import { useUnread } from '~/hooks/useUnread'
@@ -53,21 +53,46 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
   const list = conversations.data ?? []
   const { isUnread, count } = useUnread(list, openId)
 
-  const onInbound = useCallback(
-    (conversationId: string) => {
-      if (conversationId === openId && document.visibilityState === 'visible') return
+  useTenantStream(tenantId)
 
-      const from = list.find((conversation) => conversation.id === conversationId)
+  /**
+   * The alert, derived from the list rather than from the broadcast.
+   *
+   * A customer writing is the only thing that moves `lastInboundAt` — the agent
+   * answering does not — so a value that advanced since the last render is
+   * exactly one new inbound message, with no payload to parse. The first render
+   * only takes a baseline: without it every conversation looks new and the panel
+   * greets whoever signs in with a chord.
+   */
+  const lastInbound = useRef<Map<string, string> | null>(null)
+
+  useEffect(() => {
+    // Until the query resolves, `list` is an empty array — and taking the
+    // baseline from it makes every conversation look new the moment the real
+    // one arrives, so the panel greeted whoever signed in with a chord.
+    if (!conversations.isSuccess) return
+
+    const seenBefore = lastInbound.current
+    const now = new Map(list.map((c) => [c.id, c.lastInboundAt ?? '']))
+
+    lastInbound.current = now
+
+    if (!seenBefore) return
+
+    for (const conversation of list) {
+      const before = seenBefore.get(conversation.id)
+      const after = conversation.lastInboundAt ?? ''
+
+      if (!after || after === before) continue
+      if (before && after <= before) continue
+      if (conversation.id === openId && document.visibilityState === 'visible') continue
 
       announce(
-        from?.contact.displayName ?? from?.contact.phone ?? 'Mensaje nuevo',
-        from?.lastMessagePreview ?? 'Te escribieron por WhatsApp',
+        conversation.contact.displayName ?? conversation.contact.phone ?? 'Mensaje nuevo',
+        conversation.lastMessagePreview ?? 'Te escribieron por WhatsApp',
       )
-    },
-    [list, openId],
-  )
-
-  useTenantStream(tenantId, onInbound)
+    }
+  }, [list, openId, conversations.isSuccess])
 
   // The count in the tab title is what carries over to a window that is behind
   // something else, and it needs no permission from anyone.

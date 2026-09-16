@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { tenantTopic } from '@cobra/contracts'
 import { queryKeys } from '~/lib/queryClient'
 import { supabase } from '~/lib/supabase'
@@ -11,49 +11,21 @@ import { supabase } from '~/lib/supabase'
  * other one: without it a message arriving in a chat nobody has open reached
  * nobody, and the list only caught up on a reload.
  *
- * `onInbound` fires for a customer's message, which is the only kind worth
- * interrupting someone for — the agent's own replies come through here too.
+ * It only ever says "something changed". Deciding *what* from the broadcast
+ * payload is what kept the alert silent — the shape has to be guessed, and a
+ * wrong guess fails without failing. The inbox works it out from the refetched
+ * list instead, which is data it already trusts.
  */
-export const useTenantStream = (
-  tenantId: string | null,
-  onInbound: (conversationId: string) => void,
-): void => {
+export const useTenantStream = (tenantId: string | null): void => {
   const queryClient = useQueryClient()
-
-  /**
-   * The callback is held in a ref and kept out of the dependencies.
-   *
-   * It closes over the conversation list, so it changed identity on every
-   * refetch — and since every broadcast triggers one, the channel was torn down
-   * and rejoined on each message. Joining is asynchronous, so the subscription
-   * spent its life half-open and the alert fired for almost nothing.
-   */
-  const notify = useRef(onInbound)
-
-  useEffect(() => {
-    notify.current = onInbound
-  }, [onInbound])
 
   useEffect(() => {
     if (!tenantId) return
 
     const channel = supabase
       .channel(tenantTopic(tenantId), { config: { private: true } })
-      .on('broadcast', { event: '*' }, (payload) => {
-        const body = payload['payload'] as
-          { table?: string; operation?: string; record?: Record<string, unknown> } | undefined
-
+      .on('broadcast', { event: '*' }, () => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.conversations(tenantId) })
-
-        const record = body?.record
-
-        if (
-          body?.table === 'messages' &&
-          body.operation === 'INSERT' &&
-          record?.['direction'] === 'inbound'
-        ) {
-          notify.current(record['conversation_id'] as string)
-        }
       })
       .subscribe()
 
