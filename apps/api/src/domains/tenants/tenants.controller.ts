@@ -205,7 +205,7 @@ export class TenantsController {
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Param('numberId', ParseUUIDPipe) numberId: string,
   ) {
-    return this.tenants.retireNumber(ctx.supabase, tenantId, numberId)
+    return this.tenants.retireNumber(readCallerId(ctx.userClaims), tenantId, numberId)
   }
 
   @Delete(':tenantId/payment-methods/:methodId')

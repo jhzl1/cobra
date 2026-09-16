@@ -444,16 +444,31 @@ export class TenantsService {
    * what along with it, and the partial unique index already frees the
    * `phone_number_id` the moment `valid_to` is set — which is what makes
    * registering it again work.
+   *
+   * Runs with the secret key, like `registerNumber` does and for the same
+   * reason: the table has select policies and nothing else, so a write with the
+   * caller's client matches no rows and reports no error — it just does nothing.
+   * Membership is checked first, which is the check the missing policy would
+   * have made.
    */
-  async retireNumber(client: SupabaseClient, tenantId: string, numberId: string) {
-    const { error } = await client
+  async retireNumber(userId: string, tenantId: string, numberId: string): Promise<void> {
+    await this.assertMembership(userId, tenantId)
+
+    const { data, error } = await this.supabase.admin
       .from('whatsapp_numbers')
       .update({ valid_to: new Date().toISOString() })
       .eq('tenant_id', tenantId)
       .eq('id', numberId)
       .is('valid_to', null)
+      .select('id')
 
     if (error) throw this.toHttpError(error)
+
+    // An update that matched nothing is the silent failure this method exists to
+    // avoid repeating: say so rather than answering as if it worked.
+    if (!data?.length) {
+      throw new NotFoundException('Ese número no existe o ya estaba dado de baja')
+    }
   }
 
   async removePaymentMethod(client: SupabaseClient, tenantId: string, methodId: string) {
