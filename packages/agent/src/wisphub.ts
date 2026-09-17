@@ -1,7 +1,6 @@
+import { WISPHUB_BASE_URL, wisphubAuthHeader } from '@cobra/contracts'
 import { formatCop } from './normalize'
 import type { WisphubCustomer, WisphubInvoice, WisphubPort } from './types'
-
-const WISPHUB_BASE_URL = 'https://api.wisphub.net'
 
 export interface WisphubClientOptions {
   apiKey: string
@@ -113,7 +112,7 @@ export class WisphubClient implements WisphubPort {
       const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
         method,
         headers: {
-          Authorization: `Api-Key ${this.options.apiKey}`,
+          Authorization: wisphubAuthHeader(this.options.apiKey),
           'Content-Type': 'application/json',
         },
         body: body === undefined ? undefined : JSON.stringify(body),

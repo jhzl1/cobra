@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import type { PaymentMethod } from '@cobra/agent'
+import { type PaymentMethod, usableInZone } from '@cobra/agent'
 import { SupabaseService } from '../runtime/supabase.service.js'
 
 @Injectable()
@@ -7,20 +7,27 @@ export class PaymentMethodRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
   /**
-   * The tenant's accounts, optionally narrowed to one zone.
+   * The accounts the agent may offer a customer of this zone.
    *
-   * Zones exist because a customer in one town pays into a different account
-   * than one in the next, and telling a customer to pay into an account that is
-   * not theirs is how a receipt ends up rejected by rule 3.
+   * An account with no zone belongs to everyone — it is the company's general
+   * one. The filter used to be `zone = customerZone` in SQL, which dropped
+   * exactly those the moment the customer had a zone, so the general account was
+   * never offered to anyone who had one.
+   *
+   * It is decided in memory rather than in the query because the rule is one
+   * sentence and a tenant has a handful of accounts, and because that way it is
+   * tested — see `usableInZone` in @cobra/agent.
    */
   async list(tenantId: string, zone: string | null): Promise<PaymentMethod[]> {
-    let query = this.supabase
+    const all = await this.fetchAll(tenantId)
+
+    return all.filter((method) => usableInZone(method, zone))
+  }
+
+  private async fetchAll(tenantId: string): Promise<PaymentMethod[]> {
+    const { data, error } = await this.supabase
       .scope(tenantId)
       .select('payment_methods', 'id, zone, entity_name, payment_address, wisphub_id, description')
-
-    if (zone) query = query.eq('zone', zone)
-
-    const { data, error } = await query
 
     if (error) throw error
 
@@ -34,8 +41,14 @@ export class PaymentMethodRepository {
     }))
   }
 
-  /** Every account of the tenant, for matching a receipt whose zone is unknown. */
+  /**
+   * Every account of the tenant, zoned or not.
+   *
+   * For matching a receipt that arrived before anyone identified the customer:
+   * there is no zone to narrow by yet, and an account left out here is a receipt
+   * held for a human over a payment that was perfectly fine.
+   */
   listAll(tenantId: string): Promise<PaymentMethod[]> {
-    return this.list(tenantId, null)
+    return this.fetchAll(tenantId)
   }
 }

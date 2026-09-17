@@ -2,6 +2,25 @@ import { digitsOnly } from './normalize'
 import type { PaymentMethod } from './types'
 
 /**
+ * Whether an account is on offer to a customer in a given zone.
+ *
+ * A zone is optional, and its absence means "anyone": an account with none is
+ * the company's general one and every customer may pay into it. An account that
+ * does carry a zone is only for customers of that zone, which is what stops the
+ * agent telling someone in one town to pay into the account of the next.
+ *
+ * Comparison is by name and case-insensitive, because both sides ultimately come
+ * from the same field in Wisphub and an operator picking from a list is not the
+ * only way a zone gets in here.
+ */
+export const usableInZone = (method: PaymentMethod, customerZone: string | null): boolean => {
+  if (!method.zone) return true
+  if (!customerZone) return false
+
+  return method.zone.trim().toUpperCase() === customerZone.trim().toUpperCase()
+}
+
+/**
  * Which of the tenant's accounts a receipt was paid into.
  *
  * Matching is by suffix because a Nequi screenshot shows `***1234` and a
