@@ -21,7 +21,7 @@ import type {
 } from '@cobra/contracts'
 import {
   WISPHUB_BASE_URL,
-  type WisphubPaymentMethod,
+  type WisphubNamed,
   wisphubAuthHeader,
   wisphubPageSchema,
 } from '@cobra/contracts'
@@ -409,37 +409,50 @@ export class TenantsService {
     }
   }
 
+  /** The collection accounts of the company, as Wisphub knows them. */
+  listWisphubPaymentMethods(userId: string, tenantId: string): Promise<WisphubNamed[]> {
+    return this.wisphubList(userId, tenantId, 'formas-de-pago')
+  }
+
   /**
-   * The company's collection accounts as Wisphub knows them.
+   * The zones of the company.
+   *
+   * A zone is optional on an account: one with none is offered to every
+   * customer. It is matched by name because that is what
+   * `GET /api/clientes` puts on a customer — the id never travels with them.
+   */
+  listWisphubZones(userId: string, tenantId: string): Promise<WisphubNamed[]> {
+    return this.wisphubList(userId, tenantId, 'zonas')
+  }
+
+  /**
+   * One paginated list from Wisphub.
    *
    * Asked here and not by the panel: the API key never leaves the server. It is
    * also not the agent's client doing the call — that package is ESM only and
    * this process is CommonJS — so the base URL and the auth header come from
    * `@cobra/contracts`, which both of them read.
-   *
-   * What comes back is a name and an id. The account number a customer actually
-   * pays into is not in Wisphub, so it stays on our side and is what a receipt
-   * gets matched against.
    */
-  async listWisphubPaymentMethods(
+  private async wisphubList(
     userId: string,
     tenantId: string,
-  ): Promise<WisphubPaymentMethod[]> {
+    resource: 'formas-de-pago' | 'zonas',
+  ): Promise<WisphubNamed[]> {
     await this.assertMembership(userId, tenantId)
 
     const apiKey = await this.readCredentialSecret(tenantId, 'wisphub')
 
     if (!apiKey) {
       throw new ConflictException(
-        'Esta empresa todavía no tiene cargada la credencial de Wisphub, así que no hay de dónde traer sus formas de pago.',
+        'Esta empresa todavía no tiene cargada la credencial de Wisphub, así que no hay de dónde traer sus datos.',
       )
     }
 
-    const found: WisphubPaymentMethod[] = []
-    let url: string | null = `${WISPHUB_BASE_URL}/api/formas-de-pago/`
+    const found: WisphubNamed[] = []
+    let url: string | null = `${WISPHUB_BASE_URL}/api/${resource}/`
 
-    // Wisphub paginates, and a company with many accounts would otherwise show
-    // only the first page — the one the operator needs might be on the second.
+    // Wisphub paginates, and the one the operator needs may be on the second
+    // page.
     for (let page = 1; url && page <= WISPHUB_MAX_PAGES; page += 1) {
       const response: Response = await fetch(url, {
         headers: { Authorization: wisphubAuthHeader(apiKey) },
@@ -447,16 +460,14 @@ export class TenantsService {
       })
 
       if (!response.ok) {
-        this.logger.error(`Wisphub answered ${response.status} listing payment methods`)
-        throw new InternalServerErrorException(
-          'Wisphub no respondió a la consulta de formas de pago',
-        )
+        this.logger.error(`Wisphub answered ${response.status} listing ${resource}`)
+        throw new InternalServerErrorException(`Wisphub no respondió a la consulta de ${resource}`)
       }
 
       const parsed = wisphubPageSchema.safeParse(await response.json())
 
       if (!parsed.success) {
-        this.logger.error(`Wisphub answered an unexpected shape listing payment methods`)
+        this.logger.error(`Wisphub answered an unexpected shape listing ${resource}`)
         throw new InternalServerErrorException('Wisphub respondió algo que no se pudo leer')
       }
 

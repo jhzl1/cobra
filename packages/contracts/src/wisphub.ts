@@ -16,24 +16,29 @@ export const WISPHUB_BASE_URL = 'https://api.wisphub.net'
 export const wisphubAuthHeader = (apiKey: string): string => `Api-Key ${apiKey}`
 
 /**
- * A collection account as Wisphub knows it, which is a name and nothing else.
+ * A named thing in Wisphub. Both the collection accounts and the zones come
+ * back in this shape, and nothing else about either is exposed.
  *
- * `id` is what travels back as `forma_pago` when a payment is registered. The
- * account number the customer actually pays into is not here — Wisphub does not
- * hold it — so that stays on our side, and it is what a receipt is matched
- * against.
+ * For an account, `id` is what travels back as `forma_pago` when a payment is
+ * registered. The account number the customer actually pays into is not here —
+ * Wisphub does not hold it — so that stays on our side, and it is what a receipt
+ * is matched against.
+ *
+ * For a zone, `nombre` is the value that matters: it is what
+ * `GET /api/clientes` puts on a customer, so it is what the two sides are
+ * compared by.
  */
-export const wisphubPaymentMethodSchema = z.object({
+export const wisphubNamedSchema = z.object({
   id: z.number().int(),
   nombre: z.string(),
 })
 
-export type WisphubPaymentMethod = z.infer<typeof wisphubPaymentMethodSchema>
+export type WisphubNamed = z.infer<typeof wisphubNamedSchema>
 
 /** Wisphub paginates in the Django REST style. */
 export const wisphubPageSchema = z.object({
   count: z.number().int(),
   next: z.string().nullable(),
   previous: z.string().nullable(),
-  results: z.array(wisphubPaymentMethodSchema),
+  results: z.array(wisphubNamedSchema),
 })

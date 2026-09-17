@@ -6,7 +6,7 @@ import { z } from 'zod'
 import {
   type CredentialProvider,
   type CredentialStatus,
-  type WisphubPaymentMethod,
+  type WisphubNamed,
   paymentMethodSchema,
   registerWhatsappNumberSchema,
   saveCredentialSchema,
@@ -498,6 +498,12 @@ const NumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose: () => 
 /* Payment methods ------------------------------------------------------------ */
 
 /**
+ * The sentinel for "no zone". Radix refuses an item with an empty value, and the
+ * absence of a zone is a real choice the operator makes rather than a blank.
+ */
+const ANY_ZONE = '__any__'
+
+/**
  * `zone` and `wisphubId` are nullable in the contract and can only hold '' in an
  * input, so the form keeps them as plain strings and converts on submit. Their
  * length limits come across unchanged.
@@ -582,13 +588,21 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
    * and a wrong one registers the payment under the wrong account without
    * complaining — Wisphub accepts any id it recognises.
    */
+  const zones = useQuery({
+    queryKey: queryKeys.wisphubZones(tenantId),
+    retry: false,
+    queryFn: async () => {
+      const { data } = await api.get<WisphubNamed[]>(`/tenants/${tenantId}/wisphub/zones`)
+
+      return data
+    },
+  })
+
   const wisphub = useQuery({
     queryKey: queryKeys.wisphubPaymentMethods(tenantId),
     retry: false,
     queryFn: async () => {
-      const { data } = await api.get<WisphubPaymentMethod[]>(
-        `/tenants/${tenantId}/wisphub/payment-methods`,
-      )
+      const { data } = await api.get<WisphubNamed[]>(`/tenants/${tenantId}/wisphub/payment-methods`)
 
       return data
     },
@@ -691,14 +705,33 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
 
       <form.Field name="zone">
         {(field) => (
-          <Field
-            label="Zona"
-            hint="Opcional. Sirve cuando la empresa recauda por zona."
-            value={field.state.value}
-            error={fieldError(field)}
-            onBlur={field.handleBlur}
-            onChange={(event) => field.handleChange(event.target.value)}
-          />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="wisphub-zone">Zona</Label>
+
+            <Select
+              value={field.state.value || ANY_ZONE}
+              disabled={zones.isLoading}
+              onValueChange={(next) => field.handleChange(next === ANY_ZONE ? '' : next)}
+            >
+              <SelectTrigger id="wisphub-zone" className="w-full">
+                <SelectValue placeholder={zones.isLoading ? 'Consultando a Wisphub…' : undefined} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ANY_ZONE}>Cualquier zona</SelectItem>
+                {(zones.data ?? []).map((zone) => (
+                  <SelectItem key={zone.id} value={zone.nombre}>
+                    {zone.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <p className="text-xs text-muted-foreground">
+              Sin zona, el agente se la ofrece a cualquier cliente. Con una, solo a los de esa zona.
+            </p>
+
+            {fieldError(field) && <p className="text-xs text-destructive">{fieldError(field)}</p>}
+          </div>
         )}
       </form.Field>
     </FormDialog>

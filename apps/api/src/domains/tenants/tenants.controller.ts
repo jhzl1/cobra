@@ -184,6 +184,15 @@ export class TenantsController {
     return this.tenants.listWisphubPaymentMethods(readCallerId(ctx.userClaims), tenantId)
   }
 
+  @Get(':tenantId/wisphub/zones')
+  @ApiOperation({ summary: 'Las zonas que la empresa tiene en Wisphub' })
+  listWisphubZones(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+  ) {
+    return this.tenants.listWisphubZones(readCallerId(ctx.userClaims), tenantId)
+  }
+
   @Get(':tenantId/payment-methods')
   @ApiOperation({ summary: 'Cuentas donde los clientes pagan' })
   listPaymentMethods(
