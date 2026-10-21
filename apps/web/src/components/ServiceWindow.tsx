@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { SERVICE_WINDOW_MS } from '@cobra/contracts'
-import { Badge } from '~/components/ui/badge'
+import { cn } from '~/lib/utils'
 
 export const remainingWindowMs = (
   lastInboundAt: string | null,
@@ -38,12 +38,14 @@ export const ServiceWindow = ({ lastInboundAt }: { lastInboundAt: string | null 
   }, [lastInboundAt])
 
   if (remaining <= 0) {
-    return <Badge variant="destructive">Ventana cerrada</Badge>
+    return <span className="whitespace-nowrap text-destructive">Ventana cerrada</span>
   }
 
+  // A line of text rather than a badge: it sits in the chat's subtitle, and it
+  // only takes colour in the last two hours, when it starts to matter.
   return (
-    <Badge variant={remaining < 2 * 60 * 60 * 1000 ? 'warning' : 'default'}>
+    <span className={cn('whitespace-nowrap', remaining < 2 * 60 * 60 * 1000 && 'text-warning')}>
       Quedan {format(remaining)} para escribirle
-    </Badge>
+    </span>
   )
 }

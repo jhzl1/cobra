@@ -1,9 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import type { ConversationSummary, HandoffInput, Message } from '@cobra/contracts'
-import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader } from '~/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -75,38 +73,41 @@ export const ChatPanel = ({ conversation }: Props) => {
   const windowClosed = remainingWindowMs(conversation.lastInboundAt) <= 0
   const isHuman = conversation.status === 'human'
 
+  const name =
+    conversation.contact.displayName ?? conversation.contact.phone ?? conversation.contact.personId
+
   return (
-    <Card className="flex h-full flex-col gap-0 overflow-hidden py-0">
-      <CardHeader className="flex items-center justify-between gap-2 py-4">
-        <div className="flex flex-col items-start gap-1">
-          <p className="font-medium">
-            {conversation.contact.displayName ??
-              conversation.contact.phone ??
-              conversation.contact.personId}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-3 md:px-6">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h2 className="truncate text-base font-semibold">{name}</h2>
+          <p className="flex flex-wrap items-center gap-x-2 font-mono text-xs text-muted-foreground">
+            {conversation.contact.displayName && conversation.contact.phone && (
+              <>
+                <span>{conversation.contact.phone}</span>
+                <span aria-hidden>·</span>
+              </>
+            )}
+            <ServiceWindow lastInboundAt={conversation.lastInboundAt} />
           </p>
-          <ServiceWindow lastInboundAt={conversation.lastInboundAt} />
         </div>
 
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant={isHuman ? 'secondary' : 'default'}
-            loading={handoff.isPending}
-            title={
-              isHuman
-                ? 'El agente vuelve a responder los mensajes que entren'
-                : 'El agente deja de responder y escribes tú'
-            }
-            onClick={() => handoff.mutate(isHuman ? 'release' : 'take')}
-          >
-            {isHuman ? 'Devolver el control' : 'Tomar el control'}
-          </Button>
-        </div>
-      </CardHeader>
+        <Button
+          size="sm"
+          variant={isHuman ? 'secondary' : 'default'}
+          loading={handoff.isPending}
+          title={
+            isHuman
+              ? 'El agente vuelve a responder los mensajes que entren'
+              : 'El agente deja de responder y escribes tú'
+          }
+          onClick={() => handoff.mutate(isHuman ? 'release' : 'take')}
+        >
+          {isHuman ? 'Devolver el control' : 'Tomar el control'}
+        </Button>
+      </header>
 
-      {/* The transcript drops to `background` so the bubbles have something to
-          sit on: an incoming bubble on `card` inside a `card` is invisible. */}
-      <CardContent className="flex flex-1 flex-col gap-2 overflow-y-auto border-y border-border bg-background p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-5 md:px-6">
         {messages.data?.map((message) => (
           <MessageBubble
             key={message.id}
@@ -117,32 +118,32 @@ export const ChatPanel = ({ conversation }: Props) => {
           />
         ))}
         <div ref={bottom} />
-      </CardContent>
+      </div>
 
-      <CardFooter className="flex flex-col items-stretch gap-2 py-4">
+      <footer className="flex shrink-0 flex-col gap-2 border-t px-4 py-3 md:px-6">
         {/* The failed turn still has to be visible — it is the reason the failed
             tray exists — but the only way out on screen is now the operator. */}
         {conversation.lastRunFailed && (
-          <p className="rounded-lg border border-destructive/40 bg-destructive/15 p-2 text-xs text-destructive">
+          <p className="text-xs text-destructive">
             El último turno del agente falló, así que el cliente se quedó sin respuesta. Toma el
             control y escríbele tú.
-          </p>
-        )}
-
-        {!isHuman && (
-          <p className="text-xs text-muted-foreground">
-            El agente está respondiendo. Toma el control para escribirle tú.
           </p>
         )}
 
         {/* The composer locks when the window closes. Leaving it open would let
             the operator write a message WhatsApp refuses with 131047, and they
             would only find out from the customer. */}
-        {windowClosed && (
+        {windowClosed ? (
           <p className="text-xs text-destructive">
             Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp no permite
             escribirle sin una plantilla aprobada.
           </p>
+        ) : (
+          !isHuman && (
+            <p className="text-xs text-muted-foreground">
+              El agente está respondiendo. Toma el control para escribirle tú.
+            </p>
+          )
         )}
 
         <div className="flex items-end gap-2">
@@ -165,8 +166,8 @@ export const ChatPanel = ({ conversation }: Props) => {
         </div>
 
         {send.error && <p className="text-xs text-destructive">{send.error.message}</p>}
-      </CardFooter>
-    </Card>
+      </footer>
+    </div>
   )
 }
 
@@ -181,34 +182,36 @@ const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad
 
   return (
     <div className={mine ? 'flex justify-end' : 'flex justify-start'}>
-      {/* Raised grey for what goes out, sunken grey for what comes in. White is
-          the primary action and does not compete with the transcript. */}
+      {/* Raised grey for what goes out, sunken for what comes in. White is the
+          primary action and does not compete with the transcript. */}
       <div
         className={cn(
-          'max-w-[75%] rounded-lg px-3 py-2 text-sm',
-          mine
-            ? 'bg-secondary text-secondary-foreground'
-            : 'border border-border bg-card text-card-foreground',
+          'max-w-[85%] rounded-lg px-3 py-2 text-sm md:max-w-[70%]',
+          mine ? 'bg-accent' : 'border bg-background',
         )}
       >
-        <p className="mb-1 text-[10px] uppercase opacity-70">{AUTHOR_LABEL[message.author]}</p>
-
         {message.mediaUrl && (
           <Receipt url={message.mediaUrl} receivedAt={message.receivedAt} onLoad={onMediaLoad} />
         )}
 
         {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
 
-        <div className="mt-1 flex items-center justify-end gap-1">
-          <span className="text-[10px] opacity-70">
+        {/* Who and when, after the words: the author is context, not a title. */}
+        <p className="mt-1 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+          <span>{AUTHOR_LABEL[message.author]}</span>
+          <span aria-hidden>·</span>
+          <span>
             {new Date(message.receivedAt).toLocaleTimeString('es-CO', {
               hour: '2-digit',
               minute: '2-digit',
+              hour12: false,
             })}
           </span>
-          {message.deliveryState === 'pending' && <Badge>Enviando</Badge>}
-          {message.deliveryState === 'failed' && <Badge variant="destructive">No entregado</Badge>}
-        </div>
+          {message.deliveryState === 'pending' && <span>· enviando</span>}
+          {message.deliveryState === 'failed' && (
+            <span className="text-destructive">· no entregado</span>
+          )}
+        </p>
       </div>
     </div>
   )

@@ -1,16 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { ArrowLeftIcon } from 'lucide-react'
+import { type ReactNode, useEffect, useState } from 'react'
 import type { AgentRun } from '@cobra/contracts'
 import { ChatPanel } from '~/components/ChatPanel'
 import { ConversationList } from '~/components/ConversationList'
 import { Timeline } from '~/components/Timeline'
 import { Button } from '~/components/ui/button'
-import { Card } from '~/components/ui/card'
 import { Spinner } from '~/components/ui/spinner'
 import { useConversationStream } from '~/hooks/useConversationStream'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
+import { cn } from '~/lib/utils'
 import { useInbox } from '~/providers/InboxProvider'
 
 interface Props {
@@ -48,50 +49,122 @@ export const WorkspacePage = ({ conversationId }: Props) => {
 
   const selected = inbox.conversations.find((conversation) => conversation.id === conversationId)
 
+  // Below the wide layout the agent's steps share the chat's column, so one of
+  // the two is on screen at a time. Keyed by conversation: opening another one
+  // lands on its chat, not on the steps of the last.
+  const [stepsFor, setStepsFor] = useState<string | null>(null)
+  const view = stepsFor !== null && stepsFor === conversationId ? 'steps' : 'chat'
+
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
-      <Card className="col-span-3 gap-0 overflow-y-auto py-0">
-        {inbox.loading ? (
-          <div className="flex h-full items-center justify-center">
-            <Spinner className="size-6" />
-          </div>
-        ) : inbox.conversations.length ? (
-          <ConversationList
-            conversations={inbox.conversations}
-            isUnread={inbox.isUnread}
-            selectedId={conversationId}
-            onSelect={(id) =>
-              void navigate({ to: '/chats/$conversationId', params: { conversationId: id } })
-            }
-          />
-        ) : (
-          /* An empty list explains nothing: four things have to be true before a
-             message can arrive, and three of them live on another screen. */
-          <div className="flex h-full flex-col items-start justify-center gap-3 p-4">
-            <p className="text-sm text-muted-foreground">
-              Todavía no ha llegado ninguna conversación.
-            </p>
-            <Button asChild size="sm" variant="secondary">
-              <Link to="/setup">Ver qué falta</Link>
+    // On a phone there is room for one pane: the list until a conversation is
+    // opened, then the conversation, with the way back in its header.
+    <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)_340px]">
+      <section
+        aria-label="Conversaciones"
+        className={cn('min-h-0 flex-col border-r', conversationId ? 'hidden lg:flex' : 'flex')}
+      >
+        <PaneHeader title="Conversaciones">
+          {!inbox.loading && <span className="font-mono">{inbox.conversations.length}</span>}
+        </PaneHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {inbox.loading ? (
+            <div className="flex h-full items-center justify-center">
+              <Spinner className="size-5" />
+            </div>
+          ) : inbox.conversations.length ? (
+            <ConversationList
+              conversations={inbox.conversations}
+              isUnread={inbox.isUnread}
+              selectedId={conversationId}
+              onSelect={(id) =>
+                void navigate({ to: '/chats/$conversationId', params: { conversationId: id } })
+              }
+            />
+          ) : (
+            /* An empty list explains nothing: four things have to be true before a
+               message can arrive, and three of them live on another screen. */
+            <div className="flex flex-col items-start gap-3 p-4">
+              <p className="text-sm text-muted-foreground">
+                Todavía no ha llegado ninguna conversación.
+              </p>
+              <Button asChild size="sm" variant="secondary">
+                <Link to="/setup">Ver qué falta</Link>
+              </Button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section
+        aria-label="Conversación abierta"
+        className={cn(
+          'min-h-0 flex-col bg-card xl:border-r',
+          conversationId ? 'flex' : 'hidden lg:flex',
+        )}
+      >
+        {selected && (
+          <div className="flex h-10 shrink-0 items-stretch gap-5 border-b px-4 xl:hidden">
+            {/* On a phone the list is a screen of its own, so this is the way
+                back — here and not in the chat, so the steps view has it too. */}
+            <Button asChild size="icon-sm" variant="ghost" className="-ml-2 self-center lg:hidden">
+              <Link to="/chats" aria-label="Volver a las conversaciones">
+                <ArrowLeftIcon />
+              </Link>
             </Button>
+
+            {(['chat', 'steps'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={view === option}
+                onClick={() => setStepsFor(option === 'steps' ? conversationId : null)}
+                className={cn(
+                  'cursor-pointer text-sm outline-none focus-visible:underline focus-visible:underline-offset-4',
+                  view === option
+                    ? 'text-foreground shadow-[inset_0_-2px_0_var(--foreground)]'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {option === 'chat' ? 'Conversación' : 'Pasos del agente'}
+              </button>
+            ))}
           </div>
         )}
-      </Card>
 
-      <div className="col-span-6 min-h-0">
-        {selected ? (
-          <ChatPanel conversation={selected} />
+        {!selected ? (
+          <div className="flex flex-1 items-center justify-center">
+            <p className="text-sm text-muted-foreground">Elige una conversación de la lista</p>
+          </div>
+        ) : view === 'steps' ? (
+          <div className="min-h-0 flex-1 overflow-y-auto xl:hidden">
+            <Timeline runs={runs.data ?? []} />
+          </div>
         ) : (
-          <Card className="flex h-full items-center justify-center py-0">
-            <p className="text-sm text-muted-foreground">Elige una conversación</p>
-          </Card>
+          <ChatPanel conversation={selected} />
         )}
-      </div>
+      </section>
 
-      <Card className="col-span-3 gap-0 overflow-y-auto p-2">
-        <h2 className="px-2 pb-2 text-sm font-medium">Timeline</h2>
-        <Timeline runs={runs.data ?? []} />
-      </Card>
+      <section aria-label="Pasos del agente" className="hidden min-h-0 flex-col xl:flex">
+        <PaneHeader title="Pasos del agente" />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {selected ? (
+            <Timeline runs={runs.data ?? []} />
+          ) : (
+            <p className="p-4 text-sm text-muted-foreground">
+              Los pasos aparecen al abrir una conversación.
+            </p>
+          )}
+        </div>
+      </section>
     </div>
   )
 }
+
+/** The strip above a pane: what it holds, and a count or a figure on the right. */
+const PaneHeader = ({ title, children }: { title: string; children?: ReactNode }) => (
+  <div className="flex h-10 shrink-0 items-center justify-between border-b px-4 text-xs text-muted-foreground">
+    <h2 className="font-sans font-medium tracking-wide uppercase">{title}</h2>
+    {children}
+  </div>
+)
