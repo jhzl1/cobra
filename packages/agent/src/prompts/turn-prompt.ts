@@ -1,13 +1,13 @@
 import type { PendingReceiptResult } from '../types'
 
-export interface TurnContextInput {
+export interface TurnPromptInput {
   /** The contact's phone, or null when they only share a username. */
   phone: string | null
   /** Every text of the burst, already joined with newlines. */
   text: string | null
   /** True when a receipt arrived in this very turn and passed validation. */
   receiptArrivedThisTurn: boolean
-  pending: PendingReceiptResult
+  pendingReceiptLookup: PendingReceiptResult
 }
 
 /**
@@ -24,8 +24,8 @@ export const buildTurnPrompt = ({
   phone,
   text,
   receiptArrivedThisTurn,
-  pending,
-}: TurnContextInput): string => {
+  pendingReceiptLookup,
+}: TurnPromptInput): string => {
   const lines: string[] = [
     /**
      * A customer with a WhatsApp username shares no number. Presenting the
@@ -47,24 +47,23 @@ export const buildTurnPrompt = ({
 
   lines.push('')
 
-  if (pending.failed) {
+  if (pendingReceiptLookup.hasLookupFailed) {
     lines.push(
       'COMPROBANTE: la consulta de comprobante pendiente FALLÓ en este turno. Llama CheckPendingReceipt una sola vez. Si también falla, avisa al administrador y dile al cliente que un asesor lo contacta.',
     )
-  } else if (pending.hasPendingReceipt && pending.receipt) {
-    const { receipt } = pending
+  } else if (pendingReceiptLookup.hasPendingReceipt && pendingReceiptLookup.receipt) {
+    const { receipt } = pendingReceiptLookup
 
     lines.push(
       'COMPROBANTE: HAY uno pendiente sin registrar (ya consultado por el sistema en este turno). Usa estos datos tal cual para RegisterPayment o ApplyCredit:',
       `- amount: ${receipt.amount}`,
       `- reference: ${receipt.reference}`,
-      `- forma_pago: ${receipt.formaPago}`,
-      `- fecha_pago: ${receipt.fechaPago}`,
+      `- forma_pago: ${receipt.wisphubPaymentMethodId}`,
       `- destinationMethod: ${receipt.destinationMethod || '(sin dato)'}`,
     )
   } else {
     lines.push(
-      `COMPROBANTE: NO hay ninguno pendiente (ya consultado por el sistema en este turno). ${pending.message}`.trim(),
+      `COMPROBANTE: NO hay ninguno pendiente (ya consultado por el sistema en este turno). ${pendingReceiptLookup.message}`.trim(),
     )
   }
 

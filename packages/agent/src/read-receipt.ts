@@ -5,7 +5,10 @@ import {
   receiptExtractionWireSchema,
   toReceiptExtraction,
 } from '@cobra/contracts'
-import { RECEIPT_EXTRACTOR_PROMPT } from './prompts/vision-prompt'
+import { RECEIPT_EXTRACTOR_PROMPT } from './prompts/receipt-extractor-prompt'
+
+/** Default ceiling for one vision call over a receipt image. */
+const RECEIPT_READ_TIMEOUT_MS = 45_000
 
 export interface ReadReceiptInput {
   model: LanguageModel
@@ -27,7 +30,7 @@ export const readReceipt = async ({
   model,
   image,
   mediaType = 'image/jpeg',
-  timeoutMs = 45_000,
+  timeoutMs = RECEIPT_READ_TIMEOUT_MS,
 }: ReadReceiptInput): Promise<ReceiptExtraction> => {
   const { object } = await generateObject({
     model,

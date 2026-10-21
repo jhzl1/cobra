@@ -52,22 +52,28 @@ export const buildTools = (deps: ToolDeps): ToolSet => ({
         .describe('El número de documento del cliente, sin puntos ni espacios'),
     }),
     execute: (input, options) =>
-      run(deps, 'LookupCustomer', options.toolCallId, input, async () => {
-        const customer = await deps.wisphub.lookupCustomer(input.documento)
+      runToolStep({
+        deps,
+        toolName: 'LookupCustomer',
+        toolCallId: options.toolCallId,
+        input,
+        execute: async () => {
+          const customer = await deps.wisphub.lookupCustomer(input.documento)
 
-        if (!customer.found) return customer
+          if (!customer.found) return customer
 
-        const methods = await deps.listPaymentMethods(customer.zone ?? null)
+          const methods = await deps.listPaymentMethods(customer.zone ?? null)
 
-        return {
-          ...customer,
-          // Only these two fields: the addresses are read to the customer, and
-          // wisphubId is internal.
-          paymentMethods: methods.map((method) => ({
-            entityName: method.entityName,
-            paymentAddress: method.paymentAddress,
-          })),
-        }
+          return {
+            ...customer,
+            // Only these two fields: the addresses are read to the customer, and
+            // wisphubId is internal.
+            paymentMethods: methods.map((method) => ({
+              entityName: method.entityName,
+              paymentAddress: method.paymentAddress,
+            })),
+          }
+        },
       }),
   }),
 
@@ -78,69 +84,74 @@ export const buildTools = (deps: ToolDeps): ToolSet => ({
       documentos: z.string().min(1),
       monto: z.number(),
       reference: z.string(),
-      fecha_pago: z.string(),
       forma_pago: z.string(),
     }),
     execute: (input, options) =>
-      run(deps, 'RegisterPayment', options.toolCallId, input, async () => {
-        /**
-         * The attempt row goes in before Wisphub is touched. The failure that
-         * costs money is not the double call, it is the timeout after success:
-         * the POST lands, the answer is lost, and nobody knows whether the
-         * customer was charged. With the row already written, that ends as
-         * `unknown` and reconciliation resolves it.
-         */
-        const { attemptId } = await deps.receipts.recordPaymentAttempt({
-          tenantId: deps.tenantId,
-          conversationId: deps.conversationId,
-          receiptId: deps.pendingReceipt?.id ?? null,
-          kind: 'invoice_payment',
-          documents: input.documentos.split(',').map((value) => value.trim()),
-          amount: input.monto,
-          references: input.reference.split(',').map((value) => value.trim()),
-        })
-
-        try {
-          const result = await registerPayment(input, { wisphub: deps.wisphub })
-
-          await deps.receipts.settlePaymentAttempt(attemptId, {
-            state: result.success ? 'confirmed' : 'failed',
-            invoiceIds: result.invoiceIds,
-            failedInvoiceIds: result.failedInvoiceIds,
-            wisphubResponse: { estado: result.estado, message: result.message },
-          })
-
-          if (result.adminMessage) {
-            await notifyQuietly(deps.messaging, result.adminMessage, deps.mediaId)
-          }
-
-          const {
-            adminMessage: _adminMessage,
-            invoiceIds: _invoiceIds,
-            failedInvoiceIds: _failed,
-            ...forModel
-          } = result
-
-          return forModel
-        } catch (error) {
+      runToolStep({
+        deps,
+        toolName: 'RegisterPayment',
+        toolCallId: options.toolCallId,
+        input,
+        execute: async () => {
           /**
-           * Network failure or timeout. Not `failed`: we do not know. The agent
-           * is told to say the receipt is under verification, never that it
-           * failed, so the customer is not pushed into paying twice.
+           * The attempt row goes in before Wisphub is touched. The failure that
+           * costs money is not the double call, it is the timeout after success:
+           * the POST lands, the answer is lost, and nobody knows whether the
+           * customer was charged. With the row already written, that ends as
+           * `unknown` and reconciliation resolves it.
            */
-          await deps.receipts.settlePaymentAttempt(attemptId, {
-            state: 'unknown',
-            error: describeError(error),
+          const { attemptId } = await deps.receipts.recordPaymentAttempt({
+            tenantId: deps.tenantId,
+            conversationId: deps.conversationId,
+            receiptId: deps.pendingReceipt?.id ?? null,
+            kind: 'invoice_payment',
+            documents: input.documentos.split(',').map((value) => value.trim()),
+            amount: input.monto,
+            references: input.reference.split(',').map((value) => value.trim()),
           })
 
-          await notifyQuietly(
-            deps.messaging,
-            `URGENTE: estado de pago desconocido\nDocumento(s): ${input.documentos}\nMonto: $${input.monto}\nRef: ${input.reference}\nMotivo: ${describeError(error)}`,
-            deps.mediaId,
-          )
+          try {
+            const result = await registerPayment(input, { wisphub: deps.wisphub })
 
-          throw error
-        }
+            await deps.receipts.settlePaymentAttempt(attemptId, {
+              state: result.success ? 'confirmed' : 'failed',
+              invoiceIds: result.invoiceIds,
+              failedInvoiceIds: result.failedInvoiceIds,
+              wisphubResponse: { estado: result.estado, message: result.message },
+            })
+
+            if (result.adminMessage) {
+              await notifyQuietly(deps.messaging, result.adminMessage, deps.mediaId)
+            }
+
+            const {
+              adminMessage: _adminMessage,
+              invoiceIds: _invoiceIds,
+              failedInvoiceIds: _failed,
+              ...forModel
+            } = result
+
+            return forModel
+          } catch (error) {
+            /**
+             * Network failure or timeout. Not `failed`: we do not know. The agent
+             * is told to say the receipt is under verification, never that it
+             * failed, so the customer is not pushed into paying twice.
+             */
+            await deps.receipts.settlePaymentAttempt(attemptId, {
+              state: 'unknown',
+              error: describeError(error),
+            })
+
+            await notifyQuietly(
+              deps.messaging,
+              `URGENTE: estado de pago desconocido\nDocumento(s): ${input.documentos}\nMonto: $${input.monto}\nRef: ${input.reference}\nMotivo: ${describeError(error)}`,
+              deps.mediaId,
+            )
+
+            throw error
+          }
+        },
       }),
   }),
 
@@ -151,44 +162,49 @@ export const buildTools = (deps: ToolDeps): ToolSet => ({
       documento: z.string().min(1),
       abono: z.number(),
       reference: z.string(),
-      fecha_pago: z.string(),
       forma_pago: z.string(),
     }),
     execute: (input, options) =>
-      run(deps, 'ApplyCredit', options.toolCallId, input, async () => {
-        const { attemptId } = await deps.receipts.recordPaymentAttempt({
-          tenantId: deps.tenantId,
-          conversationId: deps.conversationId,
-          receiptId: deps.pendingReceipt?.id ?? null,
-          kind: 'credit',
-          documents: [input.documento],
-          amount: input.abono,
-          references: input.reference.split(',').map((value) => value.trim()),
-        })
-
-        try {
-          const result = await applyCredit(input, { wisphub: deps.wisphub })
-
-          await deps.receipts.settlePaymentAttempt(attemptId, {
-            state: result.success ? 'confirmed' : 'failed',
-            wisphubResponse: { message: result.message },
+      runToolStep({
+        deps,
+        toolName: 'ApplyCredit',
+        toolCallId: options.toolCallId,
+        input,
+        execute: async () => {
+          const { attemptId } = await deps.receipts.recordPaymentAttempt({
+            tenantId: deps.tenantId,
+            conversationId: deps.conversationId,
+            receiptId: deps.pendingReceipt?.id ?? null,
+            kind: 'credit',
+            documents: [input.documento],
+            amount: input.abono,
+            references: input.reference.split(',').map((value) => value.trim()),
           })
 
-          if (result.adminMessage) {
-            await notifyQuietly(deps.messaging, result.adminMessage, deps.mediaId)
+          try {
+            const result = await applyCredit(input, { wisphub: deps.wisphub })
+
+            await deps.receipts.settlePaymentAttempt(attemptId, {
+              state: result.success ? 'confirmed' : 'failed',
+              wisphubResponse: { message: result.message },
+            })
+
+            if (result.adminMessage) {
+              await notifyQuietly(deps.messaging, result.adminMessage, deps.mediaId)
+            }
+
+            const { adminMessage: _adminMessage, ...forModel } = result
+
+            return forModel
+          } catch (error) {
+            await deps.receipts.settlePaymentAttempt(attemptId, {
+              state: 'unknown',
+              error: describeError(error),
+            })
+
+            throw error
           }
-
-          const { adminMessage: _adminMessage, ...forModel } = result
-
-          return forModel
-        } catch (error) {
-          await deps.receipts.settlePaymentAttempt(attemptId, {
-            state: 'unknown',
-            error: describeError(error),
-          })
-
-          throw error
-        }
+        },
       }),
   }),
 
@@ -197,22 +213,27 @@ export const buildTools = (deps: ToolDeps): ToolSet => ({
       'Respaldo. Dice si este chat tiene un comprobante pendiente sin registrar. El sistema ya la ejecuta antes de cada turno: llámala SOLO si el bloque COMPROBANTE dice que la consulta falló. No recibe parámetros.',
     inputSchema: z.object({}),
     execute: (input, options) =>
-      run(deps, 'CheckPendingReceipt', options.toolCallId, input, async () => {
-        const result = await deps.receipts.checkPendingReceipt(deps.conversationId)
+      runToolStep({
+        deps,
+        toolName: 'CheckPendingReceipt',
+        toolCallId: options.toolCallId,
+        input,
+        execute: async () => {
+          const result = await deps.receipts.checkPendingReceipt(deps.conversationId)
 
-        return {
-          has_pending_receipt: result.hasPendingReceipt,
-          message: result.message,
-          ...(result.receipt
-            ? {
-                amount: result.receipt.amount,
-                reference: result.receipt.reference,
-                forma_pago: result.receipt.formaPago,
-                fecha_pago: result.receipt.fechaPago,
-                destinationMethod: result.receipt.destinationMethod,
-              }
-            : {}),
-        }
+          return {
+            has_pending_receipt: result.hasPendingReceipt,
+            message: result.message,
+            ...(result.receipt
+              ? {
+                  amount: result.receipt.amount,
+                  reference: result.receipt.reference,
+                  forma_pago: result.receipt.wisphubPaymentMethodId,
+                  destinationMethod: result.receipt.destinationMethod,
+                }
+              : {}),
+          }
+        },
       }),
   }),
 
@@ -228,10 +249,16 @@ export const buildTools = (deps: ToolDeps): ToolSet => ({
         ),
     }),
     execute: (input, options) =>
-      run(deps, 'NotifyAdmin', options.toolCallId, input, async () => {
-        await notifyQuietly(deps.messaging, input.message, null)
+      runToolStep({
+        deps,
+        toolName: 'NotifyAdmin',
+        toolCallId: options.toolCallId,
+        input,
+        execute: async () => {
+          await notifyQuietly(deps.messaging, input.message, null)
 
-        return { sent: true }
+          return { sent: true }
+        },
       }),
   }),
 
@@ -242,10 +269,16 @@ export const buildTools = (deps: ToolDeps): ToolSet => ({
       message: z.string().min(1),
     }),
     execute: (input, options) =>
-      run(deps, 'NotifyAdminWithImage', options.toolCallId, input, async () => {
-        await notifyQuietly(deps.messaging, input.message, deps.mediaId)
+      runToolStep({
+        deps,
+        toolName: 'NotifyAdminWithImage',
+        toolCallId: options.toolCallId,
+        input,
+        execute: async () => {
+          await notifyQuietly(deps.messaging, input.message, deps.mediaId)
 
-        return { sent: true }
+          return { sent: true }
+        },
       }),
   }),
 })
@@ -257,21 +290,27 @@ export const buildTools = (deps: ToolDeps): ToolSet => ({
  * the verification in PLAN.md looks for after sending a second document
  * mid-turn.
  */
-const run = async <T>(
-  deps: ToolDeps,
-  name: string,
-  toolCallId: string,
-  input: unknown,
-  execute: () => Promise<T>,
-): Promise<T | { skipped: string }> => {
+const runToolStep = async <T>({
+  deps,
+  toolName,
+  toolCallId,
+  input,
+  execute,
+}: {
+  deps: ToolDeps
+  toolName: string
+  toolCallId: string
+  input: unknown
+  execute: () => Promise<T>
+}): Promise<T | { skipped: string }> => {
   if (await deps.steering.shouldSkipNextTool()) {
-    const stepId = await deps.steps.start({ kind: 'tool', name, toolCallId, input })
+    const stepId = await deps.steps.start({ kind: 'tool', name: toolName, toolCallId, input })
     await deps.steps.finish(stepId, { status: 'skipped', output: { skipped: SKIPPED_TOOL_RESULT } })
 
     return { skipped: SKIPPED_TOOL_RESULT }
   }
 
-  const stepId = await deps.steps.start({ kind: 'tool', name, toolCallId, input })
+  const stepId = await deps.steps.start({ kind: 'tool', name: toolName, toolCallId, input })
 
   try {
     const output = await execute()
@@ -299,7 +338,7 @@ const notifyQuietly = async (
   mediaId: string | null,
 ): Promise<void> => {
   try {
-    await messaging.notifyAdmin(message, mediaId)
+    await messaging.notifyTenantAdmin(message, mediaId)
   } catch {
     // Swallowed on purpose. The failure is visible in the run's steps.
   }

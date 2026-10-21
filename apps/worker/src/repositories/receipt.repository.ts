@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common'
 import type {
   PendingReceipt,
   PendingReceiptResult,
+  ReceiptValidation,
   RecordPaymentAttempt,
   SettlePaymentAttempt,
-  ValidatedReceipt,
 } from '@cobra/agent'
-import { bogotaTimestamp, normalizeReferences } from '@cobra/agent'
+import { normalizeReferences } from '@cobra/agent'
 import { SupabaseService } from '../runtime/supabase.service.js'
 
 /** A receipt counts as usable for 24 hours, like the service window it lives in. */
@@ -40,7 +40,7 @@ export class ReceiptRepository {
       messageId: string
       mediaId: string
       storagePath: string
-      validated: ValidatedReceipt
+      validated: ReceiptValidation
     },
   ): Promise<string> {
     const { validated } = input
@@ -106,7 +106,7 @@ export class ReceiptRepository {
           hasPendingReceipt: false,
           message: 'No hay comprobantes pendientes por registrar en este chat.',
           receipt: null,
-          failed: false,
+          hasLookupFailed: false,
         }
       }
 
@@ -114,7 +114,7 @@ export class ReceiptRepository {
         hasPendingReceipt: true,
         message: 'Hay un comprobante pendiente por registrar.',
         receipt: toPendingReceipt(candidate as Record<string, unknown>),
-        failed: false,
+        hasLookupFailed: false,
       }
     } catch {
       /**
@@ -126,7 +126,7 @@ export class ReceiptRepository {
         hasPendingReceipt: false,
         message: 'La consulta de comprobante pendiente falló.',
         receipt: null,
-        failed: true,
+        hasLookupFailed: true,
       }
     }
   }
@@ -271,10 +271,7 @@ const toPendingReceipt = (row: Record<string, unknown>): PendingReceipt => {
     // Every reference, comma-joined. The agent passes this string to the tools
     // verbatim, and a piece of it is a payment that can be charged twice.
     reference: ((row['reference'] as string[] | null) ?? []).join(', '),
-    formaPago: method?.wisphub_id ?? null,
-    // Wisphub is told when the payment is registered, not when the receipt says
-    // it was paid. That date lives in `paid_at`.
-    fechaPago: bogotaTimestamp(),
+    wisphubPaymentMethodId: method?.wisphub_id ?? null,
     destinationMethod: (row['destination_method'] as string | null) ?? null,
     mediaId: (row['media_id'] as string | null) ?? null,
   }

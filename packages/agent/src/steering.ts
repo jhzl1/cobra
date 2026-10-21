@@ -7,6 +7,9 @@ import type { ConversationMessage } from './types'
  */
 export const SKIPPED_TOOL_RESULT = 'Skipped due to queued user message.'
 
+/** OpenClaw's cap on queued messages carried verbatim into the next model call. */
+const DEFAULT_MAX_QUEUED_MESSAGES = 20
+
 /** What a message arriving mid-turn is allowed to do, and when. */
 export interface SteeringPort {
   /**
@@ -51,7 +54,7 @@ export class Steering {
     private readonly port: SteeringPort,
     options: SteeringOptions = {},
   ) {
-    this.maxQueued = options.maxQueued ?? 20
+    this.maxQueued = options.maxQueued ?? DEFAULT_MAX_QUEUED_MESSAGES
   }
 
   /** True once a message has arrived. Every later tool launch is skipped. */
@@ -94,7 +97,7 @@ export class Steering {
    * Over the cap the oldest messages are dropped and replaced by a count. The
    * thread is not lost, the detail is.
    */
-  takeSteeringPrompt(): string | null {
+  takeQueuedPrompt(): string | null {
     if (!this.queued.length) return null
 
     const messages = this.queued
