@@ -4,21 +4,23 @@ import { Slot } from 'radix-ui'
 import { cn } from '~/lib/utils'
 
 /**
- * Every tone is tinted rather than solid — HeroUI's `variant="flat"`, which is
- * the only one the panel ever used. A solid badge on a dark surface competes
- * with the primary action, and the panel puts up to three of them on one row.
+ * Every tone is tinted rather than solid. A solid badge on a dark surface
+ * competes with the primary action, and the panel puts up to three of them on
+ * one row. Square-cornered rather than a pill: a pill is the generator's badge,
+ * and a tag in a console is a label, not a button.
  *
- * `success` and `warning` are ours: shadcn only ships `destructive`, and the
- * timeline maps four agent states onto colour.
+ * `success`, `warning` and `info` are ours: shadcn only ships `destructive`, and
+ * the agent's states map onto colour.
  */
 const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>svg]:pointer-events-none [&>svg]:size-3',
+  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-sm border border-transparent px-1.5 py-px text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>svg]:pointer-events-none [&>svg]:size-3',
   {
     variants: {
       variant: {
         default: 'bg-muted text-muted-foreground',
         success: 'bg-success/15 text-success',
         warning: 'bg-warning/15 text-warning',
+        info: 'bg-info/15 text-info',
         destructive: 'bg-destructive/15 text-destructive',
         solid: 'bg-primary text-primary-foreground',
         outline: 'border-border text-foreground',
