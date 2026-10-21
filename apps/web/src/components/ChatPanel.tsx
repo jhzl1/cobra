@@ -91,7 +91,7 @@ export const ChatPanel = ({ conversation }: Props) => {
           <p className="flex flex-col font-mono text-xs text-muted-foreground sm:flex-row sm:gap-x-2">
             {conversation.contact.displayName && conversation.contact.phone && (
               <>
-                <span>{conversation.contact.phone}</span>
+                <span className="whitespace-nowrap">{conversation.contact.phone}</span>
                 <span aria-hidden className="hidden sm:inline">
                   ·
                 </span>
