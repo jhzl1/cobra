@@ -6,6 +6,7 @@ import { z } from 'zod'
 import {
   type CredentialProvider,
   type CredentialStatus,
+  type WisphubNamed,
   paymentMethodSchema,
   registerWhatsappNumberSchema,
   saveCredentialSchema,
@@ -33,6 +34,14 @@ import {
 import { CopyField } from '~/components/ui/copy-field'
 import { Field } from '~/components/ui/field'
 import { FormDialog } from '~/components/ui/form-dialog'
+import { Label } from '~/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select'
 import {
   Table,
   TableBody,
@@ -489,16 +498,23 @@ const NumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose: () => 
 /* Payment methods ------------------------------------------------------------ */
 
 /**
+ * The sentinel for "no zone". Radix refuses an item with an empty value, and the
+ * absence of a zone is a real choice the operator makes rather than a blank.
+ */
+const ANY_ZONE = '__any__'
+
+/**
  * `zone` and `wisphubId` are nullable in the contract and can only hold '' in an
  * input, so the form keeps them as plain strings and converts on submit. Their
  * length limits come across unchanged.
  */
-const paymentMethodFormSchema = paymentMethodSchema
-  .pick({ entityName: true, paymentAddress: true })
-  .extend({
-    zone: z.string().max(80, 'La zona no puede pasar de 80 caracteres'),
-    wisphubId: z.string().max(40, 'La forma de pago no puede pasar de 40 caracteres'),
-  })
+const paymentMethodFormSchema = paymentMethodSchema.pick({ paymentAddress: true }).extend({
+  zone: z.string().max(80, 'La zona no puede pasar de 80 caracteres'),
+  // Both come from the Wisphub picker: the id is what a payment is registered
+  // with, the name is what the panel and the agent call it.
+  wisphubId: z.string().min(1, 'Elige a cuál forma de pago de Wisphub corresponde'),
+  entityName: z.string().min(1, 'Elige a cuál forma de pago de Wisphub corresponde'),
+})
 
 const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
   const [adding, setAdding] = useState(false)
@@ -567,6 +583,31 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
   const queryClient = useQueryClient()
   const [failure, setFailure] = useState<string | null>(null)
 
+  /**
+   * The accounts as Wisphub knows them. Typing the id by hand was the old way,
+   * and a wrong one registers the payment under the wrong account without
+   * complaining — Wisphub accepts any id it recognises.
+   */
+  const zones = useQuery({
+    queryKey: queryKeys.wisphubZones(tenantId),
+    retry: false,
+    queryFn: async () => {
+      const { data } = await api.get<WisphubNamed[]>(`/tenants/${tenantId}/wisphub/zones`)
+
+      return data
+    },
+  })
+
+  const wisphub = useQuery({
+    queryKey: queryKeys.wisphubPaymentMethods(tenantId),
+    retry: false,
+    queryFn: async () => {
+      const { data } = await api.get<WisphubNamed[]>(`/tenants/${tenantId}/wisphub/payment-methods`)
+
+      return data
+    },
+  })
+
   const form = useForm({
     defaultValues: { entityName: '', paymentAddress: '', zone: '', wisphubId: '' },
     validators: { onChange: paymentMethodFormSchema },
@@ -601,19 +642,50 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
       description="El agente compara la cuenta de cada comprobante contra esta lista. Lo que no esté aquí se escala para revisión manual."
       submitLabel="Agregar"
       form={form}
-      error={failure}
+      error={failure ?? (wisphub.error ? wisphub.error.message : null)}
     >
-      <form.Field name="entityName">
+      <form.Field name="wisphubId">
         {(field) => (
-          <Field
-            label="Entidad"
-            hint="Bancolombia, Nequi, Daviplata…"
-            required
-            value={field.state.value}
-            error={fieldError(field)}
-            onBlur={field.handleBlur}
-            onChange={(event) => field.handleChange(event.target.value)}
-          />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="wisphub-method">
+              Forma de pago en Wisphub
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+            </Label>
+
+            <Select
+              value={field.state.value}
+              disabled={wisphub.isLoading || !wisphub.data?.length}
+              onValueChange={(next) => {
+                field.handleChange(next)
+                // The name travels with the id: it is what the table shows and
+                // what the agent puts in front of the customer.
+                const chosen = wisphub.data?.find((method) => String(method.id) === next)
+
+                form.setFieldValue('entityName', chosen?.nombre ?? '')
+              }}
+            >
+              <SelectTrigger id="wisphub-method" className="w-full">
+                <SelectValue
+                  placeholder={wisphub.isLoading ? 'Consultando a Wisphub…' : 'Elige una'}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {(wisphub.data ?? []).map((method) => (
+                  <SelectItem key={method.id} value={String(method.id)}>
+                    {method.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <p className="text-xs text-muted-foreground">
+              Sale de Wisphub, de Finanzas → Formas de pago. Es con la que queda registrado el pago.
+            </p>
+
+            {fieldError(field) && <p className="text-xs text-destructive">{fieldError(field)}</p>}
+          </div>
         )}
       </form.Field>
 
@@ -621,7 +693,7 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
         {(field) => (
           <Field
             label="Cuenta o llave"
-            hint="El número de cuenta, o la llave de Nequi o Daviplata."
+            hint="El número de cuenta, o la llave de Nequi o Daviplata. Wisphub no lo guarda, y es contra esto que se compara cada comprobante."
             required
             value={field.state.value}
             error={fieldError(field)}
@@ -633,27 +705,33 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
 
       <form.Field name="zone">
         {(field) => (
-          <Field
-            label="Zona"
-            hint="Opcional. Sirve cuando la empresa recauda por zona."
-            value={field.state.value}
-            error={fieldError(field)}
-            onBlur={field.handleBlur}
-            onChange={(event) => field.handleChange(event.target.value)}
-          />
-        )}
-      </form.Field>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="wisphub-zone">Zona</Label>
 
-      <form.Field name="wisphubId">
-        {(field) => (
-          <Field
-            label="Forma de pago"
-            hint="Opcional. Su id en Wisphub, para que el pago quede registrado con la forma correcta."
-            value={field.state.value}
-            error={fieldError(field)}
-            onBlur={field.handleBlur}
-            onChange={(event) => field.handleChange(event.target.value)}
-          />
+            <Select
+              value={field.state.value || ANY_ZONE}
+              disabled={zones.isLoading}
+              onValueChange={(next) => field.handleChange(next === ANY_ZONE ? '' : next)}
+            >
+              <SelectTrigger id="wisphub-zone" className="w-full">
+                <SelectValue placeholder={zones.isLoading ? 'Consultando a Wisphub…' : undefined} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ANY_ZONE}>Cualquier zona</SelectItem>
+                {(zones.data ?? []).map((zone) => (
+                  <SelectItem key={zone.id} value={zone.nombre}>
+                    {zone.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <p className="text-xs text-muted-foreground">
+              Sin zona, el agente se la ofrece a cualquier cliente. Con una, solo a los de esa zona.
+            </p>
+
+            {fieldError(field) && <p className="text-xs text-destructive">{fieldError(field)}</p>}
+          </div>
         )}
       </form.Field>
     </FormDialog>

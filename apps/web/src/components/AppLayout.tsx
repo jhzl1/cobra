@@ -1,4 +1,7 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
+import { BellIcon, BellOffIcon, Volume2Icon, VolumeXIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import {
   Select,
@@ -8,7 +11,9 @@ import {
   SelectValue,
 } from '~/components/ui/select'
 import { usePlatformIdentity } from '~/hooks/usePlatform'
+import { askForNotifications, playBlip, setSoundEnabled, soundEnabled } from '~/lib/notify'
 import { supabase } from '~/lib/supabase'
+import { useInbox } from '~/providers/InboxProvider'
 import { useTenant } from '~/providers/TenantProvider'
 
 interface Section {
@@ -27,6 +32,7 @@ const SECTIONS: Section[] = [
 /** The frame every signed-in screen renders inside: company picker and nav. */
 export const AppLayout = () => {
   const { tenants, tenantId, setTenantId } = useTenant()
+  const { unreadCount } = useInbox()
   const identity = usePlatformIdentity()
   const isAdmin = identity.data?.isPlatformAdmin ?? false
   const path = useRouterState({ select: (state) => state.location.pathname })
@@ -62,6 +68,9 @@ export const AppLayout = () => {
                 <Button key={section.to} asChild size="sm" variant={active ? 'secondary' : 'ghost'}>
                   <Link to={section.to} aria-current={active ? 'page' : undefined}>
                     {section.label}
+                    {section.to === '/chats' && unreadCount > 0 && (
+                      <Badge variant="warning">{unreadCount}</Badge>
+                    )}
                   </Link>
                 </Button>
               )
@@ -70,6 +79,7 @@ export const AppLayout = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <AlertControls />
           <span className="text-xs text-muted-foreground">v{__APP_VERSION__}</span>
           <Button size="sm" variant="secondary" onClick={() => void supabase.auth.signOut()}>
             Salir
@@ -78,6 +88,73 @@ export const AppLayout = () => {
       </header>
 
       <Outlet />
+    </div>
+  )
+}
+
+/**
+ * The two switches for being interrupted, where the operator can reach them.
+ *
+ * Permission is asked from this click and never on load: a prompt that appears
+ * before anyone knows what the page is is the one that gets denied, and a denied
+ * permission cannot be asked for again from the app.
+ */
+const AlertControls = () => {
+  const [sound, setSound] = useState(soundEnabled)
+  const [permission, setPermission] = useState(
+    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
+  )
+
+  useEffect(() => {
+    setSoundEnabled(sound)
+  }, [sound])
+
+  return (
+    <div className="flex items-center gap-1">
+      {permission === 'default' && (
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          title="Avisarme con una notificación del sistema cuando llegue un mensaje"
+          aria-label="Activar las notificaciones"
+          onClick={() => {
+            void askForNotifications().then(() => setPermission(Notification.permission))
+          }}
+        >
+          <BellOffIcon />
+        </Button>
+      )}
+
+      {permission === 'granted' && (
+        <span title="Las notificaciones del sistema están activas" className="px-1">
+          <BellIcon className="size-4 text-muted-foreground" aria-label="Notificaciones activas" />
+        </span>
+      )}
+
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        title={sound ? 'Silenciar el aviso' : 'Sonar cuando llegue un mensaje'}
+        aria-label={sound ? 'Silenciar el aviso' : 'Activar el sonido'}
+        onClick={() => {
+          setSound((on) => {
+            // Turning it on plays it once: it is the only way to know what it
+            // sounds like, and the click is also the gesture the audio context
+            // needs before a browser will let it make noise at all.
+            if (!on) {
+              try {
+                playBlip()
+              } catch {
+                // Nothing to recover from; the toggle still flips.
+              }
+            }
+
+            return !on
+          })
+        }}
+      >
+        {sound ? <Volume2Icon /> : <VolumeXIcon />}
+      </Button>
     </div>
   )
 }

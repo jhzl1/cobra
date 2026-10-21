@@ -102,6 +102,15 @@ export const agentRunSchema = z.object({
 
 export type AgentRun = z.infer<typeof agentRunSchema>
 
-/** The channel the panel subscribes to for one conversation. */
+/** The channel the panel subscribes to for the conversation it is showing. */
 export const conversationTopic = (conversationId: string): string =>
   `conversation:${conversationId}`
+
+/**
+ * The channel the panel stays joined to while anyone is signed in, so a message
+ * arriving in a conversation nobody has open still reaches the inbox.
+ *
+ * It carries messages and conversations, never steps: one turn writes between
+ * ten and thirty of those and every operator of the company is listening here.
+ */
+export const tenantTopic = (tenantId: string): string => `tenant:${tenantId}`

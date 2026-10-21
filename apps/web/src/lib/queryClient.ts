@@ -18,6 +18,9 @@ export const queryKeys = {
   members: (tenantId: string) => ['tenants', tenantId, 'members'] as const,
   credentials: (tenantId: string) => ['tenants', tenantId, 'credentials'] as const,
   numbers: (tenantId: string) => ['tenants', tenantId, 'numbers'] as const,
+  wisphubPaymentMethods: (tenantId: string) =>
+    ['tenants', tenantId, 'wisphub', 'payment-methods'] as const,
+  wisphubZones: (tenantId: string) => ['tenants', tenantId, 'wisphub', 'zones'] as const,
   paymentMethods: (tenantId: string) => ['tenants', tenantId, 'payment-methods'] as const,
   conversations: (tenantId: string) => ['conversations', tenantId] as const,
   messages: (conversationId: string) => ['conversations', conversationId, 'messages'] as const,

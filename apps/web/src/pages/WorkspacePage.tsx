@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import type { AgentRun, ConversationSummary } from '@cobra/contracts'
+import { useEffect } from 'react'
+import type { AgentRun } from '@cobra/contracts'
 import { ChatPanel } from '~/components/ChatPanel'
 import { ConversationList } from '~/components/ConversationList'
 import { Timeline } from '~/components/Timeline'
@@ -10,26 +11,23 @@ import { Spinner } from '~/components/ui/spinner'
 import { useConversationStream } from '~/hooks/useConversationStream'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
+import { useInbox } from '~/providers/InboxProvider'
 
 interface Props {
-  tenantId: string
   /** From the path. Null on /chats, which is the list with nothing open. */
   conversationId: string | null
 }
 
-export const WorkspacePage = ({ tenantId, conversationId }: Props) => {
+export const WorkspacePage = ({ conversationId }: Props) => {
   const navigate = useNavigate()
+  const inbox = useInbox()
 
-  const conversations = useQuery({
-    queryKey: queryKeys.conversations(tenantId),
-    queryFn: async () => {
-      const { data } = await api.get<ConversationSummary[]>('/conversations', {
-        params: { tenantId },
-      })
+  // What is on screen stops counting as unread, and stops interrupting.
+  useEffect(() => {
+    inbox.setOpen(conversationId)
 
-      return data
-    },
-  })
+    return () => inbox.setOpen(null)
+  }, [conversationId, inbox])
 
   const runs = useQuery({
     queryKey: queryKeys.runs(conversationId ?? ''),
@@ -48,18 +46,19 @@ export const WorkspacePage = ({ tenantId, conversationId }: Props) => {
    */
   useConversationStream(conversationId)
 
-  const selected = conversations.data?.find((conversation) => conversation.id === conversationId)
+  const selected = inbox.conversations.find((conversation) => conversation.id === conversationId)
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
       <Card className="col-span-3 gap-0 overflow-y-auto py-0">
-        {conversations.isLoading ? (
+        {inbox.loading ? (
           <div className="flex h-full items-center justify-center">
             <Spinner className="size-6" />
           </div>
-        ) : conversations.data?.length ? (
+        ) : inbox.conversations.length ? (
           <ConversationList
-            conversations={conversations.data}
+            conversations={inbox.conversations}
+            isUnread={inbox.isUnread}
             selectedId={conversationId}
             onSelect={(id) =>
               void navigate({ to: '/chats/$conversationId', params: { conversationId: id } })

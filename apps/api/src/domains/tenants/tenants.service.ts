@@ -19,6 +19,12 @@ import type {
   TenantStatus,
   UpdateTenantInput,
 } from '@cobra/contracts'
+import {
+  WISPHUB_BASE_URL,
+  type WisphubNamed,
+  wisphubAuthHeader,
+  wisphubPageSchema,
+} from '@cobra/contracts'
 import { CredentialsCryptoService } from '~/crypto/credentials-crypto.service'
 import { SupabaseService } from '~/supabase/supabase.service'
 
@@ -26,6 +32,10 @@ const UNIQUE_VIOLATION = '23505'
 
 /** How many suffixed slugs to try before giving up. */
 const SLUG_ATTEMPTS = 20
+
+/** Bounded: a paginating API that never says `next: null` must not hang a request. */
+const WISPHUB_MAX_PAGES = 20
+const WISPHUB_TIMEOUT_MS = 15_000
 
 /** Without all three the agent cannot read, think or register a payment. */
 const REQUIRED_PROVIDERS = ['meta', 'openrouter', 'wisphub'] as const
@@ -399,6 +409,75 @@ export class TenantsService {
     }
   }
 
+  /** The collection accounts of the company, as Wisphub knows them. */
+  listWisphubPaymentMethods(userId: string, tenantId: string): Promise<WisphubNamed[]> {
+    return this.wisphubList(userId, tenantId, 'formas-de-pago')
+  }
+
+  /**
+   * The zones of the company.
+   *
+   * A zone is optional on an account: one with none is offered to every
+   * customer. It is matched by name because that is what
+   * `GET /api/clientes` puts on a customer — the id never travels with them.
+   */
+  listWisphubZones(userId: string, tenantId: string): Promise<WisphubNamed[]> {
+    return this.wisphubList(userId, tenantId, 'zonas')
+  }
+
+  /**
+   * One paginated list from Wisphub.
+   *
+   * Asked here and not by the panel: the API key never leaves the server. It is
+   * also not the agent's client doing the call — that package is ESM only and
+   * this process is CommonJS — so the base URL and the auth header come from
+   * `@cobra/contracts`, which both of them read.
+   */
+  private async wisphubList(
+    userId: string,
+    tenantId: string,
+    resource: 'formas-de-pago' | 'zonas',
+  ): Promise<WisphubNamed[]> {
+    await this.assertMembership(userId, tenantId)
+
+    const apiKey = await this.readCredentialSecret(tenantId, 'wisphub')
+
+    if (!apiKey) {
+      throw new ConflictException(
+        'Esta empresa todavía no tiene cargada la credencial de Wisphub, así que no hay de dónde traer sus datos.',
+      )
+    }
+
+    const found: WisphubNamed[] = []
+    let url: string | null = `${WISPHUB_BASE_URL}/api/${resource}/`
+
+    // Wisphub paginates, and the one the operator needs may be on the second
+    // page.
+    for (let page = 1; url && page <= WISPHUB_MAX_PAGES; page += 1) {
+      const response: Response = await fetch(url, {
+        headers: { Authorization: wisphubAuthHeader(apiKey) },
+        signal: AbortSignal.timeout(WISPHUB_TIMEOUT_MS),
+      })
+
+      if (!response.ok) {
+        this.logger.error(`Wisphub answered ${response.status} listing ${resource}`)
+        throw new InternalServerErrorException(`Wisphub no respondió a la consulta de ${resource}`)
+      }
+
+      const parsed = wisphubPageSchema.safeParse(await response.json())
+
+      if (!parsed.success) {
+        this.logger.error(`Wisphub answered an unexpected shape listing ${resource}`)
+        throw new InternalServerErrorException('Wisphub respondió algo que no se pudo leer')
+      }
+
+      found.push(...parsed.data.results)
+      url = parsed.data.next
+    }
+
+    return found
+  }
+
   async listPaymentMethods(client: SupabaseClient, tenantId: string) {
     const { data, error } = await client
       .from('payment_methods')
@@ -511,6 +590,29 @@ export class TenantsService {
     }
 
     throw new ConflictException('Ya hay demasiadas empresas con un nombre parecido')
+  }
+
+  /** The decrypted secret of one provider. It exists in this process and nowhere else. */
+  private async readCredentialSecret(
+    tenantId: string,
+    provider: 'meta' | 'openrouter' | 'wisphub',
+  ): Promise<string | null> {
+    const { data } = await this.supabase.admin
+      .from('tenant_credentials')
+      .select('ciphertext')
+      .eq('tenant_id', tenantId)
+      .eq('provider', provider)
+      .maybeSingle()
+
+    if (!data) return null
+
+    try {
+      return this.crypto.decrypt(data.ciphertext as string).secret
+    } catch {
+      this.logger.error(`Could not decrypt the ${provider} credential of tenant ${tenantId}`)
+
+      return null
+    }
   }
 
   /**

@@ -13,6 +13,7 @@ import { PlatformPage } from '~/pages/PlatformPage'
 import { SettingsPage } from '~/pages/SettingsPage'
 import { SetupPage } from '~/pages/SetupPage'
 import { WorkspacePage } from '~/pages/WorkspacePage'
+import { InboxProvider } from '~/providers/InboxProvider'
 import { SessionProvider, useSession } from '~/providers/SessionProvider'
 import { TenantProvider, useTenant } from '~/providers/TenantProvider'
 
@@ -50,7 +51,9 @@ const Gate = () => {
 
   return (
     <TenantProvider>
-      <AppLayout />
+      <InboxProvider>
+        <AppLayout />
+      </InboxProvider>
     </TenantProvider>
   )
 }
@@ -82,7 +85,7 @@ const Workspace = () => {
 
   if (!tenantId) return <NoTenant />
 
-  return <WorkspacePage tenantId={tenantId} conversationId={params.conversationId ?? null} />
+  return <WorkspacePage conversationId={params.conversationId ?? null} />
 }
 
 const setupRoute = createRoute({
