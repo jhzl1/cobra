@@ -21,7 +21,7 @@ export const grantRoleSchema = z.object({
 
 export type GrantRoleInput = z.infer<typeof grantRoleSchema>
 
-export const roleGrantSchema = z.object({
+export const platformRoleGrantSchema = z.object({
   id: z.uuid(),
   email: z.string(),
   role: platformRoleSchema,
@@ -31,7 +31,7 @@ export const roleGrantSchema = z.object({
   revokedAt: z.string().nullable(),
 })
 
-export type RoleGrant = z.infer<typeof roleGrantSchema>
+export type PlatformRoleGrant = z.infer<typeof platformRoleGrantSchema>
 
 /**
  * What the panel asks for to know what to draw.

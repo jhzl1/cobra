@@ -2,10 +2,10 @@ import { Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nest
 import { ConfigService } from '@nestjs/config'
 import PgBoss from 'pg-boss'
 import {
-  type ProcessReceiptJob,
-  type ProcessTurnJob,
+  type ProcessReceiptPayload,
+  type ProcessTurnPayload,
   QUEUES,
-  type SendMessageJob,
+  type SendMessagePayload,
 } from '@cobra/contracts'
 
 /**
@@ -46,11 +46,11 @@ export class QueueService implements OnModuleInit, OnApplicationShutdown {
    * anything. Getting that wrong fails silently: N concurrent turns against the
    * same model and the same tools, with no error anywhere.
    */
-  enqueueTurn(job: ProcessTurnJob): Promise<string | null> {
+  enqueueTurn(job: ProcessTurnPayload): Promise<string | null> {
     return this.boss.send(QUEUES.processTurn, job, { singletonKey: job.conversationId })
   }
 
-  enqueueSend(job: SendMessageJob): Promise<string | null> {
+  enqueueSend(job: SendMessagePayload): Promise<string | null> {
     return this.boss.send(QUEUES.sendMessage, job)
   }
 
@@ -59,7 +59,7 @@ export class QueueService implements OnModuleInit, OnApplicationShutdown {
    * a receipt with Gemini takes seconds, and those run alongside the text burst
    * window rather than after it.
    */
-  enqueueReceipt(job: ProcessReceiptJob): Promise<string | null> {
+  enqueueReceipt(job: ProcessReceiptPayload): Promise<string | null> {
     return this.boss.send(QUEUES.processReceipt, job)
   }
 }

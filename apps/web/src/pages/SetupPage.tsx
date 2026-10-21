@@ -16,33 +16,33 @@ interface StepCopy {
   /** What it is for, in one line. Not what to click — that is the button. */
   why: string
   action: string
-  to: string
+  to: '/$tenantId/settings'
 }
 
-const COPY: Record<SetupStep['id'], StepCopy> = {
+const SETUP_STEP_COPY: Record<SetupStep['id'], StepCopy> = {
   credentials: {
     title: 'Cargar las credenciales',
     why: 'Sin las tres el agente no puede recibir mensajes, ni pensar, ni registrar un pago.',
     action: 'Ir a Credenciales',
-    to: '/settings',
+    to: '/$tenantId/settings',
   },
   number: {
     title: 'Conectar el número de WhatsApp',
     why: 'Al registrarlo, el panel genera la URL del webhook y su token de verificación.',
     action: 'Conectar número',
-    to: '/settings',
+    to: '/$tenantId/settings',
   },
   webhook: {
     title: 'Pegar el webhook en Meta',
     why: 'Este es el único paso que no se hace desde aquí. Se da por hecho cuando llega el primer mensaje.',
     action: 'Ver la URL',
-    to: '/settings',
+    to: '/$tenantId/settings',
   },
   paymentMethods: {
     title: 'Registrar las cuentas de recaudo',
     why: 'El agente compara contra ellas la cuenta de cada comprobante. Sin ninguna, retiene todos.',
     action: 'Agregar cuenta',
-    to: '/settings',
+    to: '/$tenantId/settings',
   },
 }
 
@@ -73,8 +73,8 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
 
   if (!setup.data) return null
 
-  const { steps, ready, status, webhookUrl, verifyToken } = setup.data
-  const done = steps.filter((step) => step.done).length
+  const { steps, isReady, status, webhookUrl, verifyToken } = setup.data
+  const doneCount = steps.filter((step) => step.isDone).length
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -82,16 +82,16 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Puesta en marcha
-            {ready ? (
+            {isReady ? (
               <Badge variant="success">Listo</Badge>
             ) : (
               <Badge>
-                {done} de {steps.length}
+                {doneCount} de {steps.length}
               </Badge>
             )}
           </CardTitle>
           <CardDescription>
-            {ready
+            {isReady
               ? 'La empresa está recibiendo mensajes y el agente les responde.'
               : 'Lo que falta para que el agente le responda a los clientes de esta empresa.'}
           </CardDescription>
@@ -107,7 +107,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
 
           <ol className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border">
             {steps.map((step, index) => (
-              <Step key={step.id} step={step} number={index + 1} />
+              <SetupStepItem key={step.id} tenantId={tenantId} step={step} number={index + 1} />
             ))}
           </ol>
         </CardContent>
@@ -152,12 +152,20 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
   )
 }
 
-const Step = ({ step, number }: { step: SetupStep; number: number }) => {
-  const copy = COPY[step.id]
+const SetupStepItem = ({
+  tenantId,
+  step,
+  number,
+}: {
+  tenantId: string
+  step: SetupStep
+  number: number
+}) => {
+  const copy = SETUP_STEP_COPY[step.id]
 
   return (
     <li className="flex items-center gap-4 p-4">
-      {step.done ? (
+      {step.isDone ? (
         <CheckCircle2Icon className="size-5 shrink-0 text-success" aria-hidden />
       ) : step.id === 'webhook' ? (
         <CircleSlashIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
@@ -166,15 +174,17 @@ const Step = ({ step, number }: { step: SetupStep; number: number }) => {
       )}
 
       <div className="min-w-0 flex-1">
-        <p className={cn('text-sm font-medium', step.done && 'text-muted-foreground')}>
+        <p className={cn('text-sm font-medium', step.isDone && 'text-muted-foreground')}>
           {number}. {copy.title}
         </p>
-        <p className="text-xs text-muted-foreground">{step.pending ?? copy.why}</p>
+        <p className="text-xs text-muted-foreground">{step.missingDetail ?? copy.why}</p>
       </div>
 
-      {!step.done && (
+      {!step.isDone && (
         <Button asChild size="sm" variant="secondary">
-          <Link to={copy.to}>{copy.action}</Link>
+          <Link to={copy.to} params={{ tenantId }}>
+            {copy.action}
+          </Link>
         </Button>
       )}
     </li>

@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import type { PostgrestError } from '@supabase/supabase-js'
-import type { GrantRoleInput, PlatformIdentity, RoleGrant } from '@cobra/contracts'
+import type { GrantRoleInput, PlatformIdentity, PlatformRoleGrant } from '@cobra/contracts'
 import { SupabaseService } from '~/supabase/supabase.service'
 
 const UNIQUE_VIOLATION = '23505'
@@ -25,7 +25,7 @@ export class PlatformService {
    * someone revoked minutes ago and then get a 403 on every click.
    */
   async identity(userId: string, email: string | null): Promise<PlatformIdentity> {
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('user_roles')
       .select('id')
       .eq('user_id', userId)
@@ -39,8 +39,8 @@ export class PlatformService {
   }
 
   /** Every grant, active and revoked. The history is the point of this table. */
-  async listGrants(): Promise<RoleGrant[]> {
-    const { data, error } = await this.supabase.admin
+  async listGrants(): Promise<PlatformRoleGrant[]> {
+    const { data, error } = await this.supabase.unscoped
       .from('user_roles')
       .select('id, email, role, user_id, granted_at, revoked_at')
       .order('granted_at', { ascending: false })
@@ -50,7 +50,7 @@ export class PlatformService {
     return (data ?? []).map((row) => ({
       id: row.id as string,
       email: row.email as string,
-      role: row.role as RoleGrant['role'],
+      role: row.role as PlatformRoleGrant['role'],
       userId: (row.user_id as string | null) ?? null,
       grantedAt: row.granted_at as string,
       revokedAt: (row.revoked_at as string | null) ?? null,
@@ -61,8 +61,8 @@ export class PlatformService {
    * Grants by email, which is how someone can be authorised before they have an
    * account: a trigger ties the grant to the identity on their first sign-in.
    */
-  async grant(grantedBy: string, input: GrantRoleInput): Promise<RoleGrant> {
-    const { data, error } = await this.supabase.admin
+  async grant(grantedBy: string, input: GrantRoleInput): Promise<PlatformRoleGrant> {
+    const { data, error } = await this.supabase.unscoped
       .from('user_roles')
       .insert({ email: input.email, role: input.role, granted_by: grantedBy })
       .select('id, email, role, user_id, granted_at, revoked_at')
@@ -82,7 +82,7 @@ export class PlatformService {
     return {
       id: data.id as string,
       email: data.email as string,
-      role: data.role as RoleGrant['role'],
+      role: data.role as PlatformRoleGrant['role'],
       userId: (data.user_id as string | null) ?? null,
       grantedAt: data.granted_at as string,
       revokedAt: null,
@@ -93,7 +93,7 @@ export class PlatformService {
   async revoke(grantId: string): Promise<{ revokedAt: string }> {
     const revokedAt = new Date().toISOString()
 
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('user_roles')
       .update({ revoked_at: revokedAt })
       .eq('id', grantId)
@@ -108,14 +108,14 @@ export class PlatformService {
   }
 
   private async linkExistingUser(email: string): Promise<void> {
-    const { data } = await this.supabase.admin.auth.admin.listUsers()
+    const { data } = await this.supabase.unscoped.auth.admin.listUsers()
     const user = data?.users.find(
       (candidate) => candidate.email?.toLowerCase() === email.toLowerCase(),
     )
 
     if (!user) return
 
-    await this.supabase.admin
+    await this.supabase.unscoped
       .from('user_roles')
       .update({ user_id: user.id })
       .eq('email', email.toLowerCase())

@@ -3,8 +3,8 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { ArrowLeftIcon } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import type { AgentRun } from '@cobra/contracts'
-import { ChatPanel } from '~/components/ChatPanel'
 import { ConversationList } from '~/components/ConversationList'
+import { ConversationPanel } from '~/components/ConversationPanel'
 import { Timeline } from '~/components/Timeline'
 import { Button } from '~/components/ui/button'
 import { Spinner } from '~/components/ui/spinner'
@@ -15,19 +15,20 @@ import { cn } from '~/lib/utils'
 import { useInbox } from '~/providers/InboxProvider'
 
 interface Props {
-  /** From the path. Null on /chats, which is the list with nothing open. */
+  tenantId: string
+  /** From the path. Null on /$tenantId/conversations, which is the list with nothing open. */
   conversationId: string | null
 }
 
-export const WorkspacePage = ({ conversationId }: Props) => {
+export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
   const navigate = useNavigate()
   const inbox = useInbox()
 
   // What is on screen stops counting as unread, and stops interrupting.
   useEffect(() => {
-    inbox.setOpen(conversationId)
+    inbox.setOpenConversationId(conversationId)
 
-    return () => inbox.setOpen(null)
+    return () => inbox.setOpenConversationId(null)
   }, [conversationId, inbox])
 
   const runs = useQuery({
@@ -47,7 +48,9 @@ export const WorkspacePage = ({ conversationId }: Props) => {
    */
   useConversationStream(conversationId)
 
-  const selected = inbox.conversations.find((conversation) => conversation.id === conversationId)
+  const selectedConversation = inbox.conversations.find(
+    (conversation) => conversation.id === conversationId,
+  )
 
   // Below the wide layout the agent's steps share the chat's column, so one of
   // the two is on screen at a time. Keyed by conversation: opening another one
@@ -64,13 +67,13 @@ export const WorkspacePage = ({ conversationId }: Props) => {
         className={cn('min-h-0 flex-col border-r', conversationId ? 'hidden lg:flex' : 'flex')}
       >
         <PaneHeader title="Conversaciones">
-          {!inbox.loading && (
+          {!inbox.isLoading && (
             <span className="font-mono">{inbox.conversations.length} en total</span>
           )}
         </PaneHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {inbox.loading ? (
+          {inbox.isLoading ? (
             <div className="flex h-full items-center justify-center">
               <Spinner className="size-5" />
             </div>
@@ -80,7 +83,10 @@ export const WorkspacePage = ({ conversationId }: Props) => {
               isUnread={inbox.isUnread}
               selectedId={conversationId}
               onSelect={(id) =>
-                void navigate({ to: '/chats/$conversationId', params: { conversationId: id } })
+                void navigate({
+                  to: '/$tenantId/conversations/$conversationId',
+                  params: { tenantId, conversationId: id },
+                })
               }
             />
           ) : (
@@ -91,7 +97,9 @@ export const WorkspacePage = ({ conversationId }: Props) => {
                 Todavía no ha llegado ninguna conversación.
               </p>
               <Button asChild size="sm" variant="secondary">
-                <Link to="/setup">Ver qué falta</Link>
+                <Link to="/$tenantId/setup" params={{ tenantId }}>
+                  Ver qué falta
+                </Link>
               </Button>
             </div>
           )}
@@ -105,12 +113,16 @@ export const WorkspacePage = ({ conversationId }: Props) => {
           conversationId ? 'flex' : 'hidden lg:flex',
         )}
       >
-        {selected && (
+        {selectedConversation && (
           <div className="flex h-10 shrink-0 items-stretch gap-5 border-b px-4 xl:hidden">
             {/* On a phone the list is a screen of its own, so this is the way
                 back — here and not in the chat, so the steps view has it too. */}
             <Button asChild size="icon-sm" variant="ghost" className="-ml-2 self-center lg:hidden">
-              <Link to="/chats" aria-label="Volver a las conversaciones">
+              <Link
+                to="/$tenantId/conversations"
+                params={{ tenantId }}
+                aria-label="Volver a las conversaciones"
+              >
                 <ArrowLeftIcon />
               </Link>
             </Button>
@@ -134,7 +146,7 @@ export const WorkspacePage = ({ conversationId }: Props) => {
           </div>
         )}
 
-        {!selected ? (
+        {!selectedConversation ? (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-sm text-muted-foreground">Elige una conversación de la lista</p>
           </div>
@@ -143,14 +155,14 @@ export const WorkspacePage = ({ conversationId }: Props) => {
             <Timeline runs={runs.data ?? []} />
           </div>
         ) : (
-          <ChatPanel conversation={selected} />
+          <ConversationPanel conversation={selectedConversation} />
         )}
       </section>
 
       <section aria-label="Pasos del agente" className="hidden min-h-0 flex-col xl:flex">
         <PaneHeader title="Pasos del agente" />
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {selected ? (
+          {selectedConversation ? (
             <Timeline runs={runs.data ?? []} />
           ) : (
             <p className="p-4 text-sm text-muted-foreground">

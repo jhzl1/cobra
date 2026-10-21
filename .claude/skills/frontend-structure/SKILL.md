@@ -26,8 +26,26 @@ apps/web/src/
 ├── hooks/        lógica con estado que no dibuja nada
 ├── lib/          clientes y configuración: api, supabase, queryClient
 ├── providers/    contexto que envuelve toda la aplicación
-└── App.tsx       shell: selector de empresa, navegación, sesión
+├── routes/       un archivo por ruta; el plugin de Vite genera routeTree.gen.ts
+├── router.tsx    crea el router a partir del árbol generado
+└── App.tsx       QueryClientProvider y RouterProvider; el shell está en AppLayout
 ```
+
+## Rutas: empresa o plataforma
+
+Todo lo que es de una empresa vive bajo `routes/$tenantId.*`:
+`/$tenantId/conversations`, `/$tenantId/settings`… El segmento es el UUID del tenant, y
+la URL es la única fuente de qué empresa está en pantalla: `useTenant()` lo lee
+del path, nunca de localStorage. `routes/$tenantId.tsx` valida que la cuenta
+llegue a esa empresa, así que sus hijas no lo vuelven a revisar.
+
+Todo lo que no lleva tenant es de la plataforma y va bajo el layout sin path
+`routes/_platform.*` (`_platform.platform.tsx` → `/platform`). Ese layout exige
+`isPlatformAdmin`; una ruta de admin fuera de él queda abierta a cualquiera con
+sesión.
+
+Los archivos de `routes/` son delgados: leen los params y montan una página de
+`pages/`. `routeTree.gen.ts` se commitea y no se edita a mano.
 
 Un componente que solo usa una pantalla puede quedarse en `components/` igual: la
 pregunta no es cuántos lo usan, es si la pantalla se lee mejor sin él adentro.

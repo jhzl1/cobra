@@ -31,10 +31,10 @@ export const QUEUES = {
    */
   sendMessage: 'send-message',
   /** Alerts to the administrator. Best-effort by contract, never in a turn's path. */
-  notifyAdmin: 'notify-admin',
+  notifyTenantAdmin: 'notify-admin',
 } as const
 
-export const processTurnJobSchema = z.object({
+export const processTurnPayloadSchema = z.object({
   tenantId: z.uuid(),
   conversationId: z.uuid(),
   trigger: z.enum(['inbound', 'manual_replay']).default('inbound'),
@@ -45,33 +45,33 @@ export const processTurnJobSchema = z.object({
   windowStartedAt: z.string().optional(),
 })
 
-export type ProcessTurnJob = z.infer<typeof processTurnJobSchema>
+export type ProcessTurnPayload = z.infer<typeof processTurnPayloadSchema>
 
-export const processReceiptJobSchema = z.object({
+export const processReceiptPayloadSchema = z.object({
   tenantId: z.uuid(),
   conversationId: z.uuid(),
   messageId: z.uuid(),
   mediaId: z.string(),
 })
 
-export type ProcessReceiptJob = z.infer<typeof processReceiptJobSchema>
+export type ProcessReceiptPayload = z.infer<typeof processReceiptPayloadSchema>
 
-export const sendMessageJobSchema = z.object({
+export const sendMessagePayloadSchema = z.object({
   tenantId: z.uuid(),
   conversationId: z.uuid(),
   messageId: z.uuid(),
 })
 
-export type SendMessageJob = z.infer<typeof sendMessageJobSchema>
+export type SendMessagePayload = z.infer<typeof sendMessagePayloadSchema>
 
-export const notifyAdminJobSchema = z.object({
+export const notifyTenantAdminPayloadSchema = z.object({
   tenantId: z.uuid(),
   conversationId: z.uuid().optional(),
   text: z.string(),
   mediaId: z.string().nullable().optional(),
 })
 
-export type NotifyAdminJob = z.infer<typeof notifyAdminJobSchema>
+export type NotifyTenantAdminPayload = z.infer<typeof notifyTenantAdminPayloadSchema>
 
 /**
  * pg-boss defaults that would misbehave here, overridden once.

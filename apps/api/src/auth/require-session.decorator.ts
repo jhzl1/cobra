@@ -7,7 +7,7 @@ import { withSupabase } from '@supabase/server/adapters/nestjs'
  * documents the requirement in Swagger. Bundled so a route can never end up
  * guarded but undocumented, or documented but unguarded.
  */
-export const AuthClient = () =>
+export const RequireSession = () =>
   applyDecorators(
     UseGuards(withSupabase({ auth: 'user' })),
     ApiBearerAuth(),

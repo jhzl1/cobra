@@ -13,18 +13,14 @@ import {
   type RecordPaymentAttempt,
   type SettlePaymentAttempt,
 } from '@cobra/agent'
-import {
-  ALERT_REASON_TEXT,
-  type AlertReason,
-  type ProcessTurnJob as ProcessTurnPayload,
-} from '@cobra/contracts'
+import { ALERT_REASON_TEXT, type AlertReason, type ProcessTurnPayload } from '@cobra/contracts'
 import { ConversationRepository } from '../repositories/conversation.repository.js'
 import { PaymentMethodRepository } from '../repositories/payment-method.repository.js'
 import { ReceiptRepository } from '../repositories/receipt.repository.js'
 import { TraceRepository } from '../repositories/trace.repository.js'
-import { MessagingService } from '../runtime/messaging.service.js'
+import { TenantAdminAlertService } from '../runtime/tenant-admin-alert.service.js'
 import { TenantRuntimeService } from '../runtime/tenant-runtime.service.js'
-import { burstWait } from './burst-window.js'
+import { remainingBurstWaitMs } from './burst-window.js'
 
 /** How long the turn waits for an image's receipt job before giving up on it. */
 const RECEIPT_WAIT_MS = 20_000
@@ -32,14 +28,14 @@ const RECEIPT_POLL_MS = 500
 
 export interface TurnOutcome {
   /** Re-queue this turn after the given delay instead of running it now. */
-  retryInMs?: number
+  deferForMs?: number
   reply?: string | null
   /**
    * The stored reply, waiting to go out. Sending is its own queue with its own
    * retries: re-running a whole turn because the HTTP call failed is expensive
    * and risks running its tools twice, while retrying the send costs nothing.
    */
-  sendMessageId?: string | null
+  outboundMessageId?: string | null
   skipped?: 'no-messages' | 'human' | 'no-conversation' | 'suspended'
 }
 
@@ -52,39 +48,43 @@ export class ProcessTurnJobHandler {
     private readonly receipts: ReceiptRepository,
     private readonly paymentMethods: PaymentMethodRepository,
     private readonly trace: TraceRepository,
-    private readonly tenants: TenantRuntimeService,
-    private readonly messaging: MessagingService,
+    private readonly tenantRuntimes: TenantRuntimeService,
+    private readonly tenantAdminAlerts: TenantAdminAlertService,
   ) {}
 
-  async handle(job: ProcessTurnPayload): Promise<TurnOutcome> {
-    const { tenantId, conversationId } = job
+  async run(payload: ProcessTurnPayload): Promise<TurnOutcome> {
+    const { tenantId, conversationId } = payload
     const conversation = await this.conversations.load(tenantId, conversationId)
 
     if (!conversation) return { skipped: 'no-conversation' }
 
-    const inbound = await this.conversations.unprocessedInbound(tenantId, conversationId)
+    const unprocessedMessages = await this.conversations.unprocessedInbound(
+      tenantId,
+      conversationId,
+    )
 
     /**
      * Handoff: the messages are still stored, the model is not called. They are
      * marked as read by the turn so the queue does not spin on them; the
      * operator has them on screen, and "reenviar al agente" is the way back.
      */
-    if (conversation.status === 'human' && job.trigger === 'inbound') {
+    if (conversation.status === 'human' && payload.trigger === 'inbound') {
       await this.conversations.markProcessed(
         tenantId,
-        inbound.map((message) => message.id),
+        unprocessedMessages.map((message) => message.id),
       )
 
       return { skipped: 'human' }
     }
 
-    if (!inbound.length && job.trigger === 'inbound') return { skipped: 'no-messages' }
+    if (!unprocessedMessages.length && payload.trigger === 'inbound')
+      return { skipped: 'no-messages' }
 
-    const wait = burstWait(inbound, new Date(), job.windowStartedAt)
+    const waitMs = remainingBurstWaitMs(unprocessedMessages, new Date(), payload.windowStartedAt)
 
-    if (wait > 0) return { retryInMs: wait }
+    if (waitMs > 0) return { deferForMs: waitMs }
 
-    const runtime = await this.tenants.load(tenantId)
+    const runtime = await this.tenantRuntimes.load(tenantId)
 
     /**
      * Suspension is checked here rather than when the job was queued, for the
@@ -96,11 +96,11 @@ export class ProcessTurnJobHandler {
      * are not replayed on reactivation; the webhook is dropping anything new by
      * then anyway.
      */
-    if (runtime.raw.status === 'suspended') {
+    if (runtime.runtimeConfig.status === 'suspended') {
       this.logger.log(`Skipping a turn for suspended tenant ${tenantId}`)
       await this.conversations.markProcessed(
         tenantId,
-        inbound.map((message) => message.id),
+        unprocessedMessages.map((message) => message.id),
       )
 
       return { skipped: 'suspended' }
@@ -111,21 +111,21 @@ export class ProcessTurnJobHandler {
     const wamid = await this.conversations.latestInboundWamid(tenantId, conversationId)
     if (wamid) await runtime.meta.markAsRead(wamid)
 
-    const consumed = inbound.map((message) => message.id)
-    const burst = consolidateBurst(inbound)
+    const consumedMessageIds = unprocessedMessages.map((message) => message.id)
+    const burst = consolidateBurst(unprocessedMessages)
 
     // The image's own job is already running. Waiting for it here is what puts
     // Gemini's seconds alongside the text window instead of after it.
-    if (burst.mediaIds.length) await this.waitForReceipts(tenantId, inbound)
+    if (burst.mediaIds.length) await this.waitForReceipts(tenantId, unprocessedMessages)
 
-    const receiptsOfBurst = await this.receipts.forMessages(tenantId, consumed)
-    const rejected = receiptsOfBurst.find((receipt) => receipt.alertReason)
+    const receiptsOfBurst = await this.receipts.forMessages(tenantId, consumedMessageIds)
+    const rejectedReceipt = receiptsOfBurst.find((receipt) => receipt.alertReason)
 
     const run = await this.trace.startRun(
       tenantId,
       conversationId,
-      job.trigger,
-      rejected ? 'rules-only' : AGENT_MODEL,
+      payload.trigger,
+      rejectedReceipt ? 'rules-only' : AGENT_MODEL,
     )
 
     /**
@@ -135,38 +135,43 @@ export class ProcessTurnJobHandler {
      * reason goes to the administrator. Letting the model near a rejected
      * receipt is how it ends up explaining our validation rules to a customer.
      */
-    if (rejected) {
+    if (rejectedReceipt) {
       const step = await run.recorder.start({
         kind: 'validation',
         name: 'receipt-rejected',
-        input: { alertReason: rejected.alertReason },
+        input: { alertReason: rejectedReceipt.alertReason },
       })
 
-      await this.messaging
+      await this.tenantAdminAlerts
         .forTenant(runtime)
-        .notifyAdmin(
+        .notifyTenantAdmin(
           [
-            `COMPROBANTE RETENIDO — ${ALERT_REASON_TEXT[rejected.alertReason as AlertReason] ?? rejected.alertReason}`,
+            `COMPROBANTE RETENIDO — ${ALERT_REASON_TEXT[rejectedReceipt.alertReason as AlertReason] ?? rejectedReceipt.alertReason}`,
             `Cliente: ${conversation.phone ?? conversation.personId}`,
           ].join('\n'),
-          rejected.mediaId,
+          rejectedReceipt.mediaId,
         )
 
       await run.recorder.finish(step, { status: 'done', output: { reply: MANUAL_REVIEW_REPLY } })
-      await this.conversations.finishTurn(tenantId, conversationId, consumed, MANUAL_REVIEW_REPLY)
+      await this.conversations.finishTurn(
+        tenantId,
+        conversationId,
+        consumedMessageIds,
+        MANUAL_REVIEW_REPLY,
+      )
       await this.trace.finishRun(tenantId, run.runId, { status: 'done' })
 
       return { reply: MANUAL_REVIEW_REPLY }
     }
 
     const startedAt = new Date()
-    const pending = await this.receipts.checkPending(tenantId, conversationId)
+    const pendingReceiptLookup = await this.receipts.findPending(tenantId, conversationId)
 
     const steering = new Steering({
       readUnconsumed: async () => {
         const fresh = await this.conversations.unprocessedInbound(tenantId, conversationId)
 
-        return fresh.filter((message) => !consumed.includes(message.id))
+        return fresh.filter((message) => !consumedMessageIds.includes(message.id))
       },
     })
 
@@ -176,39 +181,39 @@ export class ProcessTurnJobHandler {
       conversation.contextResetAt,
     )
 
-    const result = await runTurn({
-      tenant: runtime.config,
+    const turnResult = await runTurn({
+      tenant: runtime.agentConfig,
       conversationId,
       model: runtime.models.agent,
       phone: conversation.phone,
       history,
       burstText: burst.text,
       receiptArrivedThisTurn: receiptsOfBurst.length > 0,
-      pending,
-      pendingReceipt: pending.receipt,
-      mediaId: burst.mediaIds.at(-1) ?? pending.receipt?.mediaId ?? null,
+      pendingReceiptLookup,
+      pendingReceipt: pendingReceiptLookup.receipt,
+      mediaId: burst.mediaIds.at(-1) ?? pendingReceiptLookup.receipt?.mediaId ?? null,
       deps: {
         wisphub: runtime.wisphub,
         receipts: this.receiptPort(tenantId),
-        messaging: this.messaging.forTenant(runtime),
+        messaging: this.tenantAdminAlerts.forTenant(runtime),
         steps: run.recorder,
         steering,
         listPaymentMethods: (zone) => this.paymentMethods.list(tenantId, zone),
       },
     })
 
-    const outboundId = await this.conversations.finishTurn(
+    const outboundMessageId = await this.conversations.finishTurn(
       tenantId,
       conversationId,
-      consumed,
-      result.reply,
+      consumedMessageIds,
+      turnResult.reply,
     )
 
     await this.trace.finishRun(tenantId, run.runId, {
-      status: result.error ? 'error' : 'done',
-      error: result.error,
-      inputTokens: result.inputTokens,
-      outputTokens: result.outputTokens,
+      status: turnResult.error ? 'error' : 'done',
+      error: turnResult.error,
+      inputTokens: turnResult.inputTokens,
+      outputTokens: turnResult.outputTokens,
     })
 
     /**
@@ -220,7 +225,7 @@ export class ProcessTurnJobHandler {
       await this.conversations.resetContext(tenantId, conversationId)
     }
 
-    return { reply: result.reply, sendMessageId: outboundId }
+    return { reply: turnResult.reply, outboundMessageId }
   }
 
   /** Bounded: a receipt job that never finishes must not hold the turn forever. */
@@ -247,7 +252,7 @@ export class ProcessTurnJobHandler {
   private receiptPort(tenantId: string): ReceiptPort {
     return {
       checkPendingReceipt: (conversationId: string) =>
-        this.receipts.checkPending(tenantId, conversationId),
+        this.receipts.findPending(tenantId, conversationId),
       recordPaymentAttempt: (input: RecordPaymentAttempt) => this.receipts.recordAttempt(input),
       settlePaymentAttempt: (attemptId: string, input: SettlePaymentAttempt) =>
         this.receipts.settleAttempt(tenantId, attemptId, input),

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { TenantMember } from '@cobra/contracts'
+import type { TenantMember, WhatsappNumber } from '@cobra/contracts'
 import { Badge } from '~/components/ui/badge'
 import {
   Dialog,
@@ -12,12 +12,6 @@ import { Spinner } from '~/components/ui/spinner'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
 import type { TenantSummary } from '~/lib/tenants'
-
-interface WhatsappNumber {
-  id: string
-  phoneNumberId: string
-  displayNumber: string
-}
 
 /**
  * What the platform gets to see about a company: its settings, its numbers and
@@ -70,7 +64,7 @@ const TenantDetailBody = ({ tenant }: { tenant: TenantSummary }) => {
   })
 
   const numbers = useQuery({
-    queryKey: queryKeys.numbers(tenant.id),
+    queryKey: queryKeys.whatsappNumbers(tenant.id),
     queryFn: async () => {
       const { data } = await api.get<WhatsappNumber[]>(`/tenants/${tenant.id}/whatsapp-numbers`)
 

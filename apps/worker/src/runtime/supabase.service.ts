@@ -32,7 +32,7 @@ export class SupabaseService {
   }
 
   /** For `rpc` and for storage, neither of which goes through a table filter. */
-  get admin(): ServiceClient {
+  get unscoped(): ServiceClient {
     return this.client
   }
 }

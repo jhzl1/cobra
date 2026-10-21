@@ -1,6 +1,9 @@
 import { digitsOnly } from './normalize'
 import type { PaymentMethod } from './types'
 
+/** The digits a masked Nequi screenshot leaves visible. */
+const MIN_MATCHING_DIGITS = 4
+
 /**
  * Whether an account is on offer to a customer in a given zone.
  *
@@ -13,7 +16,7 @@ import type { PaymentMethod } from './types'
  * from the same field in Wisphub and an operator picking from a list is not the
  * only way a zone gets in here.
  */
-export const usableInZone = (method: PaymentMethod, customerZone: string | null): boolean => {
+export const isOfferedInZone = (method: PaymentMethod, customerZone: string | null): boolean => {
   if (!method.zone) return true
   if (!customerZone) return false
 
@@ -37,11 +40,11 @@ export const resolvePaymentMethod = (
   destinationAccount: string | null,
   destinationMethod: string | null,
 ): PaymentMethod | null => {
-  const usable = methods.filter((method) => !!method.wisphubId)
+  const methodsWithWisphubId = methods.filter((method) => !!method.wisphubId)
 
-  if (!usable.length || !destinationAccount) return null
+  if (!methodsWithWisphubId.length || !destinationAccount) return null
 
-  const candidates = usable.filter((method) =>
+  const candidates = methodsWithWisphubId.filter((method) =>
     matchesAddress(method.paymentAddress, destinationAccount),
   )
 
@@ -74,7 +77,7 @@ const matchesAddress = (configured: string, read: string): boolean => {
   // Four digits is what a masked Nequi screenshot leaves visible; anything
   // shorter is not enough to tell two of the tenant's accounts apart.
   const shortest = Math.min(configuredDigits.length, readDigits.length)
-  if (shortest < 4) return false
+  if (shortest < MIN_MATCHING_DIGITS) return false
 
   return configuredDigits.endsWith(readDigits) || readDigits.endsWith(configuredDigits)
 }

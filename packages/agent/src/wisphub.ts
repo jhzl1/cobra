@@ -2,6 +2,9 @@ import { WISPHUB_BASE_URL, wisphubAuthHeader } from '@cobra/contracts'
 import { formatCop } from './normalize'
 import type { WisphubCustomer, WisphubInvoice, WisphubPort } from './types'
 
+/** Default ceiling for one Wisphub call. */
+const WISPHUB_TIMEOUT_MS = 20_000
+
 export interface WisphubClientOptions {
   apiKey: string
   baseUrl?: string
@@ -36,7 +39,7 @@ export class WisphubClient implements WisphubPort {
 
   constructor(private readonly options: WisphubClientOptions) {
     this.baseUrl = options.baseUrl ?? WISPHUB_BASE_URL
-    this.timeoutMs = options.timeoutMs ?? 20_000
+    this.timeoutMs = options.timeoutMs ?? WISPHUB_TIMEOUT_MS
     this.fetchImpl = options.fetchImpl ?? fetch
   }
 

@@ -1,7 +1,7 @@
 import type { CallHandler, ExecutionContext } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { firstValueFrom, of } from 'rxjs'
-import { ResponseEnvelopeInterceptor } from './response.interceptor'
+import { ResponseEnvelopeInterceptor } from './response-envelope.interceptor'
 
 const contextFor = (raw: boolean) => {
   const reflector = new Reflector()

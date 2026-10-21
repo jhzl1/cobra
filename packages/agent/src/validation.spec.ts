@@ -19,7 +19,7 @@ const extraction = (over: Partial<ReceiptExtraction> = {}): ReceiptExtraction =>
   reference: ['M123456'],
   destinationAccount: '3001234567',
   confidence: 0.98,
-  isVoucher: true,
+  isReceipt: true,
   humanDescription: 'Transferencia Nequi',
   ...over,
 })
@@ -43,7 +43,7 @@ describe('validateReceipt', () => {
     const result = validateReceipt({
       // Stale as well, and paid nowhere. Rule 1 still wins.
       extraction: extraction({
-        isVoucher: false,
+        isReceipt: false,
         paymentDatetime: '2026-01-01T09:00:00',
         destinationAccount: '999',
       }),

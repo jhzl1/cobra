@@ -1,6 +1,6 @@
 import type { AlertReason, ReceiptExtraction } from '@cobra/contracts'
 import { resolvePaymentMethod } from './payment-methods'
-import type { PaymentMethod, ValidatedReceipt } from './types'
+import type { PaymentMethod, ReceiptValidation } from './types'
 
 /** The fixed sentence the customer gets for every rejection, whatever the rule. */
 export const MANUAL_REVIEW_REPLY =
@@ -32,55 +32,55 @@ export const validateReceipt = ({
   paymentMethods,
   isReferenceUsed,
   now = new Date(),
-}: ValidateReceiptInput): ValidatedReceipt => {
+}: ValidateReceiptInput): ReceiptValidation => {
   const paidAt = parsePaymentDate(extraction.paymentDatetime)
   const isPaymentDateReadable = paidAt !== null
 
   const cutoff = new Date(now.getTime() - RECEIPT_MAX_AGE_DAYS * 24 * 60 * 60 * 1000)
-  const isPaymentDateValid = paidAt !== null && paidAt >= cutoff
+  const isPaymentDateRecent = paidAt !== null && paidAt >= cutoff
 
   const paymentMethod = resolvePaymentMethod(
     paymentMethods,
     extraction.destinationAccount,
     extraction.destinationMethod,
   )
-  const isPaymentAccountValid = paymentMethod !== null
-  const isVoucherUnused = !isReferenceUsed
+  const isDestinationOurs = paymentMethod !== null
+  const isReferenceUnused = !isReferenceUsed
 
   return {
     extraction,
     paidAt,
     isPaymentDateReadable,
-    isPaymentDateValid,
-    isPaymentAccountValid,
-    isVoucherUnused,
+    isPaymentDateRecent,
+    isDestinationOurs,
+    isReferenceUnused,
     paymentMethod,
     alertReason: firstFailingRule({
-      isVoucher: extraction.isVoucher,
+      isReceipt: extraction.isReceipt,
       isPaymentDateReadable,
-      isPaymentDateValid,
-      isPaymentAccountValid,
-      isVoucherUnused,
+      isPaymentDateRecent,
+      isDestinationOurs,
+      isReferenceUnused,
     }),
   }
 }
 
 interface RuleInput {
-  isVoucher: boolean
+  isReceipt: boolean
   isPaymentDateReadable: boolean
-  isPaymentDateValid: boolean
-  isPaymentAccountValid: boolean
-  isVoucherUnused: boolean
+  isPaymentDateRecent: boolean
+  isDestinationOurs: boolean
+  isReferenceUnused: boolean
 }
 
 const firstFailingRule = (input: RuleInput): AlertReason | null => {
-  if (!input.isVoucher) return 'not_a_voucher'
+  if (!input.isReceipt) return 'not_a_voucher'
   // Readable AND stale. An unreadable date is rule 5, and it says something
   // different to the operator: one is a customer paying late, the other is a
   // photograph we could not read.
-  if (input.isPaymentDateReadable && !input.isPaymentDateValid) return 'older_than_7_days'
-  if (!input.isPaymentAccountValid) return 'destination_not_ours'
-  if (!input.isVoucherUnused) return 'reference_already_used'
+  if (input.isPaymentDateReadable && !input.isPaymentDateRecent) return 'older_than_7_days'
+  if (!input.isDestinationOurs) return 'destination_not_ours'
+  if (!input.isReferenceUnused) return 'reference_already_used'
   if (!input.isPaymentDateReadable) return 'unreadable_date'
 
   return null

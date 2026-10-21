@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { readReceipt, validateReceipt } from '@cobra/agent'
-import type { ProcessReceiptJob as ProcessReceiptPayload } from '@cobra/contracts'
+import type { ProcessReceiptPayload } from '@cobra/contracts'
 import { ConversationRepository } from '../repositories/conversation.repository.js'
 import { PaymentMethodRepository } from '../repositories/payment-method.repository.js'
 import { ReceiptRepository } from '../repositories/receipt.repository.js'
@@ -22,27 +22,27 @@ export class ProcessReceiptJobHandler {
   private readonly logger = new Logger(ProcessReceiptJobHandler.name)
 
   constructor(
-    private readonly tenants: TenantRuntimeService,
+    private readonly tenantRuntimes: TenantRuntimeService,
     private readonly receipts: ReceiptRepository,
     private readonly paymentMethods: PaymentMethodRepository,
     private readonly conversations: ConversationRepository,
     private readonly supabase: SupabaseService,
   ) {}
 
-  async handle(job: ProcessReceiptPayload): Promise<{ receiptId: string | null }> {
-    const { tenantId, conversationId, messageId, mediaId } = job
+  async run(payload: ProcessReceiptPayload): Promise<{ receiptId: string | null }> {
+    const { tenantId, conversationId, messageId, mediaId } = payload
 
     // The turn polls for this row. A second delivery of the same message must
     // not produce a second receipt, or the deduplication is comparing a receipt
     // against itself.
     if (await this.receipts.existsForMessage(tenantId, messageId)) return { receiptId: null }
 
-    const runtime = await this.tenants.load(tenantId)
+    const runtime = await this.tenantRuntimes.load(tenantId)
     const { bytes, mediaType } = await runtime.meta.downloadMedia(mediaId)
 
     const storagePath = `${tenantId}/${conversationId}/${messageId}.${extensionFor(mediaType)}`
 
-    const upload = await this.supabase.admin.storage
+    const upload = await this.supabase.unscoped.storage
       .from(BUCKET)
       .upload(storagePath, bytes, { contentType: mediaType, upsert: true })
 
@@ -66,10 +66,10 @@ export class ProcessReceiptJobHandler {
      */
     const methods = await this.paymentMethods.listAll(tenantId)
 
-    const validated = validateReceipt({
+    const validation = validateReceipt({
       extraction,
       paymentMethods: methods,
-      isReferenceUsed: await this.receipts.anyReferenceUsed(tenantId, extraction.reference),
+      isReferenceUsed: await this.receipts.isAnyReferenceUsed(tenantId, extraction.reference),
     })
 
     const receiptId = await this.receipts.save(tenantId, {
@@ -77,7 +77,7 @@ export class ProcessReceiptJobHandler {
       messageId,
       mediaId,
       storagePath,
-      validated,
+      validation,
     })
 
     return { receiptId }

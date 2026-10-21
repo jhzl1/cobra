@@ -4,7 +4,6 @@ export interface ApplyCreditInput {
   documento: string
   abono: number
   reference: string
-  fecha_pago: string
   forma_pago: string
 }
 
@@ -15,7 +14,7 @@ export interface ApplyCreditResult {
   adminMessage?: string
 }
 
-export type CreditDecision =
+export type CreditPlan =
   | { decision: 'reject'; message: string }
   | { decision: 'apply'; serviceId: number; customerName: string }
 
@@ -27,10 +26,7 @@ export type CreditDecision =
  * suspended while the customer's balance shows money in their favour, which is
  * the worst possible outcome for someone who just paid.
  */
-export const evaluateCredit = (
-  input: ApplyCreditInput,
-  customer: WisphubCustomer,
-): CreditDecision => {
+export const planCredit = (input: ApplyCreditInput, customer: WisphubCustomer): CreditPlan => {
   const amount = Number(input.abono) || 0
 
   if (amount <= 0) {
@@ -70,31 +66,31 @@ export const applyCredit = async (
   deps: { wisphub: WisphubPort },
 ): Promise<ApplyCreditResult> => {
   const customer = await deps.wisphub.lookupCustomer(input.documento)
-  const decision = evaluateCredit(input, customer)
+  const plan = planCredit(input, customer)
 
-  if (decision.decision === 'reject') {
-    return { success: false, message: decision.message }
+  if (plan.decision === 'reject') {
+    return { success: false, message: plan.message }
   }
 
   const amount = Number(input.abono) || 0
-  const profile = await deps.wisphub.getProfile(decision.serviceId)
+  const profile = await deps.wisphub.getProfile(plan.serviceId)
   const current = Number.parseFloat(String(profile.saldo ?? '0')) || 0
   const next = current - amount
-  const credit = Math.abs(Math.min(next, 0)).toFixed(2)
+  const creditBalance = Math.abs(Math.min(next, 0)).toFixed(2)
 
-  await deps.wisphub.updateBalance(decision.serviceId, next.toFixed(2))
+  await deps.wisphub.updateBalance(plan.serviceId, next.toFixed(2))
 
   return {
     success: true,
     message: 'Abono aplicado como saldo a favor y voucher guardado',
-    saldo_a_favor: credit,
+    saldo_a_favor: creditBalance,
     adminMessage: [
       'Pago SIN factura pendiente (abonado a saldo a favor)',
-      `Cliente: ${decision.customerName || 'desconocido'}`,
+      `Cliente: ${plan.customerName || 'desconocido'}`,
       `Documento: ${input.documento}`,
       `Monto abonado: $${amount}`,
       `Referencia: ${input.reference}`,
-      `Nuevo saldo a favor: $${credit}`,
+      `Nuevo saldo a favor: $${creditBalance}`,
     ].join('\n'),
   }
 }

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import type { SendMessageJob as SendMessagePayload } from '@cobra/contracts'
+import type { SendMessagePayload } from '@cobra/contracts'
 import { ConversationRepository } from '../repositories/conversation.repository.js'
 import { SupabaseService } from '../runtime/supabase.service.js'
 import { TenantRuntimeService } from '../runtime/tenant-runtime.service.js'
@@ -18,13 +18,13 @@ export class SendMessageJobHandler {
   private readonly logger = new Logger(SendMessageJobHandler.name)
 
   constructor(
-    private readonly tenants: TenantRuntimeService,
+    private readonly tenantRuntimes: TenantRuntimeService,
     private readonly conversations: ConversationRepository,
     private readonly supabase: SupabaseService,
   ) {}
 
-  async handle(job: SendMessagePayload): Promise<{ sent: boolean }> {
-    const { tenantId, conversationId, messageId } = job
+  async run(payload: SendMessagePayload): Promise<{ sent: boolean }> {
+    const { tenantId, conversationId, messageId } = payload
 
     const { data, error } = await this.supabase
       .scope(tenantId)
@@ -46,7 +46,7 @@ export class SendMessageJobHandler {
      * theirs.
      */
     if (message['author'] === 'agent') {
-      const status = await this.conversations.status(tenantId, conversationId)
+      const status = await this.conversations.loadStatus(tenantId, conversationId)
 
       if (status === 'human') {
         await this.discard(tenantId, messageId, 'Un operador tomó la conversación')
@@ -59,12 +59,12 @@ export class SendMessageJobHandler {
 
     if (!conversation) return { sent: false }
 
-    const runtime = await this.tenants.load(tenantId)
+    const runtime = await this.tenantRuntimes.load(tenantId)
 
     // Checked here and not when the job was queued: a company can be suspended
     // while its message waits in the queue, and sending it anyway is the one
     // thing suspension is supposed to stop.
-    if (runtime.raw.status === 'suspended') {
+    if (runtime.runtimeConfig.status === 'suspended') {
       await this.discard(tenantId, messageId, 'La empresa está suspendida')
 
       return { sent: false }

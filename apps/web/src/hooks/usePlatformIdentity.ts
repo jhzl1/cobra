@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { PlatformIdentity } from '@cobra/contracts'
 import { api } from '~/lib/api'
+import { queryKeys } from '~/lib/queryClient'
 
 /**
  * Whether the signed-in person administers the platform.
@@ -15,7 +16,7 @@ import { api } from '~/lib/api'
  */
 export const usePlatformIdentity = () =>
   useQuery({
-    queryKey: ['platform', 'me'],
+    queryKey: queryKeys.platformIdentity,
     queryFn: async () => {
       const { data } = await api.get<PlatformIdentity>('/platform/me')
 

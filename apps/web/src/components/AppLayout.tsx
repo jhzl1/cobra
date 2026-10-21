@@ -1,4 +1,4 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router'
+import { Link, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { BellIcon, BellOffIcon, Volume2Icon, VolumeXIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '~/components/ui/button'
@@ -9,35 +9,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select'
-import { usePlatformIdentity } from '~/hooks/usePlatform'
-import { askForNotifications, playBlip, setSoundEnabled, soundEnabled } from '~/lib/notify'
+import { usePlatformIdentity } from '~/hooks/usePlatformIdentity'
+import { askForNotifications, isSoundEnabled, playBlip, setSoundEnabled } from '~/lib/notify'
 import { supabase } from '~/lib/supabase'
 import { cn } from '~/lib/utils'
 import { useInbox } from '~/providers/InboxProvider'
 import { useTenant } from '~/providers/TenantProvider'
 
 interface Section {
-  to: string
+  to: '/$tenantId/conversations' | '/$tenantId/setup' | '/$tenantId/settings'
   label: string
-  adminOnly?: boolean
 }
 
-const SECTIONS: Section[] = [
-  { to: '/chats', label: 'Conversaciones' },
-  { to: '/setup', label: 'Puesta en marcha' },
-  { to: '/settings', label: 'Configuración' },
-  { to: '/platform', label: 'Plataforma', adminOnly: true },
+/** A company's own screens, drawn only while one is open. */
+const TENANT_SECTIONS: Section[] = [
+  { to: '/$tenantId/conversations', label: 'Conversaciones' },
+  { to: '/$tenantId/setup', label: 'Puesta en marcha' },
+  { to: '/$tenantId/settings', label: 'Configuración' },
 ]
 
 /** The frame every signed-in screen renders inside: company picker and nav. */
 export const AppLayout = () => {
-  const { tenants, tenantId, setTenantId } = useTenant()
+  const { tenants, tenantId } = useTenant()
   const { unreadCount } = useInbox()
   const identity = usePlatformIdentity()
-  const isAdmin = identity.data?.isPlatformAdmin ?? false
-  const path = useRouterState({ select: (state) => state.location.pathname })
+  const isPlatformAdmin = identity.data?.isPlatformAdmin ?? false
+  const navigate = useNavigate()
+  const matchRoute = useMatchRoute()
 
-  const sections = SECTIONS.filter((section) => !section.adminOnly || isAdmin)
+  const isActive = (to: Section['to'] | '/platform') =>
+    !!matchRoute({ to, params: { tenantId: tenantId ?? '' }, fuzzy: true })
+
+  const sections = tenantId ? TENANT_SECTIONS : []
+
+  // Switching company keeps the section on screen. Not the conversation: it
+  // belongs to the company being left.
+  const openTenant = (next: string) => {
+    const current = sections.find((section) => isActive(section.to))
+
+    void navigate({ to: current?.to ?? '/$tenantId/conversations', params: { tenantId: next } })
+  }
 
   return (
     <div className="flex h-dvh flex-col">
@@ -47,7 +58,7 @@ export const AppLayout = () => {
           /
         </span>
 
-        <Select value={tenantId ?? ''} onValueChange={setTenantId}>
+        <Select value={tenantId ?? ''} onValueChange={openTenant}>
           <SelectTrigger
             aria-label="Empresa"
             size="sm"
@@ -82,23 +93,18 @@ export const AppLayout = () => {
         className="flex h-10.5 shrink-0 items-stretch gap-5 overflow-x-auto border-b [mask-image:linear-gradient(to_right,black_85%,transparent)] px-4 sm:[mask-image:none]"
       >
         {sections.map((section) => {
-          const active = path.startsWith(section.to)
+          const active = isActive(section.to)
 
           return (
             <Link
               key={section.to}
               to={section.to}
+              params={{ tenantId: tenantId ?? '' }}
               aria-current={active ? 'page' : undefined}
-              className={cn(
-                'flex shrink-0 items-center gap-1.5 text-sm whitespace-nowrap transition-colors outline-none',
-                'focus-visible:text-foreground focus-visible:underline focus-visible:underline-offset-4',
-                active
-                  ? 'text-foreground shadow-[inset_0_-2px_0_var(--foreground)]'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
+              className={navLinkClass(active)}
             >
               {section.label}
-              {section.to === '/chats' && unreadCount > 0 && (
+              {section.to === '/$tenantId/conversations' && unreadCount > 0 && (
                 <span className="font-mono text-xs font-semibold text-foreground">
                   {unreadCount}
                   <span className="sr-only"> sin leer</span>
@@ -107,6 +113,16 @@ export const AppLayout = () => {
             </Link>
           )
         })}
+
+        {isPlatformAdmin && (
+          <Link
+            to="/platform"
+            aria-current={isActive('/platform') ? 'page' : undefined}
+            className={navLinkClass(isActive('/platform'))}
+          >
+            Plataforma
+          </Link>
+        )}
       </nav>
 
       <main className="flex min-h-0 flex-1 flex-col">
@@ -116,6 +132,15 @@ export const AppLayout = () => {
   )
 }
 
+const navLinkClass = (active: boolean) =>
+  cn(
+    'flex shrink-0 items-center gap-1.5 text-sm whitespace-nowrap transition-colors outline-none',
+    'focus-visible:text-foreground focus-visible:underline focus-visible:underline-offset-4',
+    active
+      ? 'text-foreground shadow-[inset_0_-2px_0_var(--foreground)]'
+      : 'text-muted-foreground hover:text-foreground',
+  )
+
 /**
  * The two switches for being interrupted, where the operator can reach them.
  *
@@ -124,14 +149,14 @@ export const AppLayout = () => {
  * permission cannot be asked for again from the app.
  */
 const AlertControls = () => {
-  const [sound, setSound] = useState(soundEnabled)
+  const [isSoundOn, setIsSoundOn] = useState(isSoundEnabled)
   const [permission, setPermission] = useState(
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
   )
 
   useEffect(() => {
-    setSoundEnabled(sound)
-  }, [sound])
+    setSoundEnabled(isSoundOn)
+  }, [isSoundOn])
 
   return (
     <div className="flex items-center gap-1">
@@ -158,10 +183,10 @@ const AlertControls = () => {
       <Button
         size="icon-sm"
         variant="ghost"
-        title={sound ? 'Silenciar el aviso' : 'Sonar cuando llegue un mensaje'}
-        aria-label={sound ? 'Silenciar el aviso' : 'Activar el sonido'}
+        title={isSoundOn ? 'Silenciar el aviso' : 'Sonar cuando llegue un mensaje'}
+        aria-label={isSoundOn ? 'Silenciar el aviso' : 'Activar el sonido'}
         onClick={() => {
-          setSound((on) => {
+          setIsSoundOn((on) => {
             // Turning it on plays it once: it is the only way to know what it
             // sounds like, and the click is also the gesture the audio context
             // needs before a browser will let it make noise at all.
@@ -177,35 +202,8 @@ const AlertControls = () => {
           })
         }}
       >
-        {sound ? <Volume2Icon /> : <VolumeXIcon />}
+        {isSoundOn ? <Volume2Icon /> : <VolumeXIcon />}
       </Button>
-    </div>
-  )
-}
-
-/**
- * What a section shows when the account belongs to no company yet.
- *
- * An empty panel with no way forward is a dead end: an administrator is sent to
- * create the first company, anyone else to whoever can.
- */
-export const NoTenant = () => {
-  const identity = usePlatformIdentity()
-
-  if (identity.isLoading) return null
-
-  return (
-    <div className="flex flex-col items-start gap-2 p-4 md:p-6">
-      <p className="text-sm text-muted-foreground">Todavía no hay ninguna empresa a tu nombre.</p>
-      {identity.data?.isPlatformAdmin ? (
-        <Button asChild size="sm">
-          <Link to="/platform">Crear la primera empresa</Link>
-        </Button>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Pídele a quien administra la plataforma que te agregue a una.
-        </p>
-      )}
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PlusIcon } from 'lucide-react'
 import { useState } from 'react'
-import { type RoleGrant, createTenantSchema, grantRoleSchema } from '@cobra/contracts'
+import { type PlatformRoleGrant, createTenantSchema, grantRoleSchema } from '@cobra/contracts'
 import { TenantDetail } from '~/components/TenantDetail'
 import {
   AlertDialog,
@@ -41,7 +41,7 @@ import { queryKeys } from '~/lib/queryClient'
 import type { TenantSummary } from '~/lib/tenants'
 
 /**
- * The platform section: the companies on this installation, creating one, and
+ * The platform section: the companies on this installation, isCreateDialogOpen one, and
  * handing out the role that lets someone else do it.
  *
  * Only an administrator reaches it, and the check that matters is the API's —
@@ -58,9 +58,9 @@ export const PlatformPage = () => (
 
 const TenantsCard = () => {
   const queryClient = useQueryClient()
-  const [viewing, setViewing] = useState<TenantSummary | null>(null)
-  const [suspending, setSuspending] = useState<TenantSummary | null>(null)
-  const [creating, setCreating] = useState(false)
+  const [viewedTenant, setViewedTenant] = useState<TenantSummary | null>(null)
+  const [tenantToSuspend, setTenantToSuspend] = useState<TenantSummary | null>(null)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
   const tenants = useQuery({
     queryKey: queryKeys.tenants,
@@ -71,12 +71,12 @@ const TenantsCard = () => {
     },
   })
 
-  const setStatus = useMutation({
+  const updateTenantStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: TenantSummary['status'] }) => {
       await api.patch(`/tenants/${id}/status`, { status })
     },
     onSuccess: () => {
-      setSuspending(null)
+      setTenantToSuspend(null)
       void queryClient.invalidateQueries({ queryKey: queryKeys.tenants })
     },
   })
@@ -90,7 +90,7 @@ const TenantsCard = () => {
           responderle a sus clientes.
         </CardDescription>
         <CardAction>
-          <Button size="sm" onClick={() => setCreating(true)}>
+          <Button size="sm" onClick={() => setIsCreateDialogOpen(true)}>
             <PlusIcon />
             Nueva empresa
           </Button>
@@ -126,19 +126,25 @@ const TenantsCard = () => {
                   <TableCell>{tenant.memberCount}</TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setViewing(tenant)}>
+                      <Button size="sm" variant="ghost" onClick={() => setViewedTenant(tenant)}>
                         Ver
                       </Button>
                       {tenant.status === 'active' ? (
-                        <Button size="sm" variant="secondary" onClick={() => setSuspending(tenant)}>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setTenantToSuspend(tenant)}
+                        >
                           Suspender
                         </Button>
                       ) : (
                         <Button
                           size="sm"
                           variant="secondary"
-                          loading={setStatus.isPending}
-                          onClick={() => setStatus.mutate({ id: tenant.id, status: 'active' })}
+                          loading={updateTenantStatus.isPending}
+                          onClick={() =>
+                            updateTenantStatus.mutate({ id: tenant.id, status: 'active' })
+                          }
                         >
                           Reactivar
                         </Button>
@@ -157,23 +163,25 @@ const TenantsCard = () => {
           </TableBody>
         </Table>
 
-        {setStatus.error && <p className="text-sm text-destructive">{setStatus.error.message}</p>}
+        {updateTenantStatus.error && (
+          <p className="text-sm text-destructive">{updateTenantStatus.error.message}</p>
+        )}
       </CardContent>
 
-      <TenantDetail tenant={viewing} onClose={() => setViewing(null)} />
+      <TenantDetail tenant={viewedTenant} onClose={() => setViewedTenant(null)} />
 
-      {creating && <CreateTenantDialog onClose={() => setCreating(false)} />}
+      {isCreateDialogOpen && <CreateTenantDialog onClose={() => setIsCreateDialogOpen(false)} />}
 
       {/* Suspending is not "are you sure": it says what stops happening. */}
       <AlertDialog
-        open={!!suspending}
+        open={!!tenantToSuspend}
         onOpenChange={(open) => {
-          if (!open) setSuspending(null)
+          if (!open) setTenantToSuspend(null)
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Suspender {suspending?.companyName}</AlertDialogTitle>
+            <AlertDialogTitle>Suspender {tenantToSuspend?.companyName}</AlertDialogTitle>
             <AlertDialogDescription>
               Su número deja de recibir mensajes de WhatsApp y el agente deja de responderle a sus
               clientes. Lo que llegue mientras esté suspendida se descarta: al reactivarla no se
@@ -185,7 +193,8 @@ const TenantsCard = () => {
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault()
-                if (suspending) setStatus.mutate({ id: suspending.id, status: 'suspended' })
+                if (tenantToSuspend)
+                  updateTenantStatus.mutate({ id: tenantToSuspend.id, status: 'suspended' })
               }}
             >
               Suspender
@@ -284,12 +293,12 @@ const CreateTenantDialog = ({ onClose }: { onClose: () => void }) => {
 
 const GrantsCard = () => {
   const queryClient = useQueryClient()
-  const [granting, setGranting] = useState(false)
+  const [isGrantDialogOpen, setIsGrantDialogOpen] = useState(false)
 
   const grants = useQuery({
-    queryKey: ['platform', 'roles'],
+    queryKey: queryKeys.roleGrants,
     queryFn: async () => {
-      const { data } = await api.get<RoleGrant[]>('/platform/roles')
+      const { data } = await api.get<PlatformRoleGrant[]>('/platform/roles')
 
       return data
     },
@@ -299,7 +308,7 @@ const GrantsCard = () => {
     mutationFn: async (grantId: string) => {
       await api.delete(`/platform/roles/${grantId}`)
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['platform', 'roles'] }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.roleGrants }),
   })
 
   return (
@@ -311,7 +320,7 @@ const GrantsCard = () => {
           identidad la primera vez que entra. Revocar conserva el registro.
         </CardDescription>
         <CardAction>
-          <Button size="sm" onClick={() => setGranting(true)}>
+          <Button size="sm" onClick={() => setIsGrantDialogOpen(true)}>
             <PlusIcon />
             Otorgar
           </Button>
@@ -330,22 +339,22 @@ const GrantsCard = () => {
           </TableHeader>
           <TableBody>
             {grants.data?.length ? (
-              grants.data.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>{row.email}</TableCell>
-                  <TableCell>{new Date(row.grantedAt).toLocaleDateString('es-CO')}</TableCell>
+              grants.data.map((grant) => (
+                <TableRow key={grant.id}>
+                  <TableCell>{grant.email}</TableCell>
+                  <TableCell>{new Date(grant.grantedAt).toLocaleDateString('es-CO')}</TableCell>
                   <TableCell>
-                    <Badge variant={row.revokedAt ? 'default' : 'success'}>
-                      {row.revokedAt ? 'Revocado' : 'Activo'}
+                    <Badge variant={grant.revokedAt ? 'default' : 'success'}>
+                      {grant.revokedAt ? 'Revocado' : 'Activo'}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end">
-                      {!row.revokedAt && (
+                      {!grant.revokedAt && (
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => revoke.mutate(row.id)}
+                          onClick={() => revoke.mutate(grant.id)}
                         >
                           Revocar
                         </Button>
@@ -367,7 +376,7 @@ const GrantsCard = () => {
         {revoke.error && <p className="mt-2 text-sm text-destructive">{revoke.error.message}</p>}
       </CardContent>
 
-      {granting && <GrantDialog onClose={() => setGranting(false)} />}
+      {isGrantDialogOpen && <GrantDialog onClose={() => setIsGrantDialogOpen(false)} />}
     </Card>
   )
 }
@@ -392,7 +401,7 @@ const GrantDialog = ({ onClose }: { onClose: () => void }) => {
         throw error
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['platform', 'roles'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.roleGrants })
       onClose()
     },
   })

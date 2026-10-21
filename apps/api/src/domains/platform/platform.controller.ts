@@ -3,9 +3,9 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
 import { type GrantRoleInput, grantRoleSchema } from '@cobra/contracts'
-import { AuthClient } from '~/auth/auth-client.decorator'
 import { readCallerId } from '~/auth/caller'
-import { RequireAdmin } from '~/auth/require-admin.decorator'
+import { RequirePlatformAdmin } from '~/auth/require-platform-admin.decorator'
+import { RequireSession } from '~/auth/require-session.decorator'
 import { ZodValidationPipe } from '~/common/pipes/zod-validation.pipe'
 import { PlatformService } from './platform.service'
 
@@ -20,7 +20,7 @@ export class PlatformController {
    * non-administrator would make "are you an administrator?" impossible to ask.
    */
   @Get('me')
-  @AuthClient()
+  @RequireSession()
   @ApiOperation({ summary: 'Quién soy y si administro la plataforma' })
   identity(@SupabaseCtx() ctx: SupabaseContext) {
     const claims = ctx.userClaims as { id?: string; email?: string } | null
@@ -29,14 +29,14 @@ export class PlatformController {
   }
 
   @Get('roles')
-  @RequireAdmin()
+  @RequirePlatformAdmin()
   @ApiOperation({ summary: 'Concesiones de rol, activas y revocadas' })
   listGrants() {
     return this.platform.listGrants()
   }
 
   @Post('roles')
-  @RequireAdmin()
+  @RequirePlatformAdmin()
   @ApiOperation({ summary: 'Otorgar un rol de plataforma por correo' })
   grant(
     @SupabaseCtx() ctx: SupabaseContext,
@@ -46,7 +46,7 @@ export class PlatformController {
   }
 
   @Delete('roles/:grantId')
-  @RequireAdmin()
+  @RequirePlatformAdmin()
   @ApiOperation({ summary: 'Revocar una concesión, conservando su historia' })
   revoke(@Param('grantId', ParseUUIDPipe) grantId: string) {
     return this.platform.revoke(grantId)

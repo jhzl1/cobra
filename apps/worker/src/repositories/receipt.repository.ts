@@ -2,22 +2,25 @@ import { Injectable } from '@nestjs/common'
 import type {
   PendingReceipt,
   PendingReceiptResult,
+  ReceiptValidation,
   RecordPaymentAttempt,
   SettlePaymentAttempt,
-  ValidatedReceipt,
 } from '@cobra/agent'
-import { bogotaTimestamp, normalizeReferences } from '@cobra/agent'
+import { normalizeReferences } from '@cobra/agent'
 import { SupabaseService } from '../runtime/supabase.service.js'
 
 /** A receipt counts as usable for 24 hours, like the service window it lives in. */
-const PENDING_WINDOW_MS = 24 * 60 * 60 * 1000
+const RECEIPT_USABLE_FOR_MS = 24 * 60 * 60 * 1000
+
+/** How many recent receipts are checked for one that no attempt has taken yet. */
+const PENDING_CANDIDATES_LIMIT = 5
 
 @Injectable()
 export class ReceiptRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
   /** Rule 4 of the validation: has any of these references already been spent. */
-  async anyReferenceUsed(tenantId: string, references: readonly string[]): Promise<boolean> {
+  async isAnyReferenceUsed(tenantId: string, references: readonly string[]): Promise<boolean> {
     const normalized = normalizeReferences(references)
 
     if (!normalized.length) return false
@@ -40,28 +43,28 @@ export class ReceiptRepository {
       messageId: string
       mediaId: string
       storagePath: string
-      validated: ValidatedReceipt
+      validation: ReceiptValidation
     },
   ): Promise<string> {
-    const { validated } = input
+    const { validation } = input
 
     const { data, error } = await this.supabase
       .scope(tenantId)
       .insert('receipts', {
         conversation_id: input.conversationId,
         message_id: input.messageId,
-        amount: validated.extraction.amount,
-        reference: validated.extraction.reference,
-        reference_normalized: normalizeReferences(validated.extraction.reference),
-        paid_at: validated.paidAt?.toISOString() ?? null,
-        destination_method: validated.extraction.destinationMethod,
-        destination_account: validated.extraction.destinationAccount,
-        payment_method_id: validated.paymentMethod?.id ?? null,
+        amount: validation.extraction.amount,
+        reference: validation.extraction.reference,
+        reference_normalized: normalizeReferences(validation.extraction.reference),
+        paid_at: validation.paidAt?.toISOString() ?? null,
+        destination_method: validation.extraction.destinationMethod,
+        destination_account: validation.extraction.destinationAccount,
+        payment_method_id: validation.paymentMethod?.id ?? null,
         media_id: input.mediaId,
         storage_path: input.storagePath,
-        confidence: validated.extraction.confidence,
-        raw_extraction: validated.extraction,
-        alert_reason: validated.alertReason,
+        confidence: validation.extraction.confidence,
+        raw_extraction: validation.extraction,
+        alert_reason: validation.alertReason,
       })
       .select('id')
       .single()
@@ -79,9 +82,9 @@ export class ReceiptRepository {
    * already refused what is not a receipt, what is stale, what was paid
    * elsewhere and what was seen before.
    */
-  async checkPending(tenantId: string, conversationId: string): Promise<PendingReceiptResult> {
+  async findPending(tenantId: string, conversationId: string): Promise<PendingReceiptResult> {
     try {
-      const since = new Date(Date.now() - PENDING_WINDOW_MS).toISOString()
+      const since = new Date(Date.now() - RECEIPT_USABLE_FOR_MS).toISOString()
 
       const { data, error } = await this.supabase
         .scope(tenantId)
@@ -95,7 +98,7 @@ export class ReceiptRepository {
         .is('alert_reason', null)
         .gte('created_at', since)
         .order('created_at', { ascending: false })
-        .limit(5)
+        .limit(PENDING_CANDIDATES_LIMIT)
 
       if (error) throw error
 
@@ -106,7 +109,7 @@ export class ReceiptRepository {
           hasPendingReceipt: false,
           message: 'No hay comprobantes pendientes por registrar en este chat.',
           receipt: null,
-          failed: false,
+          hasLookupFailed: false,
         }
       }
 
@@ -114,7 +117,7 @@ export class ReceiptRepository {
         hasPendingReceipt: true,
         message: 'Hay un comprobante pendiente por registrar.',
         receipt: toPendingReceipt(candidate as Record<string, unknown>),
-        failed: false,
+        hasLookupFailed: false,
       }
     } catch {
       /**
@@ -126,7 +129,7 @@ export class ReceiptRepository {
         hasPendingReceipt: false,
         message: 'La consulta de comprobante pendiente falló.',
         receipt: null,
-        failed: true,
+        hasLookupFailed: true,
       }
     }
   }
@@ -271,10 +274,7 @@ const toPendingReceipt = (row: Record<string, unknown>): PendingReceipt => {
     // Every reference, comma-joined. The agent passes this string to the tools
     // verbatim, and a piece of it is a payment that can be charged twice.
     reference: ((row['reference'] as string[] | null) ?? []).join(', '),
-    formaPago: method?.wisphub_id ?? null,
-    // Wisphub is told when the payment is registered, not when the receipt says
-    // it was paid. That date lives in `paid_at`.
-    fechaPago: bogotaTimestamp(),
+    wisphubPaymentMethodId: method?.wisphub_id ?? null,
     destinationMethod: (row['destination_method'] as string | null) ?? null,
     mediaId: (row['media_id'] as string | null) ?? null,
   }

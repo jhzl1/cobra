@@ -16,7 +16,7 @@ describe('Steering', () => {
     const steering = new Steering({ readUnconsumed: async () => [] })
 
     expect(await steering.shouldSkipNextTool()).toBe(false)
-    expect(steering.takeSteeringPrompt()).toBeNull()
+    expect(steering.takeQueuedPrompt()).toBeNull()
   })
 
   it('latches on the first new message and skips every later tool', async () => {
@@ -41,11 +41,11 @@ describe('Steering', () => {
 
     await steering.shouldSkipNextTool()
 
-    const prompt = steering.takeSteeringPrompt()
+    const prompt = steering.takeQueuedPrompt()
 
     expect(prompt).toContain('y el 222 también')
     expect(steering.isSteering).toBe(false)
-    expect(steering.takeSteeringPrompt()).toBeNull()
+    expect(steering.takeQueuedPrompt()).toBeNull()
   })
 
   it('summarises the overflow instead of carrying every message', async () => {
@@ -54,7 +54,7 @@ describe('Steering', () => {
 
     await steering.shouldSkipNextTool()
 
-    const prompt = steering.takeSteeringPrompt() ?? ''
+    const prompt = steering.takeQueuedPrompt() ?? ''
 
     expect(prompt).toContain('Se omitieron 5 mensajes')
     expect(prompt).toContain('mensaje 24')

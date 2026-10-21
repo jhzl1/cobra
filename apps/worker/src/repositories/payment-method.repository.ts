@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { type PaymentMethod, usableInZone } from '@cobra/agent'
+import { type PaymentMethod, isOfferedInZone } from '@cobra/agent'
 import { SupabaseService } from '../runtime/supabase.service.js'
 
 @Injectable()
@@ -16,12 +16,12 @@ export class PaymentMethodRepository {
    *
    * It is decided in memory rather than in the query because the rule is one
    * sentence and a tenant has a handful of accounts, and because that way it is
-   * tested — see `usableInZone` in @cobra/agent.
+   * tested — see `isOfferedInZone` in @cobra/agent.
    */
   async list(tenantId: string, zone: string | null): Promise<PaymentMethod[]> {
     const all = await this.fetchAll(tenantId)
 
-    return all.filter((method) => usableInZone(method, zone))
+    return all.filter((method) => isOfferedInZone(method, zone))
   }
 
   private async fetchAll(tenantId: string): Promise<PaymentMethod[]> {
