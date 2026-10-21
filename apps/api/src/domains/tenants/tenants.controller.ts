@@ -23,9 +23,9 @@ import {
   updateTenantSchema,
   updateTenantStatusSchema,
 } from '@cobra/contracts'
-import { AuthClient } from '~/auth/auth-client.decorator'
 import { readCallerId } from '~/auth/caller'
-import { RequireAdmin } from '~/auth/require-admin.decorator'
+import { RequirePlatformAdmin } from '~/auth/require-platform-admin.decorator'
+import { RequireSession } from '~/auth/require-session.decorator'
 import { ZodValidationPipe } from '~/common/pipes/zod-validation.pipe'
 import { publicUrlOf } from '~/config/public-url'
 import { TenantsService } from './tenants.service'
@@ -38,7 +38,7 @@ import { TenantsService } from './tenants.service'
  */
 @ApiTags('Empresas')
 @Controller('tenants')
-@AuthClient()
+@RequireSession()
 export class TenantsController {
   constructor(
     private readonly tenants: TenantsService,
@@ -57,7 +57,7 @@ export class TenantsController {
    * holding that back was that sign-up is closed.
    */
   @Post()
-  @RequireAdmin()
+  @RequirePlatformAdmin()
   @ApiOperation({ summary: 'Crear una empresa y quedar como miembro' })
   create(
     @SupabaseCtx() ctx: SupabaseContext,
@@ -91,7 +91,7 @@ export class TenantsController {
    * suspension the moment the field existed there.
    */
   @Patch(':tenantId/status')
-  @RequireAdmin()
+  @RequirePlatformAdmin()
   @ApiOperation({ summary: 'Activar o suspender una empresa' })
   setStatus(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
@@ -101,7 +101,7 @@ export class TenantsController {
   }
 
   @Get(':tenantId/members')
-  @RequireAdmin()
+  @RequirePlatformAdmin()
   @ApiOperation({ summary: 'Ver quién pertenece a una empresa' })
   listMembers(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     return this.tenants.listMembers(tenantId)
@@ -109,12 +109,16 @@ export class TenantsController {
 
   @Get(':tenantId/setup')
   @ApiOperation({ summary: 'Qué le falta a la empresa para que su bot responda' })
-  setup(
+  getSetupStatus(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Req() request: Request,
   ) {
-    return this.tenants.setup(readCallerId(ctx.userClaims), tenantId, this.publicUrl(request))
+    return this.tenants.getSetupStatus(
+      readCallerId(ctx.userClaims),
+      tenantId,
+      this.publicUrl(request),
+    )
   }
 
   @Get(':tenantId/credentials')
@@ -142,28 +146,28 @@ export class TenantsController {
 
   @Get(':tenantId/whatsapp-numbers')
   @ApiOperation({ summary: 'Números de WhatsApp y la URL de webhook de cada uno' })
-  listNumbers(
+  listWhatsappNumbers(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Req() request: Request,
   ) {
-    return this.tenants.listNumbers(ctx.supabase, tenantId, this.publicUrl(request))
+    return this.tenants.listWhatsappNumbers(ctx.supabase, tenantId, this.publicUrl(request))
   }
 
   @Post(':tenantId/whatsapp-numbers')
   @ApiOperation({ summary: 'Registrar un número y generar sus tokens' })
-  registerNumber(
+  registerWhatsappNumber(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Body(new ZodValidationPipe(registerWhatsappNumberSchema)) body: unknown,
     @Req() request: Request,
   ) {
-    return this.tenants.registerNumber(
-      readCallerId(ctx.userClaims),
+    return this.tenants.registerWhatsappNumber({
+      userId: readCallerId(ctx.userClaims),
       tenantId,
-      body as Parameters<TenantsService['registerNumber']>[2],
-      this.publicUrl(request),
-    )
+      input: body as Parameters<TenantsService['registerWhatsappNumber']>[0]['input'],
+      publicUrl: this.publicUrl(request),
+    })
   }
 
   /**
@@ -218,12 +222,12 @@ export class TenantsController {
 
   @Delete(':tenantId/whatsapp-numbers/:numberId')
   @ApiOperation({ summary: 'Dar de baja un número: deja de recibir, y su historia queda' })
-  retireNumber(
+  retireWhatsappNumber(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Param('numberId', ParseUUIDPipe) numberId: string,
   ) {
-    return this.tenants.retireNumber(readCallerId(ctx.userClaims), tenantId, numberId)
+    return this.tenants.retireWhatsappNumber(readCallerId(ctx.userClaims), tenantId, numberId)
   }
 
   @Delete(':tenantId/payment-methods/:methodId')

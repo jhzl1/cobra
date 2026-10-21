@@ -1,9 +1,7 @@
 import { UseGuards, applyDecorators } from '@nestjs/common'
 import { ApiBearerAuth, ApiForbiddenResponse, ApiUnauthorizedResponse } from '@nestjs/swagger'
 import { withSupabase } from '@supabase/server/adapters/nestjs'
-import { PlatformAdminGuard } from './platform-admin.guard'
-
-const FORBIDDEN = 'No tienes permisos para esta acción'
+import { FORBIDDEN_MESSAGE, PlatformAdminGuard } from './platform-admin.guard'
 
 /**
  * Restricts a route to whoever administers the platform.
@@ -14,12 +12,12 @@ const FORBIDDEN = 'No tienes permisos para esta acción'
  * are read in. The role guard running before the token is verified finds no
  * `supabaseContext` and answers 403 to everyone, an administrator included.
  *
- * `@AuthClient()` is therefore not applied beside this one — it travels inside.
+ * `@RequireSession()` is therefore not applied beside this one — it travels inside.
  */
-export const RequireAdmin = () =>
+export const RequirePlatformAdmin = () =>
   applyDecorators(
     UseGuards(withSupabase({ auth: 'user' }), PlatformAdminGuard),
     ApiBearerAuth(),
     ApiUnauthorizedResponse({ description: 'La sesión no es válida o expiró' }),
-    ApiForbiddenResponse({ description: FORBIDDEN }),
+    ApiForbiddenResponse({ description: FORBIDDEN_MESSAGE }),
   )

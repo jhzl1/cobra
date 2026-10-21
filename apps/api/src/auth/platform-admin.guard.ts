@@ -7,6 +7,8 @@ import {
 import type { Request } from 'express'
 import { SupabaseService } from '~/supabase/supabase.service'
 
+export const FORBIDDEN_MESSAGE = 'No tienes permisos para esta acción'
+
 interface RequestWithSupabase extends Request {
   supabaseContext?: {
     userClaims?: { id?: string } | null
@@ -34,17 +36,17 @@ export class PlatformAdminGuard implements CanActivate {
     const userId =
       request.supabaseContext?.userClaims?.id ?? request.supabaseContext?.jwtClaims?.sub
 
-    if (!userId) throw new ForbiddenException('No tienes permisos para esta acción')
+    if (!userId) throw new ForbiddenException(FORBIDDEN_MESSAGE)
 
-    if (!(await this.isAdmin(userId))) {
-      throw new ForbiddenException('No tienes permisos para esta acción')
+    if (!(await this.isPlatformAdmin(userId))) {
+      throw new ForbiddenException(FORBIDDEN_MESSAGE)
     }
 
     return true
   }
 
-  private async isAdmin(userId: string): Promise<boolean> {
-    const { data } = await this.supabase.admin
+  private async isPlatformAdmin(userId: string): Promise<boolean> {
+    const { data } = await this.supabase.unscoped
       .from('user_roles')
       .select('id')
       .eq('user_id', userId)

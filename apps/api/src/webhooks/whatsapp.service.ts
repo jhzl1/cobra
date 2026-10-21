@@ -14,12 +14,12 @@ import { verifyMetaSignature } from './signature'
 
 export interface WebhookRoute {
   tenantId: string
-  numberId: string
+  whatsappNumberId: string
   phoneNumberId: string
   verifyToken: string
   appSecret: string | null
   /** A suspended company's events are acknowledged and dropped. */
-  suspended: boolean
+  isTenantSuspended: boolean
 }
 
 const UNIQUE_VIOLATION = '23505'
@@ -48,7 +48,7 @@ export class WhatsappService {
    * would be no way to know which token to compare against.
    */
   async resolveRoute(slug: string, webhookToken: string): Promise<WebhookRoute> {
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('whatsapp_numbers')
       .select('id, tenant_id, phone_number_id, verify_token, tenants!inner (slug, status)')
       .eq('webhook_token', webhookToken)
@@ -71,11 +71,11 @@ export class WhatsappService {
 
     return {
       tenantId: data.tenant_id as string,
-      numberId: data.id as string,
+      whatsappNumberId: data.id as string,
       phoneNumberId: data.phone_number_id as string,
       verifyToken: data.verify_token as string,
       appSecret: await this.readAppSecret(data.tenant_id as string),
-      suspended: tenant?.status === 'suspended',
+      isTenantSuspended: tenant?.status === 'suspended',
     }
   }
 
@@ -117,7 +117,7 @@ export class WhatsappService {
     // A suspended company still gets its 200. Answering anything else makes Meta
     // retry with backoff for up to seven days, so the events would pile up and
     // arrive in a burst the moment it is reactivated.
-    if (route.suspended) {
+    if (route.isTenantSuspended) {
       this.logger.log(`Dropping a webhook event for suspended tenant ${route.tenantId}`)
       return
     }
@@ -150,17 +150,17 @@ export class WhatsappService {
 
         if (!value.messages?.length) continue
 
-        const declared = value.metadata?.phone_number_id
+        const declaredPhoneNumberId = value.metadata?.phone_number_id
 
         // The hard rule: the body's number has to be the route's number.
-        if (declared && declared !== route.phoneNumberId) {
+        if (declaredPhoneNumberId && declaredPhoneNumberId !== route.phoneNumberId) {
           // Both values are logged because the only two causes look identical
           // from outside: someone aiming another company's events at this URL,
           // and an operator who registered the wrong id. Neither is a secret —
           // the id is public in Meta's dashboard.
           this.logger.warn(
             `Rejecting an event for tenant ${route.tenantId}: it declares ` +
-              `phone_number_id ${declared} and this route is registered as ${route.phoneNumberId}`,
+              `phone_number_id ${declaredPhoneNumberId} and this route is registered as ${route.phoneNumberId}`,
           )
 
           throw new ForbiddenException()
@@ -179,15 +179,15 @@ export class WhatsappService {
     for (const message of messages) {
       if (!isSupportedType(message) || !isFresh(message)) continue
 
-      const senderId = readMessagePersonId(message)
+      const personId = readMessagePersonId(message)
 
-      if (!senderId) continue
+      if (!personId) continue
 
-      const profile = contacts.find((contact) => readContactPersonId(contact) === senderId)
-      const contactId = await this.upsertContact(route.tenantId, senderId, profile)
-      const conversationId = await this.openConversation(route.tenantId, contactId)
+      const profile = contacts.find((contact) => readContactPersonId(contact) === personId)
+      const contactId = await this.upsertContact(route.tenantId, personId, profile)
+      const conversationId = await this.findOrCreateOpenConversation(route.tenantId, contactId)
 
-      const { data, error } = await this.supabase.admin
+      const { data, error } = await this.supabase.unscoped
         .from('messages')
         .insert({
           conversation_id: conversationId,
@@ -233,14 +233,14 @@ export class WhatsappService {
     for (const echo of echoes) {
       if (!isSupportedType(echo)) continue
 
-      const recipient = readMessagePersonId(echo)
+      const echoPersonId = readMessagePersonId(echo)
 
-      if (!recipient) continue
+      if (!echoPersonId) continue
 
-      const contactId = await this.upsertContact(route.tenantId, recipient)
-      const conversationId = await this.openConversation(route.tenantId, contactId)
+      const contactId = await this.upsertContact(route.tenantId, echoPersonId)
+      const conversationId = await this.findOrCreateOpenConversation(route.tenantId, contactId)
 
-      await this.supabase.admin
+      await this.supabase.unscoped
         .from('messages')
         .insert({
           conversation_id: conversationId,
@@ -273,13 +273,13 @@ export class WhatsappService {
     }>,
   ): Promise<void> {
     for (const status of statuses) {
-      const failed = status.status === 'failed'
+      const isFailed = status.status === 'failed'
 
-      await this.supabase.admin
+      await this.supabase.unscoped
         .from('messages')
         .update({
-          delivery_state: failed ? 'failed' : 'sent',
-          delivery_error: failed ? JSON.stringify(status.errors ?? []) : null,
+          delivery_state: isFailed ? 'failed' : 'sent',
+          delivery_error: isFailed ? JSON.stringify(status.errors ?? []) : null,
         })
         .eq('tenant_id', route.tenantId)
         .eq('wamid', status.id)
@@ -291,7 +291,7 @@ export class WhatsappService {
     personId: string,
     profile?: MetaContact,
   ): Promise<string> {
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('contacts')
       .upsert(
         {
@@ -319,8 +319,8 @@ export class WhatsappService {
    * recalculated: a number that later moves to another tenant must not take
    * this history with it.
    */
-  private async openConversation(tenantId: string, contactId: string): Promise<string> {
-    const { data } = await this.supabase.admin
+  private async findOrCreateOpenConversation(tenantId: string, contactId: string): Promise<string> {
+    const { data } = await this.supabase.unscoped
       .from('conversations')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -330,7 +330,7 @@ export class WhatsappService {
 
     if (data) return data.id as string
 
-    const created = await this.supabase.admin
+    const created = await this.supabase.unscoped
       .from('conversations')
       .insert({ tenant_id: tenantId, contact_id: contactId, status: 'bot' })
       .select('id')
@@ -341,7 +341,7 @@ export class WhatsappService {
       // partial unique index rejects the second; the row it collided with is
       // the one to use.
       if (created.error.code === UNIQUE_VIOLATION) {
-        const { data: existing } = await this.supabase.admin
+        const { data: existing } = await this.supabase.unscoped
           .from('conversations')
           .select('id')
           .eq('tenant_id', tenantId)
@@ -359,7 +359,7 @@ export class WhatsappService {
   }
 
   private async readAppSecret(tenantId: string): Promise<string | null> {
-    const { data } = await this.supabase.admin
+    const { data } = await this.supabase.unscoped
       .from('tenant_credentials')
       .select('ciphertext')
       .eq('tenant_id', tenantId)

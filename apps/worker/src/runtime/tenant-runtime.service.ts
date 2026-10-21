@@ -39,7 +39,11 @@ export class TenantRuntimeService {
   }
 
   async load(tenantId: string): Promise<TenantRuntime> {
-    const runtimeConfig = await loadTenantRuntimeConfig(this.supabase.admin, this.crypto, tenantId)
+    const runtimeConfig = await loadTenantRuntimeConfig(
+      this.supabase.unscoped,
+      this.crypto,
+      tenantId,
+    )
 
     const meta = requireCredential(runtimeConfig, 'meta')
     const openrouter = requireCredential(runtimeConfig, 'openrouter')

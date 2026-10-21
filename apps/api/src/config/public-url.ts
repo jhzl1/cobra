@@ -16,11 +16,11 @@ import type { Request } from 'express'
  * shown to an authenticated administrator to copy into Meta's dashboard; it
  * never decides a redirect, a cookie or an authorisation.
  */
-export const publicUrlOf = (request: Request, configured?: string): string => {
-  if (configured) return configured.replace(/\/+$/, '')
+export const publicUrlOf = (request: Request, configuredUrl?: string): string => {
+  if (configuredUrl) return configuredUrl.replace(/\/+$/, '')
 
-  const forwardedProto = first(request.headers['x-forwarded-proto'])
-  const forwardedHost = first(request.headers['x-forwarded-host'])
+  const forwardedProto = firstHeaderValue(request.headers['x-forwarded-proto'])
+  const forwardedHost = firstHeaderValue(request.headers['x-forwarded-host'])
   const host = forwardedHost ?? request.headers.host
 
   if (!host) return ''
@@ -29,7 +29,7 @@ export const publicUrlOf = (request: Request, configured?: string): string => {
 }
 
 /** A forwarded header can arrive as a list when more than one proxy wrote it. */
-const first = (value: string | string[] | undefined): string | undefined => {
+const firstHeaderValue = (value: string | string[] | undefined): string | undefined => {
   const raw = Array.isArray(value) ? value[0] : value
 
   return raw?.split(',')[0]?.trim() || undefined

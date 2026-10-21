@@ -47,8 +47,8 @@ export class ConversationsService {
     if (error) throw this.toHttpError(error)
 
     const ids = data.map((row) => row.id as string)
-    const [previews, failed] = await Promise.all([
-      this.lastPreviews(client, ids),
+    const [previews, idsWithFailedRun] = await Promise.all([
+      this.lastMessagePreviews(client, ids),
       this.conversationsWithFailedRun(client, ids),
     ])
 
@@ -69,7 +69,7 @@ export class ConversationsService {
         lastMessageAt: (row.last_message_at as string | null) ?? null,
         lastInboundAt: (row.last_inbound_at as string | null) ?? null,
         lastMessagePreview: previews.get(row.id as string) ?? null,
-        lastRunFailed: failed.has(row.id as string),
+        lastRunFailed: idsWithFailedRun.has(row.id as string),
       }
     })
   }
@@ -79,7 +79,7 @@ export class ConversationsService {
    * subscribed to. Realtime retains its messages between 72 hours and four days
    * and is not the source of truth.
    */
-  async messages(client: SupabaseClient, conversationId: string): Promise<Message[]> {
+  async listMessages(client: SupabaseClient, conversationId: string): Promise<Message[]> {
     const { data, error } = await client
       .from('messages')
       .select(
@@ -99,7 +99,7 @@ export class ConversationsService {
         author: row.author as Message['author'],
         type: row.type as Message['type'],
         body: (row.body as string | null) ?? null,
-        mediaUrl: await this.signMedia(client, row.storage_path as string | null),
+        mediaUrl: await this.signMediaUrl(client, row.storage_path as string | null),
         deliveryState: (row.delivery_state as Message['deliveryState']) ?? null,
         deliveryError: (row.delivery_error as string | null) ?? null,
         sentAt: (row.sent_at as string | null) ?? null,
@@ -117,25 +117,30 @@ export class ConversationsService {
    * with error 131047 — the operator would see their message on screen and the
    * customer would never receive it.
    */
-  async sendFromOperator(
-    client: SupabaseClient,
-    userId: string,
-    conversationId: string,
-    body: string,
-  ): Promise<Message> {
-    const conversation = await this.load(client, conversationId)
+  async sendFromOperator({
+    client,
+    userId,
+    conversationId,
+    body,
+  }: {
+    client: SupabaseClient
+    userId: string
+    conversationId: string
+    body: string
+  }): Promise<Message> {
+    const conversation = await this.findConversationOrThrow(client, conversationId)
 
     if (conversation.status !== 'human') {
       throw new ConflictException('Toma el control de la conversación antes de escribir')
     }
 
-    if (!this.windowIsOpen(conversation.last_inbound_at)) {
+    if (!this.isServiceWindowOpen(conversation.last_inbound_at)) {
       throw new ConflictException(
         'Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp no permite escribirle sin una plantilla aprobada.',
       )
     }
 
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('messages')
       .insert({
         conversation_id: conversationId,
@@ -154,7 +159,7 @@ export class ConversationsService {
 
     if (error) throw this.toHttpError(error)
 
-    await this.supabase.admin
+    await this.supabase.unscoped
       .from('conversations')
       .update({ assigned_to: userId })
       .eq('id', conversationId)
@@ -189,13 +194,18 @@ export class ConversationsService {
    * called. `release` gives it back. `replay` hands what accumulated to the
    * agent as one turn, which is the second button in the panel.
    */
-  async handoff(
-    client: SupabaseClient,
-    userId: string,
-    conversationId: string,
-    input: HandoffInput,
-  ): Promise<{ status: string }> {
-    const conversation = await this.load(client, conversationId)
+  async handoff({
+    client,
+    userId,
+    conversationId,
+    input,
+  }: {
+    client: SupabaseClient
+    userId: string
+    conversationId: string
+    input: HandoffInput
+  }): Promise<{ status: string }> {
+    const conversation = await this.findConversationOrThrow(client, conversationId)
 
     if (input.action === 'replay') {
       await this.queue.enqueueTurn({
@@ -220,7 +230,7 @@ export class ConversationsService {
   }
 
   /** The timeline: runs of this conversation with their steps, newest first. */
-  async runs(client: SupabaseClient, conversationId: string) {
+  async listRuns(client: SupabaseClient, conversationId: string) {
     const { data, error } = await client
       .from('agent_runs')
       .select(
@@ -237,7 +247,7 @@ export class ConversationsService {
     return (data ?? []).map(toAgentRun)
   }
 
-  private async load(client: SupabaseClient, conversationId: string) {
+  private async findConversationOrThrow(client: SupabaseClient, conversationId: string) {
     const { data, error } = await client
       .from('conversations')
       .select('id, tenant_id, status, last_inbound_at')
@@ -255,14 +265,14 @@ export class ConversationsService {
     }
   }
 
-  private windowIsOpen(lastInboundAt: string | null): boolean {
+  private isServiceWindowOpen(lastInboundAt: string | null): boolean {
     if (!lastInboundAt) return false
 
     return Date.now() - new Date(lastInboundAt).getTime() < SERVICE_WINDOW_MS
   }
 
   /** Receipts live in a private bucket; the panel gets a short-lived URL. */
-  private async signMedia(client: SupabaseClient, path: string | null): Promise<string | null> {
+  private async signMediaUrl(client: SupabaseClient, path: string | null): Promise<string | null> {
     if (!path) return null
 
     const { data } = await client.storage
@@ -272,7 +282,7 @@ export class ConversationsService {
     return data?.signedUrl ?? null
   }
 
-  private async lastPreviews(
+  private async lastMessagePreviews(
     client: SupabaseClient,
     conversationIds: string[],
   ): Promise<Map<string, string>> {
