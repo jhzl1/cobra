@@ -45,9 +45,7 @@ export interface PendingReceipt {
   /** Every reference, comma-joined. Passed to the tools verbatim. */
   reference: string
   /** Wisphub's id for the payment method, resolved before the turn. */
-  formaPago: string | null
-  /** `YYYY-MM-DD HH:mm` in America/Bogota, already normalized. */
-  fechaPago: string
+  wisphubPaymentMethodId: string | null
   destinationMethod: string | null
   mediaId: string | null
 }
@@ -57,7 +55,7 @@ export interface PendingReceiptResult {
   message: string
   receipt: PendingReceipt | null
   /** True when the lookup itself failed. The turn tells the model to retry once. */
-  failed: boolean
+  hasLookupFailed: boolean
 }
 
 export interface WisphubCustomer {
@@ -132,7 +130,7 @@ export interface SettlePaymentAttempt {
 /** Sending anything out of the conversation: the reply and the admin alerts. */
 export interface MessagingPort {
   /** Best-effort by contract. An alert that throws must never kill the turn. */
-  notifyAdmin(message: string, mediaId?: string | null): Promise<void>
+  notifyTenantAdmin(message: string, mediaId?: string | null): Promise<void>
 }
 
 /**
@@ -156,13 +154,13 @@ export interface StepRecorder {
 }
 
 /** What a receipt looked like after the vision model and the five rules. */
-export interface ValidatedReceipt {
+export interface ReceiptValidation {
   extraction: ReceiptExtraction
   paidAt: Date | null
   isPaymentDateReadable: boolean
-  isPaymentDateValid: boolean
-  isPaymentAccountValid: boolean
-  isVoucherUnused: boolean
+  isPaymentDateRecent: boolean
+  isDestinationOurs: boolean
+  isReferenceUnused: boolean
   paymentMethod: PaymentMethod | null
   alertReason: AlertReason | null
 }

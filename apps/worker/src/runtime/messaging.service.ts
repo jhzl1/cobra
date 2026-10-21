@@ -17,7 +17,7 @@ export class MessagingService {
 
   forTenant(runtime: TenantRuntime): MessagingPort {
     return {
-      notifyAdmin: async (message: string, mediaId?: string | null) => {
+      notifyTenantAdmin: async (message: string, mediaId?: string | null) => {
         try {
           if (mediaId) {
             await runtime.meta.sendImage(runtime.raw.adminPhone, mediaId, message)

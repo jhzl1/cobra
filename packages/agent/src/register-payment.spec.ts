@@ -20,7 +20,6 @@ const input = {
   documentos: '111',
   monto: 50000,
   reference: 'M123456',
-  fecha_pago: '2026-09-15 10:00',
   forma_pago: '7',
 }
 

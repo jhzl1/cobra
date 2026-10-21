@@ -1,14 +1,15 @@
 import { bogotaTimestamp } from './normalize'
 import type { WisphubCustomer, WisphubInvoice, WisphubPort } from './types'
 
+/** How much of a Wisphub error is kept for the administrator's alert. */
+const MAX_ERROR_LENGTH_CHARS = 200
+
 export interface RegisterPaymentInput {
   /** One or several documents, comma-separated, exactly as the model passes them. */
   documentos: string
   monto: number
   /** Every reference of the receipt, comma-separated. Stored as sent. */
   reference: string
-  /** `YYYY-MM-DD HH:mm`. Ignored for Wisphub, kept for the receipt record. */
-  fecha_pago: string
   forma_pago: string
 }
 
@@ -31,7 +32,7 @@ interface PlannedInvoice {
   amount: number
   dueDate: string
   customerName: string
-  document: string
+  documentNumber: string
 }
 
 export type PaymentPlan =
@@ -184,7 +185,7 @@ export const registerPayment = async (
       })
       paid.push(invoice)
     } catch (error) {
-      failed.push({ ...invoice, error: describeError(error) })
+      failed.push({ ...invoice, error: truncateErrorMessage(error) })
     }
   }
 
@@ -202,7 +203,7 @@ export const registerPayment = async (
       await deps.wisphub.updateBalance(plan.serviceId, next.toFixed(2))
       creditedExcess = plan.excess
     } catch (error) {
-      excessError = describeError(error)
+      excessError = truncateErrorMessage(error)
     }
   }
 
@@ -250,7 +251,7 @@ const buildAdminMessage = ({
     ...new Set(plan.invoices.map((invoice) => invoice.customerName).filter(Boolean)),
   ].join(', ')
   const documents = [
-    ...new Set(plan.invoices.map((invoice) => invoice.document).filter(Boolean)),
+    ...new Set(plan.invoices.map((invoice) => invoice.documentNumber).filter(Boolean)),
   ].join(', ')
   const line = (invoice: PlannedInvoice) =>
     `  • Factura #${invoice.invoiceId}: $${invoice.amount}${invoice.dueDate ? ` (vence ${invoice.dueDate})` : ''}`
@@ -334,7 +335,7 @@ const collectInvoices = (customers: readonly WisphubCustomer[]): PlannedInvoice[
         amount: Number(invoice.total) || 0,
         dueDate: readDueDate(invoice),
         customerName: customer.customerName ?? '',
-        document: String(customer.documentNumber ?? ''),
+        documentNumber: String(customer.documentNumber ?? ''),
       })
     }
   }
@@ -348,5 +349,5 @@ const readDueDate = (invoice: WisphubInvoice): string => {
   return typeof value === 'string' ? value : ''
 }
 
-const describeError = (error: unknown): string =>
-  (error instanceof Error ? error.message : JSON.stringify(error)).slice(0, 200)
+const truncateErrorMessage = (error: unknown): string =>
+  (error instanceof Error ? error.message : JSON.stringify(error)).slice(0, MAX_ERROR_LENGTH_CHARS)

@@ -140,7 +140,7 @@ export class ProcessTurnJobHandler {
 
       await this.messaging
         .forTenant(runtime)
-        .notifyAdmin(
+        .notifyTenantAdmin(
           [
             `COMPROBANTE RETENIDO — ${ALERT_REASON_TEXT[rejected.alertReason as AlertReason] ?? rejected.alertReason}`,
             `Cliente: ${conversation.phone ?? conversation.personId}`,
@@ -156,7 +156,7 @@ export class ProcessTurnJobHandler {
     }
 
     const startedAt = new Date()
-    const pending = await this.receipts.checkPending(tenantId, conversationId)
+    const pendingReceiptLookup = await this.receipts.checkPending(tenantId, conversationId)
 
     const steering = new Steering({
       readUnconsumed: async () => {
@@ -180,9 +180,9 @@ export class ProcessTurnJobHandler {
       history,
       burstText: burst.text,
       receiptArrivedThisTurn: receiptsOfBurst.length > 0,
-      pending,
-      pendingReceipt: pending.receipt,
-      mediaId: burst.mediaIds.at(-1) ?? pending.receipt?.mediaId ?? null,
+      pendingReceiptLookup,
+      pendingReceipt: pendingReceiptLookup.receipt,
+      mediaId: burst.mediaIds.at(-1) ?? pendingReceiptLookup.receipt?.mediaId ?? null,
       deps: {
         wisphub: runtime.wisphub,
         receipts: this.receiptPort(tenantId),

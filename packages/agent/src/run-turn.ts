@@ -1,6 +1,6 @@
 import { type LanguageModel, type ModelMessage, generateText, stepCountIs } from 'ai'
 import { buildSystemPrompt } from './prompts/system-prompt'
-import { buildTurnPrompt } from './prompts/turn-context'
+import { buildTurnPrompt } from './prompts/turn-prompt'
 import type { Steering } from './steering'
 import { buildTools } from './tools'
 import type {
@@ -26,6 +26,12 @@ import type {
 export const FALLBACK_REPLY =
   'Recibimos tu mensaje y lo estamos revisando. En un momento te respondemos por aquí.'
 
+/** Default ceiling for the whole model loop of one turn. */
+const TURN_TIMEOUT_MS = 60_000
+
+/** Default cap on model calls in one turn, tool rounds included. */
+const MAX_MODEL_STEPS = 8
+
 export interface RunTurnInput {
   tenant: TenantConfig
   conversationId: string
@@ -37,7 +43,7 @@ export interface RunTurnInput {
   /** The texts of this burst, already joined. */
   burstText: string | null
   receiptArrivedThisTurn: boolean
-  pending: PendingReceiptResult
+  pendingReceiptLookup: PendingReceiptResult
   pendingReceipt: PendingReceipt | null
   mediaId: string | null
   deps: {
@@ -56,7 +62,7 @@ export interface RunTurnInput {
 export interface TurnResult {
   reply: string
   /** True when the reply is `FALLBACK_REPLY` rather than something the model wrote. */
-  usedFallback: boolean
+  isFallbackReply: boolean
   inputTokens: number | null
   outputTokens: number | null
   error: string | null
@@ -71,12 +77,12 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
     history,
     burstText,
     receiptArrivedThisTurn,
-    pending,
+    pendingReceiptLookup,
     pendingReceipt,
     mediaId,
     deps,
-    timeoutMs = 60_000,
-    maxSteps = 8,
+    timeoutMs = TURN_TIMEOUT_MS,
+    maxSteps = MAX_MODEL_STEPS,
   } = input
 
   const tools = buildTools({
@@ -96,7 +102,12 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
     ...toModelMessages(history),
     {
       role: 'user',
-      content: buildTurnPrompt({ phone, text: burstText, receiptArrivedThisTurn, pending }),
+      content: buildTurnPrompt({
+        phone,
+        text: burstText,
+        receiptArrivedThisTurn,
+        pendingReceiptLookup,
+      }),
     },
   ]
 
@@ -119,7 +130,7 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
        * either finished or been skipped.
        */
       prepareStep: ({ messages: current }) => {
-        const steeringPrompt = deps.steering.takeSteeringPrompt()
+        const steeringPrompt = deps.steering.takeQueuedPrompt()
 
         if (!steeringPrompt) return {}
 
@@ -138,7 +149,7 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
 
     return {
       reply: reply || FALLBACK_REPLY,
-      usedFallback: !reply,
+      isFallbackReply: !reply,
       inputTokens: result.usage.inputTokens ?? null,
       outputTokens: result.usage.outputTokens ?? null,
       error: null,
@@ -150,7 +161,7 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
 
     return {
       reply: FALLBACK_REPLY,
-      usedFallback: true,
+      isFallbackReply: true,
       inputTokens: null,
       outputTokens: null,
       error: message,
