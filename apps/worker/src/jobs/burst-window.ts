@@ -18,7 +18,7 @@ import { TEXT_BURST_WINDOW_MS, TURN_HARD_CAP_MS } from '@cobra/contracts'
  *    answer forever, and it is measured from the first unread message — which is
  *    why the window's start travels across re-queues.
  */
-export const burstWait = (
+export const remainingBurstWaitMs = (
   messages: readonly ConversationMessage[],
   now: Date = new Date(),
   windowStartedAt?: string,
@@ -27,14 +27,14 @@ export const burstWait = (
   if (messages.some((message) => message.mediaId)) return 0
 
   const nowMs = now.getTime()
-  const newest = Math.max(...messages.map((message) => message.receivedAt.getTime()))
-  const oldest = windowStartedAt
+  const newestMs = Math.max(...messages.map((message) => message.receivedAt.getTime()))
+  const windowStartMs = windowStartedAt
     ? new Date(windowStartedAt).getTime()
     : Math.min(...messages.map((message) => message.receivedAt.getTime()))
 
-  if (nowMs - oldest >= TURN_HARD_CAP_MS) return 0
+  if (nowMs - windowStartMs >= TURN_HARD_CAP_MS) return 0
 
-  const remaining = TEXT_BURST_WINDOW_MS - (nowMs - newest)
+  const remaining = TEXT_BURST_WINDOW_MS - (nowMs - newestMs)
 
   return remaining > 0 ? remaining : 0
 }

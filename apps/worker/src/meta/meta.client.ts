@@ -1,5 +1,7 @@
 import { META_GRAPH_URL } from '@cobra/contracts'
 
+const DEFAULT_TIMEOUT_MS = 20_000
+
 export interface MetaClientOptions {
   accessToken: string
   phoneNumberId: string
@@ -34,7 +36,7 @@ export class MetaClient {
 
   constructor(private readonly options: MetaClientOptions) {
     this.baseUrl = options.baseUrl ?? META_GRAPH_URL
-    this.timeoutMs = options.timeoutMs ?? 20_000
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
     this.fetchImpl = options.fetchImpl ?? fetch
   }
 
@@ -64,11 +66,11 @@ export class MetaClient {
   }
 
   /** The read receipt and the typing indicator, so the customer sees no silence. */
-  async markAsRead(messageId: string): Promise<void> {
+  async markAsRead(wamid: string): Promise<void> {
     await this.post({
       messaging_product: 'whatsapp',
       status: 'read',
-      message_id: messageId,
+      message_id: wamid,
       typing_indicator: { type: 'text' },
     }).catch(() => undefined)
   }

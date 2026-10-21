@@ -12,8 +12,10 @@ import { MetaClient } from '../meta/meta.client.js'
 import { SupabaseService } from './supabase.service.js'
 
 export interface TenantRuntime {
-  config: TenantConfig
-  raw: TenantRuntimeConfig
+  /** The subset of the tenant the agent is allowed to see. */
+  agentConfig: TenantConfig
+  /** The whole decrypted tenant row: credentials, status, phone number id. */
+  runtimeConfig: TenantRuntimeConfig
   meta: MetaClient
   wisphub: WisphubClient
   models: { agent: LanguageModel; vision: LanguageModel }
@@ -37,25 +39,28 @@ export class TenantRuntimeService {
   }
 
   async load(tenantId: string): Promise<TenantRuntime> {
-    const raw = await loadTenantRuntimeConfig(this.supabase.admin, this.crypto, tenantId)
+    const runtimeConfig = await loadTenantRuntimeConfig(this.supabase.admin, this.crypto, tenantId)
 
-    const meta = requireCredential(raw, 'meta')
-    const openrouter = requireCredential(raw, 'openrouter')
-    const wisphub = requireCredential(raw, 'wisphub')
+    const meta = requireCredential(runtimeConfig, 'meta')
+    const openrouter = requireCredential(runtimeConfig, 'openrouter')
+    const wisphub = requireCredential(runtimeConfig, 'wisphub')
 
-    if (!raw.phoneNumberId) {
+    if (!runtimeConfig.phoneNumberId) {
       throw new Error(`El cliente ${tenantId} no tiene un número de WhatsApp activo`)
     }
 
     return {
-      raw,
-      config: {
-        id: raw.id,
-        companyName: raw.companyName,
-        supportPhone: raw.supportPhone,
-        adminPhone: raw.adminPhone,
+      runtimeConfig,
+      agentConfig: {
+        id: runtimeConfig.id,
+        companyName: runtimeConfig.companyName,
+        supportPhone: runtimeConfig.supportPhone,
+        adminPhone: runtimeConfig.adminPhone,
       },
-      meta: new MetaClient({ accessToken: meta.secret, phoneNumberId: raw.phoneNumberId }),
+      meta: new MetaClient({
+        accessToken: meta.secret,
+        phoneNumberId: runtimeConfig.phoneNumberId,
+      }),
       wisphub: new WisphubClient({ apiKey: wisphub.secret }),
       models: createModels(openrouter.secret),
     }

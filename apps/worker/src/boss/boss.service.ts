@@ -9,11 +9,35 @@ import {
   type SendMessagePayload,
   TURN_QUEUE_OPTIONS,
 } from '@cobra/contracts'
-import { NotifyAdminJobHandler } from '../jobs/notify-admin.job.js'
+import { NotifyTenantAdminJobHandler } from '../jobs/notify-tenant-admin.job.js'
 import { ProcessReceiptJobHandler } from '../jobs/process-receipt.job.js'
 import { ProcessTurnJobHandler } from '../jobs/process-turn.job.js'
 import { SendMessageJobHandler } from '../jobs/send-message.job.js'
 import { followUpsFor } from '../jobs/turn-follow-ups.js'
+
+const RECEIPT_QUEUE_OPTIONS = {
+  retryLimit: 2,
+  retryDelaySeconds: 5,
+  expireInSeconds: 180,
+  batchSize: 2,
+} as const
+
+// Retries with growing waits: the failure this exists for is Meta answering
+// `(#131000) Something went wrong`, which passes on its own.
+const SEND_QUEUE_OPTIONS = {
+  retryLimit: 5,
+  retryDelaySeconds: 10,
+  expireInSeconds: 120,
+  batchSize: 5,
+} as const
+
+// No retries: an alert whose 24-hour window has closed will never get
+// through, and retrying it is a loop with no exit.
+const TENANT_ADMIN_ALERT_QUEUE_OPTIONS = {
+  retryLimit: 0,
+  expireInSeconds: 60,
+  batchSize: 5,
+} as const
 
 /**
  * The worker owns pg-boss: it migrates the schema, supervises, and works the
@@ -27,10 +51,10 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
 
   constructor(
     private readonly config: ConfigService,
-    private readonly turns: ProcessTurnJobHandler,
-    private readonly receipts: ProcessReceiptJobHandler,
-    private readonly sends: SendMessageJobHandler,
-    private readonly alerts: NotifyAdminJobHandler,
+    private readonly processTurnHandler: ProcessTurnJobHandler,
+    private readonly processReceiptHandler: ProcessReceiptJobHandler,
+    private readonly sendMessageHandler: SendMessageJobHandler,
+    private readonly notifyTenantAdminHandler: NotifyTenantAdminJobHandler,
   ) {
     this.boss = new PgBoss({
       connectionString: config.getOrThrow<string>('DATABASE_URL'),
@@ -76,27 +100,23 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
 
     await this.boss.createQueue(QUEUES.processReceipt, {
       policy: 'standard',
-      retryLimit: 2,
-      retryDelay: 5,
-      expireInSeconds: 180,
+      retryLimit: RECEIPT_QUEUE_OPTIONS.retryLimit,
+      retryDelay: RECEIPT_QUEUE_OPTIONS.retryDelaySeconds,
+      expireInSeconds: RECEIPT_QUEUE_OPTIONS.expireInSeconds,
     })
 
-    // Retries with growing waits: the failure this exists for is Meta answering
-    // `(#131000) Something went wrong`, which passes on its own.
     await this.boss.createQueue(QUEUES.sendMessage, {
       policy: 'standard',
-      retryLimit: 5,
-      retryDelay: 10,
+      retryLimit: SEND_QUEUE_OPTIONS.retryLimit,
+      retryDelay: SEND_QUEUE_OPTIONS.retryDelaySeconds,
       retryBackoff: true,
-      expireInSeconds: 120,
+      expireInSeconds: SEND_QUEUE_OPTIONS.expireInSeconds,
     })
 
-    // No retries: an alert whose 24-hour window has closed will never get
-    // through, and retrying it is a loop with no exit.
     await this.boss.createQueue(QUEUES.notifyTenantAdmin, {
       policy: 'standard',
-      retryLimit: 0,
-      expireInSeconds: 60,
+      retryLimit: TENANT_ADMIN_ALERT_QUEUE_OPTIONS.retryLimit,
+      expireInSeconds: TENANT_ADMIN_ALERT_QUEUE_OPTIONS.expireInSeconds,
     })
   }
 
@@ -108,10 +128,10 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
       { batchSize: concurrency },
       async (jobs) => {
         for (const job of jobs) {
-          const outcome = await this.turns.handle(job.data)
+          const outcome = await this.processTurnHandler.run(job.data)
 
           for (const followUp of followUpsFor(job.data, outcome)) {
-            await this.boss.send(followUp.queue, followUp.data, followUp.options ?? {})
+            await this.boss.send(followUp.queue, followUp.payload, followUp.options ?? {})
           }
         }
       },
@@ -119,21 +139,25 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
 
     await this.boss.work<ProcessReceiptPayload>(
       QUEUES.processReceipt,
-      { batchSize: 2 },
+      { batchSize: RECEIPT_QUEUE_OPTIONS.batchSize },
       async (jobs) => {
-        for (const job of jobs) await this.receipts.handle(job.data)
+        for (const job of jobs) await this.processReceiptHandler.run(job.data)
       },
     )
 
-    await this.boss.work<SendMessagePayload>(QUEUES.sendMessage, { batchSize: 5 }, async (jobs) => {
-      for (const job of jobs) await this.sends.handle(job.data)
-    })
+    await this.boss.work<SendMessagePayload>(
+      QUEUES.sendMessage,
+      { batchSize: SEND_QUEUE_OPTIONS.batchSize },
+      async (jobs) => {
+        for (const job of jobs) await this.sendMessageHandler.run(job.data)
+      },
+    )
 
     await this.boss.work<NotifyTenantAdminPayload>(
       QUEUES.notifyTenantAdmin,
-      { batchSize: 5 },
+      { batchSize: TENANT_ADMIN_ALERT_QUEUE_OPTIONS.batchSize },
       async (jobs) => {
-        for (const job of jobs) await this.alerts.handle(job.data)
+        for (const job of jobs) await this.notifyTenantAdminHandler.run(job.data)
       },
     )
   }

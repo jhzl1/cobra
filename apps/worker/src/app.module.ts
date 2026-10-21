@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { BossService } from './boss/boss.service.js'
 import { loadEnv } from './config/env.js'
-import { NotifyAdminJobHandler } from './jobs/notify-admin.job.js'
+import { NotifyTenantAdminJobHandler } from './jobs/notify-tenant-admin.job.js'
 import { ProcessReceiptJobHandler } from './jobs/process-receipt.job.js'
 import { ProcessTurnJobHandler } from './jobs/process-turn.job.js'
 import { SendMessageJobHandler } from './jobs/send-message.job.js'
@@ -12,8 +12,8 @@ import { ConversationRepository } from './repositories/conversation.repository.j
 import { PaymentMethodRepository } from './repositories/payment-method.repository.js'
 import { ReceiptRepository } from './repositories/receipt.repository.js'
 import { TraceRepository } from './repositories/trace.repository.js'
-import { MessagingService } from './runtime/messaging.service.js'
 import { SupabaseService } from './runtime/supabase.service.js'
+import { TenantAdminAlertService } from './runtime/tenant-admin-alert.service.js'
 import { TenantRuntimeService } from './runtime/tenant-runtime.service.js'
 
 // ESM has no __dirname; the .env still has to be found next to the app and not
@@ -31,7 +31,7 @@ const here = dirname(fileURLToPath(import.meta.url))
   providers: [
     SupabaseService,
     TenantRuntimeService,
-    MessagingService,
+    TenantAdminAlertService,
     ConversationRepository,
     ReceiptRepository,
     PaymentMethodRepository,
@@ -39,7 +39,7 @@ const here = dirname(fileURLToPath(import.meta.url))
     ProcessTurnJobHandler,
     ProcessReceiptJobHandler,
     SendMessageJobHandler,
-    NotifyAdminJobHandler,
+    NotifyTenantAdminJobHandler,
     BossService,
   ],
 })
