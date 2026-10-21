@@ -5,7 +5,7 @@ import { type TenantConfig, WisphubClient, createModels } from '@cobra/agent'
 import {
   CredentialsCrypto,
   type TenantRuntimeConfig,
-  loadTenantRuntime,
+  loadTenantRuntimeConfig,
   requireCredential,
 } from '@cobra/data'
 import { MetaClient } from '../meta/meta.client.js'
@@ -37,7 +37,7 @@ export class TenantRuntimeService {
   }
 
   async load(tenantId: string): Promise<TenantRuntime> {
-    const raw = await loadTenantRuntime(this.supabase.admin, this.crypto, tenantId)
+    const raw = await loadTenantRuntimeConfig(this.supabase.admin, this.crypto, tenantId)
 
     const meta = requireCredential(raw, 'meta')
     const openrouter = requireCredential(raw, 'openrouter')

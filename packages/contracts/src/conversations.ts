@@ -44,6 +44,7 @@ export const messageSchema = z.object({
   deliveryState: deliveryStateSchema.nullable(),
   deliveryError: z.string().nullable(),
   sentAt: z.string().nullable(),
+  /** The row's creation time. Set on outbound messages too, not only on inbound ones. */
   receivedAt: z.string(),
 })
 

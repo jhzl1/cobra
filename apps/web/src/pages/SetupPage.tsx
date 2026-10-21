@@ -73,8 +73,8 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
 
   if (!setup.data) return null
 
-  const { steps, ready, status, webhookUrl, verifyToken } = setup.data
-  const done = steps.filter((step) => step.done).length
+  const { steps, isReady, status, webhookUrl, verifyToken } = setup.data
+  const done = steps.filter((step) => step.isDone).length
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -82,7 +82,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Puesta en marcha
-            {ready ? (
+            {isReady ? (
               <Badge variant="success">Listo</Badge>
             ) : (
               <Badge>
@@ -91,7 +91,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
             )}
           </CardTitle>
           <CardDescription>
-            {ready
+            {isReady
               ? 'La empresa está recibiendo mensajes y el agente les responde.'
               : 'Lo que falta para que el agente le responda a los clientes de esta empresa.'}
           </CardDescription>
@@ -165,7 +165,7 @@ const Step = ({
 
   return (
     <li className="flex items-center gap-4 p-4">
-      {step.done ? (
+      {step.isDone ? (
         <CheckCircle2Icon className="size-5 shrink-0 text-success" aria-hidden />
       ) : step.id === 'webhook' ? (
         <CircleSlashIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
@@ -174,13 +174,13 @@ const Step = ({
       )}
 
       <div className="min-w-0 flex-1">
-        <p className={cn('text-sm font-medium', step.done && 'text-muted-foreground')}>
+        <p className={cn('text-sm font-medium', step.isDone && 'text-muted-foreground')}>
           {number}. {copy.title}
         </p>
-        <p className="text-xs text-muted-foreground">{step.pending ?? copy.why}</p>
+        <p className="text-xs text-muted-foreground">{step.missingDetail ?? copy.why}</p>
       </div>
 
-      {!step.done && (
+      {!step.isDone && (
         <Button asChild size="sm" variant="secondary">
           <Link to={copy.to} params={{ tenantId }}>
             {copy.action}

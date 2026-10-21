@@ -4,7 +4,7 @@ const ALGORITHM = 'aes-256-gcm'
 const IV_BYTES = 12
 const VERSION = 'v1'
 
-export interface CredentialPayload {
+export interface DecryptedCredential {
   secret: string
   /** Meta's non-secret companions travel in the same envelope: wabaId, appSecret. */
   extra?: Record<string, string>
@@ -41,7 +41,7 @@ export class CredentialsCrypto {
     this.key = key
   }
 
-  encrypt(payload: CredentialPayload): { ciphertext: string; last4: string } {
+  encrypt(payload: DecryptedCredential): { ciphertext: string; last4: string } {
     const iv = randomBytes(IV_BYTES)
     const cipher = createCipheriv(ALGORITHM, this.key, iv)
 
@@ -54,7 +54,7 @@ export class CredentialsCrypto {
     }
   }
 
-  decrypt(ciphertext: string): CredentialPayload {
+  decrypt(ciphertext: string): DecryptedCredential {
     const [version, iv, tag, payload] = ciphertext.split('.')
 
     if (version !== VERSION || !iv || !tag || !payload) {
@@ -67,7 +67,7 @@ export class CredentialsCrypto {
 
       const plaintext = Buffer.concat([decipher.update(unb64(payload)), decipher.final()])
 
-      return JSON.parse(plaintext.toString('utf8')) as CredentialPayload
+      return JSON.parse(plaintext.toString('utf8')) as DecryptedCredential
     } catch {
       // Either the master key changed or the row was tampered with. From here
       // both are the same answer: this credential cannot be used.

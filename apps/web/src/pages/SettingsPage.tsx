@@ -5,8 +5,8 @@ import { useState } from 'react'
 import { z } from 'zod'
 import {
   type CredentialProvider,
-  type CredentialStatus,
-  type WisphubNamed,
+  type CredentialSummary,
+  type WisphubNamedEntity,
   paymentMethodSchema,
   registerWhatsappNumberSchema,
   saveCredentialSchema,
@@ -141,7 +141,7 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
   const credentials = useQuery({
     queryKey: queryKeys.credentials(tenantId),
     queryFn: async () => {
-      const { data } = await api.get<CredentialStatus[]>(`/tenants/${tenantId}/credentials`)
+      const { data } = await api.get<CredentialSummary[]>(`/tenants/${tenantId}/credentials`)
 
       return data
     },
@@ -592,7 +592,7 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
     queryKey: queryKeys.wisphubZones(tenantId),
     retry: false,
     queryFn: async () => {
-      const { data } = await api.get<WisphubNamed[]>(`/tenants/${tenantId}/wisphub/zones`)
+      const { data } = await api.get<WisphubNamedEntity[]>(`/tenants/${tenantId}/wisphub/zones`)
 
       return data
     },
@@ -602,7 +602,9 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
     queryKey: queryKeys.wisphubPaymentMethods(tenantId),
     retry: false,
     queryFn: async () => {
-      const { data } = await api.get<WisphubNamed[]>(`/tenants/${tenantId}/wisphub/payment-methods`)
+      const { data } = await api.get<WisphubNamedEntity[]>(
+        `/tenants/${tenantId}/wisphub/payment-methods`,
+      )
 
       return data
     },

@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { type CredentialPayload, CredentialsCrypto } from '@cobra/data'
+import { CredentialsCrypto, type DecryptedCredential } from '@cobra/data'
 
 /**
  * The Nest-facing wrapper of `CredentialsCrypto`.
@@ -17,11 +17,11 @@ export class CredentialsCryptoService {
     this.crypto = new CredentialsCrypto(config.getOrThrow<string>('CREDENTIALS_MASTER_KEY'))
   }
 
-  encrypt(payload: CredentialPayload): { ciphertext: string; last4: string } {
+  encrypt(payload: DecryptedCredential): { ciphertext: string; last4: string } {
     return this.crypto.encrypt(payload)
   }
 
-  decrypt(ciphertext: string): CredentialPayload {
+  decrypt(ciphertext: string): DecryptedCredential {
     try {
       return this.crypto.decrypt(ciphertext)
     } catch {

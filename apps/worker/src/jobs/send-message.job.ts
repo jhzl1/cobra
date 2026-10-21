@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import type { SendMessageJob as SendMessagePayload } from '@cobra/contracts'
+import type { SendMessagePayload } from '@cobra/contracts'
 import { ConversationRepository } from '../repositories/conversation.repository.js'
 import { SupabaseService } from '../runtime/supabase.service.js'
 import { TenantRuntimeService } from '../runtime/tenant-runtime.service.js'

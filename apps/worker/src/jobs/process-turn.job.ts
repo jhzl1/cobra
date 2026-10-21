@@ -13,11 +13,7 @@ import {
   type RecordPaymentAttempt,
   type SettlePaymentAttempt,
 } from '@cobra/agent'
-import {
-  ALERT_REASON_TEXT,
-  type AlertReason,
-  type ProcessTurnJob as ProcessTurnPayload,
-} from '@cobra/contracts'
+import { ALERT_REASON_TEXT, type AlertReason, type ProcessTurnPayload } from '@cobra/contracts'
 import { ConversationRepository } from '../repositories/conversation.repository.js'
 import { PaymentMethodRepository } from '../repositories/payment-method.repository.js'
 import { ReceiptRepository } from '../repositories/receipt.repository.js'

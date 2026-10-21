@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { CredentialProvider } from '@cobra/contracts'
-import { type CredentialPayload, CredentialsCrypto } from './credentials-crypto'
+import type { CredentialProvider, TenantStatus } from '@cobra/contracts'
+import { CredentialsCrypto, type DecryptedCredential } from './credentials-crypto'
 
 export interface TenantRuntimeConfig {
   id: string
@@ -8,8 +8,8 @@ export interface TenantRuntimeConfig {
   companyName: string
   supportPhone: string
   adminPhone: string
-  status: 'active' | 'suspended'
-  credentials: Partial<Record<CredentialProvider, CredentialPayload>>
+  status: TenantStatus
+  credentials: Partial<Record<CredentialProvider, DecryptedCredential>>
   /** The number this tenant sends from. Null when none is active. */
   phoneNumberId: string | null
 }
@@ -21,7 +21,7 @@ export interface TenantRuntimeConfig {
  * key has to take effect on the next message, not when a process restarts. If it
  * ever shows up in a profile, the cache goes here and nowhere else.
  */
-export const loadTenantRuntime = async (
+export const loadTenantRuntimeConfig = async (
   client: SupabaseClient,
   crypto: CredentialsCrypto,
   tenantId: string,
@@ -44,7 +44,7 @@ export const loadTenantRuntime = async (
   if (tenant.error) throw tenant.error
   if (credentials.error) throw credentials.error
 
-  const decrypted: Partial<Record<CredentialProvider, CredentialPayload>> = {}
+  const decrypted: Partial<Record<CredentialProvider, DecryptedCredential>> = {}
 
   for (const row of credentials.data ?? []) {
     const provider = row.provider as CredentialProvider
@@ -63,7 +63,7 @@ export const loadTenantRuntime = async (
     companyName: tenant.data.company_name as string,
     supportPhone: tenant.data.support_phone as string,
     adminPhone: tenant.data.admin_phone as string,
-    status: tenant.data.status as 'active' | 'suspended',
+    status: tenant.data.status as TenantStatus,
     credentials: decrypted,
     phoneNumberId: (number.data?.phone_number_id as string | undefined) ?? null,
   }
@@ -82,7 +82,7 @@ export class MissingCredentialError extends Error {
 export const requireCredential = (
   tenant: TenantRuntimeConfig,
   provider: CredentialProvider,
-): CredentialPayload => {
+): DecryptedCredential => {
   const credential = tenant.credentials[provider]
 
   if (!credential) throw new MissingCredentialError(tenant.id, provider)
