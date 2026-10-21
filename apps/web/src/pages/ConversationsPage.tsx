@@ -15,11 +15,12 @@ import { cn } from '~/lib/utils'
 import { useInbox } from '~/providers/InboxProvider'
 
 interface Props {
-  /** From the path. Null on /chats, which is the list with nothing open. */
+  tenantId: string
+  /** From the path. Null on /$tenantId/conversations, which is the list with nothing open. */
   conversationId: string | null
 }
 
-export const WorkspacePage = ({ conversationId }: Props) => {
+export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
   const navigate = useNavigate()
   const inbox = useInbox()
 
@@ -80,7 +81,10 @@ export const WorkspacePage = ({ conversationId }: Props) => {
               isUnread={inbox.isUnread}
               selectedId={conversationId}
               onSelect={(id) =>
-                void navigate({ to: '/chats/$conversationId', params: { conversationId: id } })
+                void navigate({
+                  to: '/$tenantId/conversations/$conversationId',
+                  params: { tenantId, conversationId: id },
+                })
               }
             />
           ) : (
@@ -91,7 +95,9 @@ export const WorkspacePage = ({ conversationId }: Props) => {
                 Todavía no ha llegado ninguna conversación.
               </p>
               <Button asChild size="sm" variant="secondary">
-                <Link to="/setup">Ver qué falta</Link>
+                <Link to="/$tenantId/setup" params={{ tenantId }}>
+                  Ver qué falta
+                </Link>
               </Button>
             </div>
           )}
@@ -110,7 +116,11 @@ export const WorkspacePage = ({ conversationId }: Props) => {
             {/* On a phone the list is a screen of its own, so this is the way
                 back — here and not in the chat, so the steps view has it too. */}
             <Button asChild size="icon-sm" variant="ghost" className="-ml-2 self-center lg:hidden">
-              <Link to="/chats" aria-label="Volver a las conversaciones">
+              <Link
+                to="/$tenantId/conversations"
+                params={{ tenantId }}
+                aria-label="Volver a las conversaciones"
+              >
                 <ArrowLeftIcon />
               </Link>
             </Button>

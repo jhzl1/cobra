@@ -1,38 +1,36 @@
 import { useQuery } from '@tanstack/react-query'
-import { createContext, use, useEffect, useState } from 'react'
+import { useParams } from '@tanstack/react-router'
+import { createContext, use, useEffect } from 'react'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
-import type { TenantSummary } from '~/lib/tenants'
+import { type TenantSummary, saveLastTenantId } from '~/lib/tenants'
 
 interface TenantContextValue {
   tenants: TenantSummary[]
+  /** The company in the path, and only once it is one this account reaches. */
   tenantId: string | null
-  setTenantId: (tenantId: string) => void
   loading: boolean
 }
 
 const TenantContext = createContext<TenantContextValue>({
   tenants: [],
   tenantId: null,
-  setTenantId: () => {},
   loading: true,
 })
 
-const STORAGE_KEY = 'cobra.tenant'
-
 /**
- * Which company the panel is looking at.
+ * Which company the panel is looking at: the one in the path.
  *
- * Kept here rather than in the URL: it applies to every route at once, and
- * threading it through each one would put it in the path of the conversation
- * links people actually share. It survives a reload through localStorage, and
- * falls back to the first company when the stored one is gone — a revoked
- * membership must not leave someone staring at an empty panel.
+ * The URL is the only source, so a link someone sends opens the conversation
+ * in its own company, whatever the receiver had open before. An id that is not
+ * in the list — mistyped, or a membership since revoked — reads as no company,
+ * and `/$tenantId` turns that into a not-found screen instead of an empty panel.
+ *
+ * Above the routes rather than inside `/$tenantId`, because the header's
+ * company picker lives there too and the platform screens have none.
  */
 export const TenantProvider = ({ children }: { children: React.ReactNode }) => {
-  const [tenantId, setStored] = useState<string | null>(
-    () => localStorage.getItem(STORAGE_KEY) ?? null,
-  )
+  const params = useParams({ strict: false })
 
   const tenants = useQuery({
     queryKey: queryKeys.tenants,
@@ -44,28 +42,15 @@ export const TenantProvider = ({ children }: { children: React.ReactNode }) => {
   })
 
   const list = tenants.data ?? []
-  const known = !!tenantId && list.some((tenant) => tenant.id === tenantId)
+  const isReachable = list.some((tenant) => tenant.id === params.tenantId)
+  const tenantId = isReachable ? (params.tenantId ?? null) : null
 
   useEffect(() => {
-    if (!list.length || known) return
-
-    setStored(list[0]?.id ?? null)
-  }, [known, list])
-
-  const setTenantId = (next: string) => {
-    localStorage.setItem(STORAGE_KEY, next)
-    setStored(next)
-  }
+    if (tenantId) saveLastTenantId(tenantId)
+  }, [tenantId])
 
   return (
-    <TenantContext
-      value={{
-        tenants: list,
-        tenantId: known ? tenantId : (list[0]?.id ?? null),
-        setTenantId,
-        loading: tenants.isLoading,
-      }}
-    >
+    <TenantContext value={{ tenants: list, tenantId, loading: tenants.isLoading }}>
       {children}
     </TenantContext>
   )
