@@ -9,8 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select'
-import { usePlatformIdentity } from '~/hooks/usePlatform'
-import { askForNotifications, playBlip, setSoundEnabled, soundEnabled } from '~/lib/notify'
+import { usePlatformIdentity } from '~/hooks/usePlatformIdentity'
+import { askForNotifications, isSoundEnabled, playBlip, setSoundEnabled } from '~/lib/notify'
 import { supabase } from '~/lib/supabase'
 import { cn } from '~/lib/utils'
 import { useInbox } from '~/providers/InboxProvider'
@@ -149,14 +149,14 @@ const navLinkClass = (active: boolean) =>
  * permission cannot be asked for again from the app.
  */
 const AlertControls = () => {
-  const [sound, setSound] = useState(soundEnabled)
+  const [isSoundOn, setIsSoundOn] = useState(isSoundEnabled)
   const [permission, setPermission] = useState(
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
   )
 
   useEffect(() => {
-    setSoundEnabled(sound)
-  }, [sound])
+    setSoundEnabled(isSoundOn)
+  }, [isSoundOn])
 
   return (
     <div className="flex items-center gap-1">
@@ -183,10 +183,10 @@ const AlertControls = () => {
       <Button
         size="icon-sm"
         variant="ghost"
-        title={sound ? 'Silenciar el aviso' : 'Sonar cuando llegue un mensaje'}
-        aria-label={sound ? 'Silenciar el aviso' : 'Activar el sonido'}
+        title={isSoundOn ? 'Silenciar el aviso' : 'Sonar cuando llegue un mensaje'}
+        aria-label={isSoundOn ? 'Silenciar el aviso' : 'Activar el sonido'}
         onClick={() => {
-          setSound((on) => {
+          setIsSoundOn((on) => {
             // Turning it on plays it once: it is the only way to know what it
             // sounds like, and the click is also the gesture the audio context
             // needs before a browser will let it make noise at all.
@@ -202,7 +202,7 @@ const AlertControls = () => {
           })
         }}
       >
-        {sound ? <Volume2Icon /> : <VolumeXIcon />}
+        {isSoundOn ? <Volume2Icon /> : <VolumeXIcon />}
       </Button>
     </div>
   )

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import {
   type CredentialProvider,
   type CredentialSummary,
+  type WhatsappNumber,
   type WisphubNamedEntity,
   paymentMethodSchema,
   registerWhatsappNumberSchema,
@@ -54,16 +55,6 @@ import { api } from '~/lib/api'
 import { applyServerErrors, fieldError } from '~/lib/form'
 import { queryKeys } from '~/lib/queryClient'
 
-interface WhatsappNumber {
-  id: string
-  phoneNumberId: string
-  displayNumber: string
-  verifyToken: string
-  webhookUrl: string
-  /** Set once the number is out of service. Its history stays. */
-  validTo: string | null
-}
-
 interface PaymentMethodRow {
   id: string
   zone: string | null
@@ -75,7 +66,7 @@ interface PaymentMethodRow {
 export const SettingsPage = ({ tenantId }: { tenantId: string }) => (
   <div className="flex flex-col gap-4 p-4">
     <CredentialsCard tenantId={tenantId} />
-    <NumbersCard tenantId={tenantId} />
+    <WhatsappNumbersCard tenantId={tenantId} />
     <PaymentMethodsCard tenantId={tenantId} />
   </div>
 )
@@ -136,7 +127,7 @@ const PROVIDERS: ProviderSpec[] = [
  * them. The secret is typed in a dialog and never sits in a field on the page.
  */
 const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
-  const [editing, setEditing] = useState<ProviderSpec | null>(null)
+  const [editedProvider, setEditedProvider] = useState<ProviderSpec | null>(null)
 
   const credentials = useQuery({
     queryKey: queryKeys.credentials(tenantId),
@@ -147,7 +138,7 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
     },
   })
 
-  const loadedFor = (provider: CredentialProvider) =>
+  const savedCredentialFor = (provider: CredentialProvider) =>
     credentials.data?.find((credential) => credential.provider === provider)
 
   return (
@@ -162,11 +153,11 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
       <CardContent>
         <div className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border">
           {PROVIDERS.map((spec) => {
-            const loaded = loadedFor(spec.provider)
+            const savedCredential = savedCredentialFor(spec.provider)
 
             return (
               <div key={spec.provider} className="flex items-center gap-4 p-4">
-                {loaded ? (
+                {savedCredential ? (
                   <CheckCircle2Icon className="size-5 shrink-0 text-success" aria-hidden />
                 ) : (
                   <CircleDashedIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
@@ -177,13 +168,13 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
                   <p className="text-xs text-muted-foreground">{spec.purpose}</p>
                 </div>
 
-                {loaded ? (
+                {savedCredential ? (
                   <div className="flex shrink-0 items-center gap-3">
                     <code className="font-mono text-xs text-muted-foreground">
-                      ····{loaded.last4}
+                      ····{savedCredential.last4}
                     </code>
                     <span className="hidden text-xs text-muted-foreground sm:inline">
-                      {new Date(loaded.rotatedAt).toLocaleDateString('es-CO')}
+                      {new Date(savedCredential.rotatedAt).toLocaleDateString('es-CO')}
                     </span>
                   </div>
                 ) : (
@@ -192,10 +183,10 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
 
                 <Button
                   size="sm"
-                  variant={loaded ? 'secondary' : 'default'}
-                  onClick={() => setEditing(spec)}
+                  variant={savedCredential ? 'secondary' : 'default'}
+                  onClick={() => setEditedProvider(spec)}
                 >
-                  {loaded ? 'Rotar' : 'Conectar'}
+                  {savedCredential ? 'Rotar' : 'Conectar'}
                 </Button>
               </div>
             )
@@ -205,13 +196,13 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
 
       {/* Keyed per provider: a secret left over in a reused form is a secret
           sent to the wrong provider. */}
-      {editing && (
+      {editedProvider && (
         <CredentialDialog
-          key={editing.provider}
+          key={editedProvider.provider}
           tenantId={tenantId}
-          spec={editing}
-          rotating={!!loadedFor(editing.provider)}
-          onClose={() => setEditing(null)}
+          spec={editedProvider}
+          isRotating={!!savedCredentialFor(editedProvider.provider)}
+          onClose={() => setEditedProvider(null)}
         />
       )}
     </Card>
@@ -221,12 +212,12 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
 const CredentialDialog = ({
   tenantId,
   spec,
-  rotating,
+  isRotating,
   onClose,
 }: {
   tenantId: string
   spec: ProviderSpec
-  rotating: boolean
+  isRotating: boolean
   onClose: () => void
 }) => {
   const queryClient = useQueryClient()
@@ -262,9 +253,9 @@ const CredentialDialog = ({
     <FormDialog
       open
       onClose={onClose}
-      title={`${rotating ? 'Rotar' : 'Conectar'} ${spec.name}`}
+      title={`${isRotating ? 'Rotar' : 'Conectar'} ${spec.name}`}
       description={
-        rotating
+        isRotating
           ? 'La credencial anterior se reemplaza. El agente empieza a usar la nueva de inmediato.'
           : spec.purpose
       }
@@ -310,13 +301,13 @@ const CredentialDialog = ({
 
 /* WhatsApp numbers ----------------------------------------------------------- */
 
-const NumbersCard = ({ tenantId }: { tenantId: string }) => {
+const WhatsappNumbersCard = ({ tenantId }: { tenantId: string }) => {
   const queryClient = useQueryClient()
-  const [connecting, setConnecting] = useState(false)
-  const [retiring, setRetiring] = useState<WhatsappNumber | null>(null)
+  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false)
+  const [numberToRetire, setNumberToRetire] = useState<WhatsappNumber | null>(null)
 
   const numbers = useQuery({
-    queryKey: queryKeys.numbers(tenantId),
+    queryKey: queryKeys.whatsappNumbers(tenantId),
     queryFn: async () => {
       const { data } = await api.get<WhatsappNumber[]>(`/tenants/${tenantId}/whatsapp-numbers`)
 
@@ -329,8 +320,8 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
       await api.delete(`/tenants/${tenantId}/whatsapp-numbers/${numberId}`)
     },
     onSuccess: async () => {
-      setRetiring(null)
-      await queryClient.invalidateQueries({ queryKey: queryKeys.numbers(tenantId) })
+      setNumberToRetire(null)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.whatsappNumbers(tenantId) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.setup(tenantId) })
     },
   })
@@ -347,7 +338,7 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
           la configuración de Meta.
         </CardDescription>
         <CardAction>
-          <Button size="sm" onClick={() => setConnecting(true)}>
+          <Button size="sm" onClick={() => setIsConnectDialogOpen(true)}>
             <PlusIcon />
             Conectar número
           </Button>
@@ -362,7 +353,7 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
                 <p className="text-sm font-medium">
                   {number.displayNumber} · {number.phoneNumberId}
                 </p>
-                <Button size="sm" variant="secondary" onClick={() => setRetiring(number)}>
+                <Button size="sm" variant="secondary" onClick={() => setNumberToRetire(number)}>
                   Dar de baja
                 </Button>
               </div>
@@ -395,17 +386,19 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
         {retire.error && <p className="text-sm text-destructive">{retire.error.message}</p>}
       </CardContent>
 
-      {connecting && <NumberDialog tenantId={tenantId} onClose={() => setConnecting(false)} />}
+      {isConnectDialogOpen && (
+        <WhatsappNumberDialog tenantId={tenantId} onClose={() => setIsConnectDialogOpen(false)} />
+      )}
 
       <AlertDialog
-        open={!!retiring}
+        open={!!numberToRetire}
         onOpenChange={(open) => {
-          if (!open) setRetiring(null)
+          if (!open) setNumberToRetire(null)
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Dar de baja {retiring?.displayNumber}</AlertDialogTitle>
+            <AlertDialogTitle>Dar de baja {numberToRetire?.displayNumber}</AlertDialogTitle>
             <AlertDialogDescription>
               Deja de recibir mensajes y su URL de webhook deja de servir, así que hay que quitarla
               de la configuración de Meta. Las conversaciones que entraron por él se conservan, y su
@@ -417,7 +410,7 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault()
-                if (retiring) retire.mutate(retiring.id)
+                if (numberToRetire) retire.mutate(numberToRetire.id)
               }}
             >
               Dar de baja
@@ -429,7 +422,7 @@ const NumbersCard = ({ tenantId }: { tenantId: string }) => {
   )
 }
 
-const NumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose: () => void }) => {
+const WhatsappNumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose: () => void }) => {
   const queryClient = useQueryClient()
   const [failure, setFailure] = useState<string | null>(null)
 
@@ -448,7 +441,7 @@ const NumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose: () => 
         throw error
       }
 
-      await queryClient.invalidateQueries({ queryKey: queryKeys.numbers(tenantId) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.whatsappNumbers(tenantId) })
       onClose()
     },
   })
@@ -517,7 +510,7 @@ const paymentMethodFormSchema = paymentMethodSchema.pick({ paymentAddress: true 
 })
 
 const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
-  const [adding, setAdding] = useState(false)
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
 
   const methods = useQuery({
     queryKey: queryKeys.paymentMethods(tenantId),
@@ -536,7 +529,7 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
           Un comprobante pagado a una cuenta que no esté aquí se retiene para revisión manual.
         </CardDescription>
         <CardAction>
-          <Button size="sm" onClick={() => setAdding(true)}>
+          <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
             <PlusIcon />
             Agregar cuenta
           </Button>
@@ -574,7 +567,9 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
         </Table>
       </CardContent>
 
-      {adding && <PaymentMethodDialog tenantId={tenantId} onClose={() => setAdding(false)} />}
+      {isAddDialogOpen && (
+        <PaymentMethodDialog tenantId={tenantId} onClose={() => setIsAddDialogOpen(false)} />
+      )}
     </Card>
   )
 }
@@ -583,11 +578,6 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
   const queryClient = useQueryClient()
   const [failure, setFailure] = useState<string | null>(null)
 
-  /**
-   * The accounts as Wisphub knows them. Typing the id by hand was the old way,
-   * and a wrong one registers the payment under the wrong account without
-   * complaining — Wisphub accepts any id it recognises.
-   */
   const zones = useQuery({
     queryKey: queryKeys.wisphubZones(tenantId),
     retry: false,
@@ -598,7 +588,12 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
     },
   })
 
-  const wisphub = useQuery({
+  /**
+   * The accounts as Wisphub knows them. Typing the id by hand was the old way,
+   * and a wrong one registers the payment under the wrong account without
+   * complaining — Wisphub accepts any id it recognises.
+   */
+  const wisphubPaymentMethods = useQuery({
     queryKey: queryKeys.wisphubPaymentMethods(tenantId),
     retry: false,
     queryFn: async () => {
@@ -644,7 +639,7 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
       description="El agente compara la cuenta de cada comprobante contra esta lista. Lo que no esté aquí se escala para revisión manual."
       submitLabel="Agregar"
       form={form}
-      error={failure ?? (wisphub.error ? wisphub.error.message : null)}
+      error={failure ?? (wisphubPaymentMethods.error ? wisphubPaymentMethods.error.message : null)}
     >
       <form.Field name="wisphubId">
         {(field) => (
@@ -658,23 +653,27 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
 
             <Select
               value={field.state.value}
-              disabled={wisphub.isLoading || !wisphub.data?.length}
+              disabled={wisphubPaymentMethods.isLoading || !wisphubPaymentMethods.data?.length}
               onValueChange={(next) => {
                 field.handleChange(next)
                 // The name travels with the id: it is what the table shows and
                 // what the agent puts in front of the customer.
-                const chosen = wisphub.data?.find((method) => String(method.id) === next)
+                const chosen = wisphubPaymentMethods.data?.find(
+                  (method) => String(method.id) === next,
+                )
 
                 form.setFieldValue('entityName', chosen?.nombre ?? '')
               }}
             >
               <SelectTrigger id="wisphub-method" className="w-full">
                 <SelectValue
-                  placeholder={wisphub.isLoading ? 'Consultando a Wisphub…' : 'Elige una'}
+                  placeholder={
+                    wisphubPaymentMethods.isLoading ? 'Consultando a Wisphub…' : 'Elige una'
+                  }
                 />
               </SelectTrigger>
               <SelectContent>
-                {(wisphub.data ?? []).map((method) => (
+                {(wisphubPaymentMethods.data ?? []).map((method) => (
                   <SelectItem key={method.id} value={String(method.id)}>
                     {method.nombre}
                   </SelectItem>

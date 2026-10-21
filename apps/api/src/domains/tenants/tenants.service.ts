@@ -18,6 +18,7 @@ import type {
   TenantSetup,
   TenantStatus,
   UpdateTenantInput,
+  WhatsappNumber,
 } from '@cobra/contracts'
 import {
   WISPHUB_BASE_URL,
@@ -58,20 +59,6 @@ export interface Tenant {
   status: TenantStatus
   /** How many people belong to it. Zero means it is unreachable to everyone. */
   memberCount: number
-}
-
-export interface WhatsappNumber {
-  id: string
-  phoneNumberId: string
-  displayNumber: string
-  verifyToken: string
-  /**
-   * The complete URL to paste into Meta. Built here and not in the panel: the
-   * panel knows the address it calls, which behind a tunnel is not the one Meta
-   * has to reach.
-   */
-  webhookUrl: string
-  validTo: string | null
 }
 
 @Injectable()

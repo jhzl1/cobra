@@ -51,21 +51,21 @@ const formatWhen = (iso: string | null): string => {
 export const ConversationList = ({ conversations, selectedId, isUnread, onSelect }: Props) => (
   <ul className="flex flex-col">
     {conversations.map((conversation) => {
-      const active = conversation.id === selectedId
-      const unread = isUnread(conversation)
+      const isSelected = conversation.id === selectedId
+      const hasUnread = isUnread(conversation)
       const state = stateOf(conversation)
 
       return (
         <li key={conversation.id} className="border-b">
           <button
             type="button"
-            aria-current={active ? 'true' : undefined}
-            aria-label={unread ? 'Conversación con mensajes sin leer' : undefined}
+            aria-current={isSelected ? 'true' : undefined}
+            aria-label={hasUnread ? 'Conversación con mensajes sin leer' : undefined}
             onClick={() => onSelect(conversation.id)}
             className={cn(
               'grid w-full cursor-pointer grid-cols-[8px_minmax(0,1fr)_auto] items-baseline gap-x-2.5 gap-y-0.5 px-4 py-2.5 text-left transition-colors duration-100',
               'outline-none focus-visible:bg-accent focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
-              active ? 'bg-secondary' : 'hover:bg-accent/60',
+              isSelected ? 'bg-secondary' : 'hover:bg-accent/60',
             )}
           >
             <span
@@ -76,7 +76,7 @@ export const ConversationList = ({ conversations, selectedId, isUnread, onSelect
             <span
               className={cn(
                 'truncate font-display text-sm',
-                unread ? 'font-semibold text-foreground' : 'font-medium',
+                hasUnread ? 'font-semibold text-foreground' : 'font-medium',
               )}
             >
               {conversation.contact.displayName ?? (
@@ -89,7 +89,7 @@ export const ConversationList = ({ conversations, selectedId, isUnread, onSelect
             <span
               className={cn(
                 'font-mono text-xs',
-                unread ? 'text-foreground' : 'text-muted-foreground',
+                hasUnread ? 'text-foreground' : 'text-muted-foreground',
               )}
             >
               {formatWhen(conversation.lastMessageAt)}
@@ -98,7 +98,7 @@ export const ConversationList = ({ conversations, selectedId, isUnread, onSelect
             <span
               className={cn(
                 'col-start-2 truncate text-xs',
-                unread ? 'text-foreground' : 'text-muted-foreground',
+                hasUnread ? 'text-foreground' : 'text-muted-foreground',
               )}
             >
               {conversation.lastMessagePreview ?? 'Sin mensajes'}

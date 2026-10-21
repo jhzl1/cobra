@@ -19,7 +19,7 @@ interface StepCopy {
   to: '/$tenantId/settings'
 }
 
-const COPY: Record<SetupStep['id'], StepCopy> = {
+const SETUP_STEP_COPY: Record<SetupStep['id'], StepCopy> = {
   credentials: {
     title: 'Cargar las credenciales',
     why: 'Sin las tres el agente no puede recibir mensajes, ni pensar, ni registrar un pago.',
@@ -74,7 +74,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
   if (!setup.data) return null
 
   const { steps, isReady, status, webhookUrl, verifyToken } = setup.data
-  const done = steps.filter((step) => step.isDone).length
+  const doneCount = steps.filter((step) => step.isDone).length
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -86,7 +86,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
               <Badge variant="success">Listo</Badge>
             ) : (
               <Badge>
-                {done} de {steps.length}
+                {doneCount} de {steps.length}
               </Badge>
             )}
           </CardTitle>
@@ -107,7 +107,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
 
           <ol className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border">
             {steps.map((step, index) => (
-              <Step key={step.id} tenantId={tenantId} step={step} number={index + 1} />
+              <SetupStepItem key={step.id} tenantId={tenantId} step={step} number={index + 1} />
             ))}
           </ol>
         </CardContent>
@@ -152,7 +152,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
   )
 }
 
-const Step = ({
+const SetupStepItem = ({
   tenantId,
   step,
   number,
@@ -161,7 +161,7 @@ const Step = ({
   step: SetupStep
   number: number
 }) => {
-  const copy = COPY[step.id]
+  const copy = SETUP_STEP_COPY[step.id]
 
   return (
     <li className="flex items-center gap-4 p-4">

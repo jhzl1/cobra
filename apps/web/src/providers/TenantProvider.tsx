@@ -9,13 +9,13 @@ interface TenantContextValue {
   tenants: TenantSummary[]
   /** The company in the path, and only once it is one this account reaches. */
   tenantId: string | null
-  loading: boolean
+  isLoading: boolean
 }
 
 const TenantContext = createContext<TenantContextValue>({
   tenants: [],
   tenantId: null,
-  loading: true,
+  isLoading: true,
 })
 
 /**
@@ -32,7 +32,7 @@ const TenantContext = createContext<TenantContextValue>({
 export const TenantProvider = ({ children }: { children: React.ReactNode }) => {
   const params = useParams({ strict: false })
 
-  const tenants = useQuery({
+  const tenantsQuery = useQuery({
     queryKey: queryKeys.tenants,
     queryFn: async () => {
       const { data } = await api.get<TenantSummary[]>('/tenants')
@@ -41,8 +41,8 @@ export const TenantProvider = ({ children }: { children: React.ReactNode }) => {
     },
   })
 
-  const list = tenants.data ?? []
-  const isReachable = list.some((tenant) => tenant.id === params.tenantId)
+  const tenants = tenantsQuery.data ?? []
+  const isReachable = tenants.some((tenant) => tenant.id === params.tenantId)
   const tenantId = isReachable ? (params.tenantId ?? null) : null
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export const TenantProvider = ({ children }: { children: React.ReactNode }) => {
   }, [tenantId])
 
   return (
-    <TenantContext value={{ tenants: list, tenantId, loading: tenants.isLoading }}>
+    <TenantContext value={{ tenants, tenantId, isLoading: tenantsQuery.isLoading }}>
       {children}
     </TenantContext>
   )

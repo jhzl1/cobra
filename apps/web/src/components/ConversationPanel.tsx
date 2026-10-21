@@ -19,7 +19,7 @@ interface Props {
   conversation: ConversationSummary
 }
 
-export const ChatPanel = ({ conversation }: Props) => {
+export const ConversationPanel = ({ conversation }: Props) => {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState('')
   const bottom = useRef<HTMLDivElement>(null)
@@ -70,7 +70,7 @@ export const ChatPanel = ({ conversation }: Props) => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.data?.length])
 
-  const windowClosed = remainingWindowMs(conversation.lastInboundAt) <= 0
+  const isServiceWindowClosed = remainingWindowMs(conversation.lastInboundAt) <= 0
   const isHuman = conversation.status === 'human'
 
   const name =
@@ -142,7 +142,7 @@ export const ChatPanel = ({ conversation }: Props) => {
         {/* The composer locks when the window closes. Leaving it open would let
             the operator write a message WhatsApp refuses with 131047, and they
             would only find out from the customer. */}
-        {windowClosed ? (
+        {isServiceWindowClosed ? (
           <p className="text-xs text-destructive">
             Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp no permite
             escribirle sin una plantilla aprobada.
@@ -163,11 +163,11 @@ export const ChatPanel = ({ conversation }: Props) => {
             className="max-h-32 min-h-9 resize-none"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            disabled={!isHuman || windowClosed}
+            disabled={!isHuman || isServiceWindowClosed}
             placeholder={isHuman ? 'Escribe tu respuesta' : 'Toma el control para escribir'}
           />
           <Button
-            disabled={!isHuman || windowClosed || !draft.trim()}
+            disabled={!isHuman || isServiceWindowClosed || !draft.trim()}
             loading={send.isPending}
             onClick={() => send.mutate(draft.trim())}
           >
@@ -188,20 +188,24 @@ const AUTHOR_LABEL: Record<Message['author'], string> = {
 }
 
 const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad: () => void }) => {
-  const mine = message.direction === 'outbound'
+  const isOutbound = message.direction === 'outbound'
 
   return (
-    <div className={mine ? 'flex justify-end' : 'flex justify-start'}>
+    <div className={isOutbound ? 'flex justify-end' : 'flex justify-start'}>
       {/* Raised grey for what goes out, sunken for what comes in. White is the
           primary action and does not compete with the transcript. */}
       <div
         className={cn(
           'max-w-[85%] rounded-lg px-3 py-2 text-sm md:max-w-[70%]',
-          mine ? 'bg-accent' : 'border bg-background',
+          isOutbound ? 'bg-accent' : 'border bg-background',
         )}
       >
         {message.mediaUrl && (
-          <Receipt url={message.mediaUrl} receivedAt={message.receivedAt} onLoad={onMediaLoad} />
+          <MessageImage
+            url={message.mediaUrl}
+            receivedAt={message.receivedAt}
+            onLoad={onMediaLoad}
+          />
         )}
 
         {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
@@ -228,13 +232,14 @@ const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad
 }
 
 /**
- * The receipt, and a way to actually read it.
+ * A message's image, and a way to actually read it.
  *
- * In the bubble it is a thumbnail, and a thumbnail of a bank transfer is
+ * Any `mediaUrl` lands here, but in practice it is almost always a receipt. In
+ * the bubble it is a thumbnail, and a thumbnail of a bank transfer is
  * illegible — the amount and the reference are the whole point of looking. The
  * full-size view is what lets the operator check what the agent read.
  */
-const Receipt = ({
+const MessageImage = ({
   url,
   receivedAt,
   onLoad,
@@ -243,20 +248,20 @@ const Receipt = ({
   receivedAt: string
   onLoad: () => void
 }) => {
-  const [open, setOpen] = useState(false)
+  const [isFullSizeOpen, setIsFullSizeOpen] = useState(false)
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => setIsFullSizeOpen(true)}
         title="Ver el comprobante completo"
         className="mb-1 block cursor-zoom-in overflow-hidden rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         <img src={url} alt="Comprobante" className="max-h-64" onLoad={onLoad} />
       </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={isFullSizeOpen} onOpenChange={setIsFullSizeOpen}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Comprobante</DialogTitle>

@@ -1,6 +1,6 @@
 import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { PageSpinner } from '~/components/PageSpinner'
-import { usePlatformIdentity } from '~/hooks/usePlatform'
+import { usePlatformIdentity } from '~/hooks/usePlatformIdentity'
 import { NotFoundPage } from '~/pages/ErrorPage'
 
 export const Route = createFileRoute('/_platform')({

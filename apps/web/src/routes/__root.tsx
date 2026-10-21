@@ -19,9 +19,9 @@ export const Route = createRootRoute({
  * half-authenticated state, so no route needs a session guard of its own.
  */
 const Gate = () => {
-  const { session, loading } = useSession()
+  const { session, isLoading } = useSession()
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Spinner className="size-6" />

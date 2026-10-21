@@ -5,7 +5,7 @@ const STORAGE_KEY = 'cobra.seen'
 
 type SeenMap = Record<string, string>
 
-const read = (): SeenMap => {
+const readSeenAt = (): SeenMap => {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as SeenMap
   } catch {
@@ -26,8 +26,11 @@ const read = (): SeenMap => {
  * The comparison is against `lastInboundAt`, so the agent answering does not
  * clear the mark and does not raise it either — only the customer writing does.
  */
-export const useUnread = (conversations: ConversationSummary[], openId: string | null) => {
-  const [seen, setSeen] = useState<SeenMap>(read)
+export const useUnread = (
+  conversations: ConversationSummary[],
+  openConversationId: string | null,
+) => {
+  const [seen, setSeen] = useState<SeenMap>(readSeenAt)
 
   const markSeen = useCallback((conversationId: string) => {
     setSeen((current) => {
@@ -47,15 +50,16 @@ export const useUnread = (conversations: ConversationSummary[], openId: string |
   // arrive while it is open are seen as they land. Keyed on the conversation's
   // own last inbound rather than on the list, which changes identity on every
   // refetch and had this writing to storage for nothing.
-  const openLastInboundAt = conversations.find((c) => c.id === openId)?.lastInboundAt ?? null
+  const openLastInboundAt =
+    conversations.find((c) => c.id === openConversationId)?.lastInboundAt ?? null
 
   useEffect(() => {
-    if (openId) markSeen(openId)
-  }, [openId, openLastInboundAt, markSeen])
+    if (openConversationId) markSeen(openConversationId)
+  }, [openConversationId, openLastInboundAt, markSeen])
 
   const isUnread = (conversation: ConversationSummary): boolean => {
     if (!conversation.lastInboundAt) return false
-    if (conversation.id === openId) return false
+    if (conversation.id === openConversationId) return false
 
     const at = seen[conversation.id]
 
@@ -65,6 +69,6 @@ export const useUnread = (conversations: ConversationSummary[], openId: string |
   return {
     isUnread,
     markSeen,
-    count: conversations.filter(isUnread).length,
+    unreadCount: conversations.filter(isUnread).length,
   }
 }

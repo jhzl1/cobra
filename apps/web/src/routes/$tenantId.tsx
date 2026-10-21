@@ -15,9 +15,9 @@ export const Route = createFileRoute('/$tenantId')({
  * account does not belong to whatever the panel shows.
  */
 const TenantGate = () => {
-  const { tenantId, loading } = useTenant()
+  const { tenantId, isLoading } = useTenant()
 
-  if (loading) return <PageSpinner />
+  if (isLoading) return <PageSpinner />
 
   if (!tenantId) return <NotFoundPage />
 
