@@ -16,7 +16,7 @@ interface StepCopy {
   /** What it is for, in one line. Not what to click — that is the button. */
   why: string
   action: string
-  to: string
+  to: '/$tenantId/settings'
 }
 
 const COPY: Record<SetupStep['id'], StepCopy> = {
@@ -24,25 +24,25 @@ const COPY: Record<SetupStep['id'], StepCopy> = {
     title: 'Cargar las credenciales',
     why: 'Sin las tres el agente no puede recibir mensajes, ni pensar, ni registrar un pago.',
     action: 'Ir a Credenciales',
-    to: '/settings',
+    to: '/$tenantId/settings',
   },
   number: {
     title: 'Conectar el número de WhatsApp',
     why: 'Al registrarlo, el panel genera la URL del webhook y su token de verificación.',
     action: 'Conectar número',
-    to: '/settings',
+    to: '/$tenantId/settings',
   },
   webhook: {
     title: 'Pegar el webhook en Meta',
     why: 'Este es el único paso que no se hace desde aquí. Se da por hecho cuando llega el primer mensaje.',
     action: 'Ver la URL',
-    to: '/settings',
+    to: '/$tenantId/settings',
   },
   paymentMethods: {
     title: 'Registrar las cuentas de recaudo',
     why: 'El agente compara contra ellas la cuenta de cada comprobante. Sin ninguna, retiene todos.',
     action: 'Agregar cuenta',
-    to: '/settings',
+    to: '/$tenantId/settings',
   },
 }
 
@@ -107,7 +107,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
 
           <ol className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border">
             {steps.map((step, index) => (
-              <Step key={step.id} step={step} number={index + 1} />
+              <Step key={step.id} tenantId={tenantId} step={step} number={index + 1} />
             ))}
           </ol>
         </CardContent>
@@ -152,7 +152,15 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
   )
 }
 
-const Step = ({ step, number }: { step: SetupStep; number: number }) => {
+const Step = ({
+  tenantId,
+  step,
+  number,
+}: {
+  tenantId: string
+  step: SetupStep
+  number: number
+}) => {
   const copy = COPY[step.id]
 
   return (
@@ -174,7 +182,9 @@ const Step = ({ step, number }: { step: SetupStep; number: number }) => {
 
       {!step.done && (
         <Button asChild size="sm" variant="secondary">
-          <Link to={copy.to}>{copy.action}</Link>
+          <Link to={copy.to} params={{ tenantId }}>
+            {copy.action}
+          </Link>
         </Button>
       )}
     </li>

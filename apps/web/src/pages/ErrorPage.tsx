@@ -22,10 +22,10 @@ const Frame = ({
 export const NotFoundPage = () => (
   <Frame icon={<SearchXIcon className="size-8" />} title="Esta página no existe">
     <p className="max-w-sm text-sm text-muted-foreground">
-      Puede que el enlace esté mal escrito, o que la conversación que buscas sea de otra empresa.
+      Puede que el enlace esté mal escrito, o que sea de una empresa a la que no tienes acceso.
     </p>
     <Button asChild size="sm">
-      <Link to="/chats">Ir a las conversaciones</Link>
+      <Link to="/">Volver al inicio</Link>
     </Button>
   </Frame>
 )
@@ -51,7 +51,7 @@ export const ErrorPage = ({ error, reset }: { error: unknown; reset: () => void 
           Reintentar
         </Button>
         <Button asChild size="sm" variant="secondary">
-          <Link to="/chats">Ir a las conversaciones</Link>
+          <Link to="/">Volver al inicio</Link>
         </Button>
       </div>
     </Frame>

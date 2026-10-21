@@ -14,11 +14,12 @@ import { queryKeys } from '~/lib/queryClient'
 import { useInbox } from '~/providers/InboxProvider'
 
 interface Props {
-  /** From the path. Null on /chats, which is the list with nothing open. */
+  tenantId: string
+  /** From the path. Null on /$tenantId/conversations, which is the list with nothing open. */
   conversationId: string | null
 }
 
-export const WorkspacePage = ({ conversationId }: Props) => {
+export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
   const navigate = useNavigate()
   const inbox = useInbox()
 
@@ -61,7 +62,10 @@ export const WorkspacePage = ({ conversationId }: Props) => {
             isUnread={inbox.isUnread}
             selectedId={conversationId}
             onSelect={(id) =>
-              void navigate({ to: '/chats/$conversationId', params: { conversationId: id } })
+              void navigate({
+                to: '/$tenantId/conversations/$conversationId',
+                params: { tenantId, conversationId: id },
+              })
             }
           />
         ) : (
@@ -72,7 +76,9 @@ export const WorkspacePage = ({ conversationId }: Props) => {
               Todavía no ha llegado ninguna conversación.
             </p>
             <Button asChild size="sm" variant="secondary">
-              <Link to="/setup">Ver qué falta</Link>
+              <Link to="/$tenantId/setup" params={{ tenantId }}>
+                Ver qué falta
+              </Link>
             </Button>
           </div>
         )}

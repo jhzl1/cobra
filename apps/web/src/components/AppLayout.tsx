@@ -1,4 +1,4 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router'
+import { Link, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { BellIcon, BellOffIcon, Volume2Icon, VolumeXIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge } from '~/components/ui/badge'
@@ -17,27 +17,38 @@ import { useInbox } from '~/providers/InboxProvider'
 import { useTenant } from '~/providers/TenantProvider'
 
 interface Section {
-  to: string
+  to: '/$tenantId/conversations' | '/$tenantId/setup' | '/$tenantId/settings'
   label: string
-  adminOnly?: boolean
 }
 
-const SECTIONS: Section[] = [
-  { to: '/chats', label: 'Conversaciones' },
-  { to: '/setup', label: 'Puesta en marcha' },
-  { to: '/settings', label: 'Configuración' },
-  { to: '/platform', label: 'Plataforma', adminOnly: true },
+/** A company's own screens, drawn only while one is open. */
+const TENANT_SECTIONS: Section[] = [
+  { to: '/$tenantId/conversations', label: 'Conversaciones' },
+  { to: '/$tenantId/setup', label: 'Puesta en marcha' },
+  { to: '/$tenantId/settings', label: 'Configuración' },
 ]
 
 /** The frame every signed-in screen renders inside: company picker and nav. */
 export const AppLayout = () => {
-  const { tenants, tenantId, setTenantId } = useTenant()
+  const { tenants, tenantId } = useTenant()
   const { unreadCount } = useInbox()
   const identity = usePlatformIdentity()
-  const isAdmin = identity.data?.isPlatformAdmin ?? false
-  const path = useRouterState({ select: (state) => state.location.pathname })
+  const isPlatformAdmin = identity.data?.isPlatformAdmin ?? false
+  const navigate = useNavigate()
+  const matchRoute = useMatchRoute()
 
-  const sections = SECTIONS.filter((section) => !section.adminOnly || isAdmin)
+  const isActive = (to: Section['to'] | '/platform') =>
+    !!matchRoute({ to, params: { tenantId: tenantId ?? '' }, fuzzy: true })
+
+  const sections = tenantId ? TENANT_SECTIONS : []
+
+  // Switching company keeps the section on screen. Not the conversation: it
+  // belongs to the company being left.
+  const openTenant = (next: string) => {
+    const current = sections.find((section) => isActive(section.to))
+
+    void navigate({ to: current?.to ?? '/$tenantId/conversations', params: { tenantId: next } })
+  }
 
   return (
     <div className="flex h-screen flex-col gap-3 p-3">
@@ -45,7 +56,7 @@ export const AppLayout = () => {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">Cobra</h1>
 
-          <Select value={tenantId ?? ''} onValueChange={setTenantId}>
+          <Select value={tenantId ?? ''} onValueChange={openTenant}>
             <SelectTrigger aria-label="Empresa" size="sm" className="w-56">
               <SelectValue placeholder="Empresa" />
             </SelectTrigger>
@@ -62,19 +73,31 @@ export const AppLayout = () => {
               something the browser can follow, open in a tab and go back from. */}
           <nav aria-label="Secciones" className="flex items-center gap-1">
             {sections.map((section) => {
-              const active = path.startsWith(section.to)
+              const active = isActive(section.to)
 
               return (
                 <Button key={section.to} asChild size="sm" variant={active ? 'secondary' : 'ghost'}>
-                  <Link to={section.to} aria-current={active ? 'page' : undefined}>
+                  <Link
+                    to={section.to}
+                    params={{ tenantId: tenantId ?? '' }}
+                    aria-current={active ? 'page' : undefined}
+                  >
                     {section.label}
-                    {section.to === '/chats' && unreadCount > 0 && (
+                    {section.to === '/$tenantId/conversations' && unreadCount > 0 && (
                       <Badge variant="warning">{unreadCount}</Badge>
                     )}
                   </Link>
                 </Button>
               )
             })}
+
+            {isPlatformAdmin && (
+              <Button asChild size="sm" variant={isActive('/platform') ? 'secondary' : 'ghost'}>
+                <Link to="/platform" aria-current={isActive('/platform') ? 'page' : undefined}>
+                  Plataforma
+                </Link>
+              </Button>
+            )}
           </nav>
         </div>
 
@@ -155,33 +178,6 @@ const AlertControls = () => {
       >
         {sound ? <Volume2Icon /> : <VolumeXIcon />}
       </Button>
-    </div>
-  )
-}
-
-/**
- * What a section shows when the account belongs to no company yet.
- *
- * An empty panel with no way forward is a dead end: an administrator is sent to
- * create the first company, anyone else to whoever can.
- */
-export const NoTenant = () => {
-  const identity = usePlatformIdentity()
-
-  if (identity.isLoading) return null
-
-  return (
-    <div className="flex flex-col items-start gap-2">
-      <p className="text-sm text-muted-foreground">Todavía no hay ninguna empresa a tu nombre.</p>
-      {identity.data?.isPlatformAdmin ? (
-        <Button asChild size="sm">
-          <Link to="/platform">Crear la primera empresa</Link>
-        </Button>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Pídele a quien administra la plataforma que te agregue a una.
-        </p>
-      )}
     </div>
   )
 }
