@@ -87,6 +87,24 @@ export const registerWhatsappNumberSchema = z.object({
 
 export type RegisterWhatsappNumberInput = z.infer<typeof registerWhatsappNumberSchema>
 
+/** A company's WhatsApp number as `GET /tenants/:id/whatsapp-numbers` returns it. */
+export const whatsappNumberSchema = z.object({
+  id: z.string(),
+  phoneNumberId: z.string(),
+  displayNumber: z.string(),
+  verifyToken: z.string(),
+  /**
+   * The complete URL to paste into Meta. Built by the API and not in the panel:
+   * the panel knows the address it calls, which behind a tunnel is not the one
+   * Meta has to reach.
+   */
+  webhookUrl: z.string(),
+  /** Set once the number is out of service. Its history stays. */
+  validTo: z.string().nullable(),
+})
+
+export type WhatsappNumber = z.infer<typeof whatsappNumberSchema>
+
 export const paymentMethodSchema = z.object({
   zone: z.string().max(80, 'La zona no puede pasar de 80 caracteres').nullable().optional(),
   entityName: z

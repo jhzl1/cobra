@@ -80,7 +80,7 @@ export const playBlip = (): void => {
   }
 }
 
-export const soundEnabled = (): boolean => localStorage.getItem(STORAGE_KEY) !== 'off'
+export const isSoundEnabled = (): boolean => localStorage.getItem(STORAGE_KEY) !== 'off'
 
 export const setSoundEnabled = (on: boolean): void => {
   localStorage.setItem(STORAGE_KEY, on ? 'on' : 'off')
@@ -103,8 +103,8 @@ export const askForNotifications = async (): Promise<void> => {
  * The desktop notification stays for the hidden tab only. With the panel in
  * front it would say what is already on it.
  */
-export const announce = (title: string, body: string): void => {
-  if (soundEnabled()) {
+export const notifyIncomingMessage = (title: string, body: string): void => {
+  if (isSoundEnabled()) {
     try {
       playBlip()
     } catch {

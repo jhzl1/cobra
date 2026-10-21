@@ -11,7 +11,7 @@ export const remainingWindowMs = (
   return Math.max(SERVICE_WINDOW_MS - (now - new Date(lastInboundAt).getTime()), 0)
 }
 
-const format = (ms: number): string => {
+const formatDuration = (ms: number): string => {
   const minutes = Math.floor(ms / 60_000)
   const hours = Math.floor(minutes / 60)
 
@@ -43,7 +43,7 @@ export const ServiceWindow = ({ lastInboundAt }: { lastInboundAt: string | null 
 
   return (
     <Badge variant={remaining < 2 * 60 * 60 * 1000 ? 'warning' : 'default'}>
-      Quedan {format(remaining)} para escribirle
+      Quedan {formatDuration(remaining)} para escribirle
     </Badge>
   )
 }

@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import type { AgentRun } from '@cobra/contracts'
-import { ChatPanel } from '~/components/ChatPanel'
 import { ConversationList } from '~/components/ConversationList'
+import { ConversationPanel } from '~/components/ConversationPanel'
 import { Timeline } from '~/components/Timeline'
 import { Button } from '~/components/ui/button'
 import { Card } from '~/components/ui/card'
@@ -25,9 +25,9 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
 
   // What is on screen stops counting as unread, and stops interrupting.
   useEffect(() => {
-    inbox.setOpen(conversationId)
+    inbox.setOpenConversationId(conversationId)
 
-    return () => inbox.setOpen(null)
+    return () => inbox.setOpenConversationId(null)
   }, [conversationId, inbox])
 
   const runs = useQuery({
@@ -47,12 +47,14 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
    */
   useConversationStream(conversationId)
 
-  const selected = inbox.conversations.find((conversation) => conversation.id === conversationId)
+  const selectedConversation = inbox.conversations.find(
+    (conversation) => conversation.id === conversationId,
+  )
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
       <Card className="col-span-3 gap-0 overflow-y-auto py-0">
-        {inbox.loading ? (
+        {inbox.isLoading ? (
           <div className="flex h-full items-center justify-center">
             <Spinner className="size-6" />
           </div>
@@ -85,8 +87,8 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
       </Card>
 
       <div className="col-span-6 min-h-0">
-        {selected ? (
-          <ChatPanel conversation={selected} />
+        {selectedConversation ? (
+          <ConversationPanel conversation={selectedConversation} />
         ) : (
           <Card className="flex h-full items-center justify-center py-0">
             <p className="text-sm text-muted-foreground">Elige una conversación</p>

@@ -1,6 +1,6 @@
 import { Navigate, createFileRoute } from '@tanstack/react-router'
 import { PageSpinner } from '~/components/PageSpinner'
-import { usePlatformIdentity } from '~/hooks/usePlatform'
+import { usePlatformIdentity } from '~/hooks/usePlatformIdentity'
 import { readLastTenantId } from '~/lib/tenants'
 import { useTenant } from '~/providers/TenantProvider'
 
@@ -17,10 +17,10 @@ export const Route = createFileRoute('/')({
  * inside the root's gate.
  */
 const Home = () => {
-  const { tenants, loading } = useTenant()
+  const { tenants, isLoading } = useTenant()
   const identity = usePlatformIdentity()
 
-  if (loading || identity.isLoading) return <PageSpinner />
+  if (isLoading || identity.isLoading) return <PageSpinner />
 
   const lastId = readLastTenantId()
   const last = tenants.find((tenant) => tenant.id === lastId)

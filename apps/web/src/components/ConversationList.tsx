@@ -27,20 +27,20 @@ const STATUS_LABEL: Record<ConversationSummary['status'], string> = {
 export const ConversationList = ({ conversations, selectedId, isUnread, onSelect }: Props) => (
   <ul aria-label="Conversaciones" className="flex flex-col p-1">
     {conversations.map((conversation) => {
-      const active = conversation.id === selectedId
-      const unread = isUnread(conversation)
+      const isSelected = conversation.id === selectedId
+      const hasUnread = isUnread(conversation)
 
       return (
         <li key={conversation.id}>
           <button
             type="button"
-            aria-current={active ? 'true' : undefined}
-            aria-label={unread ? 'Conversación con mensajes sin leer' : undefined}
+            aria-current={isSelected ? 'true' : undefined}
+            aria-label={hasUnread ? 'Conversación con mensajes sin leer' : undefined}
             onClick={() => onSelect(conversation.id)}
             className={cn(
               'flex w-full cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-2 text-left transition-colors',
               'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-              active ? 'bg-secondary text-secondary-foreground' : 'hover:bg-accent/50',
+              isSelected ? 'bg-secondary text-secondary-foreground' : 'hover:bg-accent/50',
             )}
           >
             {/* A dot and not a count: what matters is that something arrived,
@@ -49,12 +49,12 @@ export const ConversationList = ({ conversations, selectedId, isUnread, onSelect
               aria-hidden
               className={cn(
                 'size-2 shrink-0 rounded-full',
-                unread ? 'bg-warning' : 'bg-transparent',
+                hasUnread ? 'bg-warning' : 'bg-transparent',
               )}
             />
 
             <div className="min-w-0 flex-1">
-              <p className={cn('truncate text-sm', unread ? 'font-semibold' : 'font-medium')}>
+              <p className={cn('truncate text-sm', hasUnread ? 'font-semibold' : 'font-medium')}>
                 {conversation.contact.displayName ??
                   conversation.contact.phone ??
                   conversation.contact.personId}
@@ -62,7 +62,7 @@ export const ConversationList = ({ conversations, selectedId, isUnread, onSelect
               <p
                 className={cn(
                   'truncate text-xs',
-                  unread ? 'text-foreground' : 'text-muted-foreground',
+                  hasUnread ? 'text-foreground' : 'text-muted-foreground',
                 )}
               >
                 {conversation.lastMessagePreview ?? 'Sin mensajes'}

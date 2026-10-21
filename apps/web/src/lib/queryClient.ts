@@ -13,11 +13,13 @@ export const queryClient = new QueryClient({
 })
 
 export const queryKeys = {
+  platformIdentity: ['platform', 'me'] as const,
+  roleGrants: ['platform', 'roles'] as const,
   tenants: ['tenants'] as const,
   setup: (tenantId: string) => ['tenants', tenantId, 'setup'] as const,
   members: (tenantId: string) => ['tenants', tenantId, 'members'] as const,
   credentials: (tenantId: string) => ['tenants', tenantId, 'credentials'] as const,
-  numbers: (tenantId: string) => ['tenants', tenantId, 'numbers'] as const,
+  whatsappNumbers: (tenantId: string) => ['tenants', tenantId, 'numbers'] as const,
   wisphubPaymentMethods: (tenantId: string) =>
     ['tenants', tenantId, 'wisphub', 'payment-methods'] as const,
   wisphubZones: (tenantId: string) => ['tenants', tenantId, 'wisphub', 'zones'] as const,

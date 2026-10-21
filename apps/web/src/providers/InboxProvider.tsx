@@ -4,25 +4,25 @@ import type { ConversationSummary } from '@cobra/contracts'
 import { useTenantStream } from '~/hooks/useTenantStream'
 import { useUnread } from '~/hooks/useUnread'
 import { api } from '~/lib/api'
-import { announce } from '~/lib/notify'
+import { notifyIncomingMessage } from '~/lib/notify'
 import { queryKeys } from '~/lib/queryClient'
 import { useTenant } from '~/providers/TenantProvider'
 
 interface InboxContextValue {
   conversations: ConversationSummary[]
-  loading: boolean
+  isLoading: boolean
   isUnread: (conversation: ConversationSummary) => boolean
   unreadCount: number
   /** The conversation on screen, so it stops counting as unread. */
-  setOpen: (conversationId: string | null) => void
+  setOpenConversationId: (conversationId: string | null) => void
 }
 
 const InboxContext = createContext<InboxContextValue>({
   conversations: [],
-  loading: true,
+  isLoading: true,
   isUnread: () => false,
   unreadCount: 0,
-  setOpen: () => {},
+  setOpenConversationId: () => {},
 })
 
 const BASE_TITLE = 'Cobra'
@@ -36,9 +36,9 @@ const BASE_TITLE = 'Cobra'
  */
 export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
   const { tenantId } = useTenant()
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openConversationId, setOpenConversationId] = useState<string | null>(null)
 
-  const conversations = useQuery({
+  const conversationsQuery = useQuery({
     queryKey: queryKeys.conversations(tenantId ?? ''),
     enabled: !!tenantId,
     queryFn: async () => {
@@ -50,8 +50,8 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
     },
   })
 
-  const list = conversations.data ?? []
-  const { isUnread, count } = useUnread(list, openId)
+  const conversations = conversationsQuery.data ?? []
+  const { isUnread, unreadCount } = useUnread(conversations, openConversationId)
 
   useTenantStream(tenantId)
 
@@ -64,54 +64,54 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
    * only takes a baseline: without it every conversation looks new and the panel
    * greets whoever signs in with a chord.
    */
-  const lastInbound = useRef<Map<string, string> | null>(null)
+  const lastInboundAtByIdRef = useRef<Map<string, string> | null>(null)
 
   useEffect(() => {
-    // Until the query resolves, `list` is an empty array — and taking the
+    // Until the query resolves, `conversations` is an empty array — and taking the
     // baseline from it makes every conversation look new the moment the real
     // one arrives, so the panel greeted whoever signed in with a chord.
-    if (!conversations.isSuccess) return
+    if (!conversationsQuery.isSuccess) return
 
-    const seenBefore = lastInbound.current
-    const now = new Map(list.map((c) => [c.id, c.lastInboundAt ?? '']))
+    const previousInboundAtById = lastInboundAtByIdRef.current
+    const currentInboundAtById = new Map(conversations.map((c) => [c.id, c.lastInboundAt ?? '']))
 
-    lastInbound.current = now
+    lastInboundAtByIdRef.current = currentInboundAtById
 
-    if (!seenBefore) return
+    if (!previousInboundAtById) return
 
-    for (const conversation of list) {
-      const before = seenBefore.get(conversation.id)
+    for (const conversation of conversations) {
+      const before = previousInboundAtById.get(conversation.id)
       const after = conversation.lastInboundAt ?? ''
 
       if (!after || after === before) continue
       if (before && after <= before) continue
-      if (conversation.id === openId && document.visibilityState === 'visible') continue
+      if (conversation.id === openConversationId && document.visibilityState === 'visible') continue
 
-      announce(
+      notifyIncomingMessage(
         conversation.contact.displayName ?? conversation.contact.phone ?? 'Mensaje nuevo',
         conversation.lastMessagePreview ?? 'Te escribieron por WhatsApp',
       )
     }
-  }, [list, openId, conversations.isSuccess])
+  }, [conversations, openConversationId, conversationsQuery.isSuccess])
 
   // The count in the tab title is what carries over to a window that is behind
   // something else, and it needs no permission from anyone.
   useEffect(() => {
-    document.title = count > 0 ? `(${count}) ${BASE_TITLE}` : BASE_TITLE
+    document.title = unreadCount > 0 ? `(${unreadCount}) ${BASE_TITLE}` : BASE_TITLE
 
     return () => {
       document.title = BASE_TITLE
     }
-  }, [count])
+  }, [unreadCount])
 
   return (
     <InboxContext
       value={{
-        conversations: list,
-        loading: conversations.isLoading,
+        conversations,
+        isLoading: conversationsQuery.isLoading,
         isUnread,
-        unreadCount: count,
-        setOpen: setOpenId,
+        unreadCount,
+        setOpenConversationId,
       }}
     >
       {children}
