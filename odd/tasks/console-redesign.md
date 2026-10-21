@@ -26,11 +26,11 @@ per screen. Direction contract: `apps/web/.impeccable/surfaces/src-pages-workspa
 
 ## Tasks
 
-- [ ] T1 Tokens, Red Hat fonts, primitives (button, badge, input). Route: inline.
-- [ ] T2 Shell: full-bleed header, underlined section tabs, page padding moved to routes. Route: inline.
-- [ ] T3 Chats screen: three panes split by seams, phone layout (list → chat). Route: inline.
-- [ ] T4 Rows, chat, agent log restyled to the contract. Route: inline.
-- [ ] T5 Render check desktop + phone, finish review, DESIGN.md. Route: inline + reviewer agent.
+- [x] T1 Tokens, Red Hat fonts, primitives (button, badge, input). Route: inline.
+- [x] T2 Shell: full-bleed header, underlined section tabs, page padding moved to routes. Route: inline.
+- [x] T3 Chats screen: three panes split by seams, phone layout (list → chat). Route: inline.
+- [x] T4 Rows, chat, agent log restyled to the contract. Route: inline.
+- [x] T5 Render check desktop + phone, finish review, DESIGN.md. Route: inline + reviewer agent.
 
 ## Checks
 
@@ -42,6 +42,23 @@ screenshots at 1440 and 390. Tests run once before the PR (global rule).
 - Branch `feat/console-redesign` from `feat/live-inbox-notifications` (969093b).
 - Fonts added: `@fontsource-variable/red-hat-{text,display,mono}`.
 
+- T1–T2 committed in fc0a9ca; T3–T4 in 0847294. Checks: `tsc -b` clean;
+  renders at 1440/1280/1024/390 with zero horizontal overflow, from a scratch
+  fixture harness (`apps/web/preview.html`, `src/preview.tsx`, not committed).
+- Native review (RDD) not run this session.
+
+- T5: finish review ran twice (fix → ship); fixes in 0309a0c and a88bee3.
+  DESIGN.md and `.impeccable/design.json` rewritten by the documenter for the
+  new world. Preview harness deleted.
+
+## Follow-ups (not in scope, recorded by the documenter)
+
+- Dialog fades and zooms in with a large shadow (`ui/dialog.tsx:53`).
+- Inputs and textarea dim with `disabled:opacity-50`, unlike the button rule.
+- Stock `shadow-xs` / `shadow-sm` on buttons, inputs and Card.
+- Settings uses a dashed ring for "not connected" (dashed means running here).
+- Settings, Setup and Platform still show several white buttons and Cards.
+
 ## Next step
 
-T1.
+Decide what of the Impeccable artifacts gets committed; then the PR.
