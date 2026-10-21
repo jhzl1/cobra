@@ -1,3 +1,4 @@
+import { ChevronRightIcon } from 'lucide-react'
 import type { AgentRun, AgentStep } from '@cobra/contracts'
 import {
   Accordion,
@@ -8,6 +9,17 @@ import {
 import { cn } from '~/lib/utils'
 
 type Status = AgentStep['status']
+
+/**
+ * The mark at the head of each step: filled when it settled, a dashed ring while
+ * it runs, hollow when it was skipped. The shape says it without the colour.
+ */
+const STATUS_MARK: Record<Status, string> = {
+  running: 'border border-dashed border-info',
+  done: 'bg-success',
+  error: 'bg-destructive',
+  skipped: 'border border-muted-foreground',
+}
 
 /** A state is a coloured word, once; the log has no badges. */
 const STATUS_TONE: Record<Status, string> = {
@@ -108,7 +120,12 @@ const Step = ({ step }: { step: AgentStep }) => {
   const hasDetail = Boolean(step.input || step.output || step.error)
 
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 border-t border-dashed px-4 py-2 font-mono text-xs">
+    <li className="grid grid-cols-[8px_minmax(0,1fr)_auto] items-baseline gap-x-2.5 border-t border-dashed px-4 py-2 font-mono text-xs">
+      <span
+        aria-hidden
+        className={cn('size-2 self-center rounded-full', STATUS_MARK[step.status])}
+      />
+
       <span
         className={cn(
           'truncate',
@@ -125,14 +142,16 @@ const Step = ({ step }: { step: AgentStep }) => {
       </span>
 
       {KIND_LABEL[step.kind] && (
-        <span className="text-muted-foreground">{KIND_LABEL[step.kind]}</span>
+        <span className="col-start-2 text-muted-foreground">{KIND_LABEL[step.kind]}</span>
       )}
 
-      {step.error && <p className="col-span-2 mt-1 text-destructive">{step.error}</p>}
+      {step.error && <p className="col-span-2 col-start-2 mt-1 text-destructive">{step.error}</p>}
 
       {hasDetail && (
-        <details className="group col-span-2 mt-1">
-          <summary className="cursor-pointer text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground">
+        <details className="group col-span-2 col-start-2 mt-1">
+          {/* The browser's own triangle hidden, for the chevron the turn rows use. */}
+          <summary className="flex cursor-pointer list-none items-center gap-1 text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRightIcon className="size-3 transition-transform group-open:rotate-90" />
             argumentos y resultado
           </summary>
           <pre className="mt-1.5 max-h-72 overflow-auto rounded-md border bg-background p-2 text-[11px] leading-relaxed">

@@ -51,7 +51,7 @@ export const AppLayout = () => {
           <SelectTrigger
             aria-label="Empresa"
             size="sm"
-            className="max-w-56 min-w-0 border-transparent bg-transparent px-2 shadow-none dark:bg-transparent dark:hover:bg-accent"
+            className="max-w-56 min-w-0 border-transparent bg-transparent px-2 shadow-none *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate dark:bg-transparent dark:hover:bg-accent"
           >
             <SelectValue placeholder="Empresa" />
           </SelectTrigger>
@@ -79,7 +79,7 @@ export const AppLayout = () => {
           something the browser can follow, open in a tab and go back from. */}
       <nav
         aria-label="Secciones"
-        className="flex h-10.5 shrink-0 items-stretch gap-5 overflow-x-auto border-b px-4"
+        className="flex h-10.5 shrink-0 items-stretch gap-5 overflow-x-auto border-b [mask-image:linear-gradient(to_right,black_85%,transparent)] px-4 sm:[mask-image:none]"
       >
         {sections.map((section) => {
           const active = path.startsWith(section.to)
@@ -99,7 +99,10 @@ export const AppLayout = () => {
             >
               {section.label}
               {section.to === '/chats' && unreadCount > 0 && (
-                <span className="font-mono text-xs text-warning">{unreadCount}</span>
+                <span className="font-mono text-xs font-semibold text-foreground">
+                  {unreadCount}
+                  <span className="sr-only"> sin leer</span>
+                </span>
               )}
             </Link>
           )

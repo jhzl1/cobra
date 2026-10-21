@@ -64,7 +64,9 @@ export const WorkspacePage = ({ conversationId }: Props) => {
         className={cn('min-h-0 flex-col border-r', conversationId ? 'hidden lg:flex' : 'flex')}
       >
         <PaneHeader title="Conversaciones">
-          {!inbox.loading && <span className="font-mono">{inbox.conversations.length}</span>}
+          {!inbox.loading && (
+            <span className="font-mono">{inbox.conversations.length} en total</span>
+          )}
         </PaneHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto">

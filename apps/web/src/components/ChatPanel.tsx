@@ -79,13 +79,22 @@ export const ChatPanel = ({ conversation }: Props) => {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-3 md:px-6">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h2 className="truncate text-base font-semibold">{name}</h2>
-          <p className="flex flex-wrap items-center gap-x-2 font-mono text-xs text-muted-foreground">
+        <div className="flex min-w-0 flex-1 basis-60 flex-col">
+          <h2
+            className={cn(
+              'truncate font-semibold',
+              conversation.contact.displayName ? 'text-base' : 'font-mono text-sm',
+            )}
+          >
+            {name}
+          </h2>
+          <p className="flex flex-col font-mono text-xs text-muted-foreground sm:flex-row sm:gap-x-2">
             {conversation.contact.displayName && conversation.contact.phone && (
               <>
                 <span>{conversation.contact.phone}</span>
-                <span aria-hidden>·</span>
+                <span aria-hidden className="hidden sm:inline">
+                  ·
+                </span>
               </>
             )}
             <ServiceWindow lastInboundAt={conversation.lastInboundAt} />
@@ -125,8 +134,8 @@ export const ChatPanel = ({ conversation }: Props) => {
             tray exists — but the only way out on screen is now the operator. */}
         {conversation.lastRunFailed && (
           <p className="text-xs text-destructive">
-            El último turno del agente falló, así que el cliente se quedó sin respuesta. Toma el
-            control y escríbele tú.
+            El último turno del agente falló, así que el cliente se quedó sin respuesta.{' '}
+            {isHuman ? 'Escríbele tú.' : 'Toma el control y escríbele tú.'}
           </p>
         )}
 
@@ -139,7 +148,8 @@ export const ChatPanel = ({ conversation }: Props) => {
             escribirle sin una plantilla aprobada.
           </p>
         ) : (
-          !isHuman && (
+          !isHuman &&
+          !conversation.lastRunFailed && (
             <p className="text-xs text-muted-foreground">
               El agente está respondiendo. Toma el control para escribirle tú.
             </p>

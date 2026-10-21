@@ -44,9 +44,9 @@ const formatWhen = (iso: string | null): string => {
  * filter of its own: all this has to do is pick a conversation, and buttons give
  * focus and keyboard navigation for free.
  *
- * Unread is not a second badge. The row keeps its state and takes weight
- * instead — the name bolder, the preview at full contrast, the time in the
- * attention colour — and holds it until the operator opens it.
+ * Unread is not a second badge and takes no colour, which belongs to state.
+ * The row takes weight instead — the name bolder, the preview and the time at
+ * full contrast — and holds it until the operator opens it.
  */
 export const ConversationList = ({ conversations, selectedId, isUnread, onSelect }: Props) => (
   <ul className="flex flex-col">
@@ -87,7 +87,10 @@ export const ConversationList = ({ conversations, selectedId, isUnread, onSelect
             </span>
 
             <span
-              className={cn('font-mono text-xs', unread ? 'text-warning' : 'text-muted-foreground')}
+              className={cn(
+                'font-mono text-xs',
+                unread ? 'text-foreground' : 'text-muted-foreground',
+              )}
             >
               {formatWhen(conversation.lastMessageAt)}
             </span>
