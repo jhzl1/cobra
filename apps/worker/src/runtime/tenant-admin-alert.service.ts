@@ -12,19 +12,19 @@ import type { TenantRuntime } from './tenant-runtime.service.js'
  * and swallowed here as well as at the call site.
  */
 @Injectable()
-export class MessagingService {
-  private readonly logger = new Logger(MessagingService.name)
+export class TenantAdminAlertService {
+  private readonly logger = new Logger(TenantAdminAlertService.name)
 
   forTenant(runtime: TenantRuntime): MessagingPort {
     return {
       notifyTenantAdmin: async (message: string, mediaId?: string | null) => {
         try {
           if (mediaId) {
-            await runtime.meta.sendImage(runtime.raw.adminPhone, mediaId, message)
+            await runtime.meta.sendImage(runtime.runtimeConfig.adminPhone, mediaId, message)
             return
           }
 
-          await runtime.meta.sendText(runtime.raw.adminPhone, message)
+          await runtime.meta.sendText(runtime.runtimeConfig.adminPhone, message)
         } catch (error) {
           /**
            * Outside the 24-hour window Meta answers 131047 and the alert never
@@ -33,7 +33,7 @@ export class MessagingService {
            * nobody noticed. Here it is at least written down.
            */
           this.logger.warn(
-            `Could not notify the administrator of tenant ${runtime.raw.id}: ${describe(error)}`,
+            `Could not notify the administrator of tenant ${runtime.runtimeConfig.id}: ${errorMessageOf(error)}`,
           )
         }
       },
@@ -41,5 +41,5 @@ export class MessagingService {
   }
 }
 
-const describe = (error: unknown): string =>
+export const errorMessageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)

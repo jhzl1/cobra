@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common'
 import type { ConversationMessage } from '@cobra/agent'
 import { SupabaseService } from '../runtime/supabase.service.js'
 
-export interface ConversationRow {
+/** How many stored messages the agent gets as memory. */
+const HISTORY_MESSAGE_LIMIT = 40
+
+export interface ConversationWithContact {
   id: string
   tenantId: string
   contactId: string
@@ -24,7 +27,7 @@ export interface ConversationRow {
 export class ConversationRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async load(tenantId: string, conversationId: string): Promise<ConversationRow | null> {
+  async load(tenantId: string, conversationId: string): Promise<ConversationWithContact | null> {
     const { data, error } = await this.supabase
       .scope(tenantId)
       .select(
@@ -45,7 +48,7 @@ export class ConversationRepository {
       id: row['id'] as string,
       tenantId: row['tenant_id'] as string,
       contactId: row['contact_id'] as string,
-      status: row['status'] as ConversationRow['status'],
+      status: row['status'] as ConversationWithContact['status'],
       contextResetAt: (row['context_reset_at'] as string | null) ?? null,
       lastInboundAt: (row['last_inbound_at'] as string | null) ?? null,
       personId: contact?.person_id ?? '',
@@ -82,7 +85,7 @@ export class ConversationRepository {
     tenantId: string,
     conversationId: string,
     contextResetAt: string | null,
-    limit = 40,
+    limit = HISTORY_MESSAGE_LIMIT,
   ): Promise<ConversationMessage[]> {
     let query = this.supabase
       .scope(tenantId)
@@ -175,14 +178,19 @@ export class ConversationRepository {
     return ((data as { wamid?: string } | null)?.wamid as string | undefined) ?? null
   }
 
-  async status(tenantId: string, conversationId: string): Promise<string | null> {
+  async loadStatus(
+    tenantId: string,
+    conversationId: string,
+  ): Promise<ConversationWithContact['status'] | null> {
     const { data } = await this.supabase
       .scope(tenantId)
       .select('conversations', 'status')
       .eq('id', conversationId)
       .maybeSingle()
 
-    return ((data as { status?: string } | null)?.status as string | undefined) ?? null
+    const status = (data as { status?: ConversationWithContact['status'] } | null)?.status
+
+    return status ?? null
   }
 }
 

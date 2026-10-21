@@ -67,7 +67,7 @@ export class TraceRepository {
 
   private recorderFor(tenantId: string, conversationId: string, runId: string): StepRecorder {
     let seq = 0
-    const startedAt = new Map<string, number>()
+    const stepStartedAtMs = new Map<string, number>()
 
     return {
       start: async (step) => {
@@ -96,7 +96,7 @@ export class TraceRepository {
         }
 
         const id = (data as { id: string }).id
-        startedAt.set(id, Date.now())
+        stepStartedAtMs.set(id, Date.now())
 
         return id
       },
@@ -104,7 +104,7 @@ export class TraceRepository {
       finish: async (stepId, result) => {
         if (!stepId) return
 
-        const started = startedAt.get(stepId)
+        const started = stepStartedAtMs.get(stepId)
 
         const { error } = await this.supabase
           .scope(tenantId)
@@ -119,7 +119,7 @@ export class TraceRepository {
 
         if (error) this.logger.warn(`Could not close step ${stepId}: ${error.message}`)
 
-        startedAt.delete(stepId)
+        stepStartedAtMs.delete(stepId)
       },
     }
   }
