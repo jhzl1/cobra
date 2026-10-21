@@ -20,20 +20,20 @@ import { cn } from '~/lib/utils'
  * is live.
  */
 const buttonVariants = cva(
-  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-transparent disabled:text-disabled-foreground disabled:shadow-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-transparent disabled:text-disabled-foreground aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          'bg-primary text-primary-foreground shadow-xs not-disabled:hover:bg-primary/90 not-disabled:active:bg-primary/80',
+          'bg-primary text-primary-foreground not-disabled:hover:bg-primary/90 not-disabled:active:bg-primary/80',
         // The border is what delimits it: the fill alone is 1.19:1 against the
         // card, below the 3:1 that WCAG asks of a non-text boundary.
         secondary:
-          'border border-secondary-border bg-secondary text-secondary-foreground shadow-xs not-disabled:hover:bg-secondary-hover not-disabled:active:bg-secondary-active',
+          'border border-secondary-border bg-secondary text-secondary-foreground not-disabled:hover:bg-secondary-hover not-disabled:active:bg-secondary-active',
         destructive:
           'border border-destructive/40 bg-destructive/15 text-destructive not-disabled:hover:bg-destructive/25 focus-visible:ring-destructive/40',
         outline:
-          'border border-input bg-transparent shadow-xs not-disabled:hover:bg-accent not-disabled:hover:text-accent-foreground',
+          'border border-input bg-transparent not-disabled:hover:bg-accent not-disabled:hover:text-accent-foreground',
         ghost: 'not-disabled:hover:bg-accent not-disabled:hover:text-accent-foreground',
         link: 'text-foreground underline-offset-4 not-disabled:hover:underline',
       },
