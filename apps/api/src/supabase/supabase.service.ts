@@ -30,7 +30,7 @@ export class SupabaseService {
    * webhook belongs to, which happens before a tenant is known, and creating
    * one.
    */
-  get admin(): SupabaseClient {
+  get unscoped(): SupabaseClient {
     return this.client
   }
 }

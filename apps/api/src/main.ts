@@ -4,7 +4,7 @@ import { NestFactory, Reflector } from '@nestjs/core'
 import helmet from 'helmet'
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter'
-import { ResponseEnvelopeInterceptor } from './common/interceptors/response.interceptor'
+import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor'
 import { DOCS_PATH, setupDocs } from './docs/setup-docs'
 
 const SCALAR_CDN = 'https://cdn.jsdelivr.net'

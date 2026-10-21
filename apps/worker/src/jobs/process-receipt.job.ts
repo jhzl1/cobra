@@ -42,7 +42,7 @@ export class ProcessReceiptJobHandler {
 
     const storagePath = `${tenantId}/${conversationId}/${messageId}.${extensionFor(mediaType)}`
 
-    const upload = await this.supabase.admin.storage
+    const upload = await this.supabase.unscoped.storage
       .from(BUCKET)
       .upload(storagePath, bytes, { contentType: mediaType, upsert: true })
 

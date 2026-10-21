@@ -113,7 +113,7 @@ export class ConversationRepository {
     messageIds: string[],
     reply: string | null,
   ): Promise<string | null> {
-    const { data, error } = await this.supabase.admin.rpc('finish_turn', {
+    const { data, error } = await this.supabase.unscoped.rpc('finish_turn', {
       p_tenant_id: tenantId,
       p_conversation_id: conversationId,
       p_message_ids: messageIds,

@@ -51,7 +51,7 @@ Reglas:
 - Todo método de repositorio recibe `tenantId` como primer parámetro. Sin
   excepción, y hay tests que lo verifican.
 - `scope.insert()` estampa el `tenant_id` pase lo que pase el llamador.
-- `supabase.admin` es el cliente sin filtro. Sus llamadores están contados: la
+- `supabase.unscoped` es el cliente sin filtro. Sus llamadores están contados: la
   resolución del tenant del webhook (que ocurre antes de conocer al tenant), la
   creación de un tenant, `rpc` y storage. Si agregas uno, justifícalo en un
   comentario.

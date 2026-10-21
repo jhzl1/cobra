@@ -46,8 +46,6 @@ const PROVIDER_LABEL: Record<(typeof REQUIRED_PROVIDERS)[number], string> = {
   wisphub: 'Wisphub',
 }
 
-const labelOf = (provider: (typeof REQUIRED_PROVIDERS)[number]): string => PROVIDER_LABEL[provider]
-
 const TENANT_COLUMNS =
   'id, slug, company_name, support_phone, admin_phone, status, tenant_members(count)'
 
@@ -111,7 +109,7 @@ export class TenantsService {
    * three.
    */
   async listMembers(tenantId: string): Promise<TenantMember[]> {
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('tenant_members')
       .select('user_id, created_at')
       .eq('tenant_id', tenantId)
@@ -121,7 +119,7 @@ export class TenantsService {
 
     return Promise.all(
       data.map(async (row) => {
-        const { data: found } = await this.supabase.admin.auth.admin.getUserById(row.user_id)
+        const { data: found } = await this.supabase.unscoped.auth.admin.getUserById(row.user_id)
 
         return {
           userId: row.user_id as string,
@@ -138,7 +136,7 @@ export class TenantsService {
    * nothing that arrived while it was suspended is replayed.
    */
   async setStatus(tenantId: string, status: TenantStatus): Promise<Tenant> {
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('tenants')
       .update({ status })
       .eq('id', tenantId)
@@ -159,22 +157,22 @@ export class TenantsService {
    * body.
    */
   async create(userId: string, input: CreateTenantInput): Promise<Tenant> {
-    const data = await this.insertWithDerivedSlug(input)
+    const tenantRow = await this.insertWithDerivedSlug(input)
 
-    const membership = await this.supabase.admin
+    const membership = await this.supabase.unscoped
       .from('tenant_members')
-      .insert({ tenant_id: data.id, user_id: userId })
+      .insert({ tenant_id: tenantRow.id, user_id: userId })
 
     if (membership.error) {
       // Without the membership the tenant is invisible to everyone, including
       // whoever just created it. Undo rather than leave it orphaned.
-      await this.supabase.admin.from('tenants').delete().eq('id', data.id)
+      await this.supabase.unscoped.from('tenants').delete().eq('id', tenantRow.id)
       throw this.toHttpError(membership.error)
     }
 
     // The count is stated rather than read: the membership above was inserted
     // after the row came back, so the aggregate would say zero.
-    return { ...toTenant(data), memberCount: 1 }
+    return { ...toTenant(tenantRow), memberCount: 1 }
   }
 
   async update(
@@ -227,7 +225,7 @@ export class TenantsService {
 
     const { ciphertext, last4 } = this.crypto.encrypt({ secret: input.secret, extra: input.extra })
 
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('tenant_credentials')
       .upsert(
         {
@@ -247,7 +245,7 @@ export class TenantsService {
     return { provider: data.provider, last4: data.last4, rotatedAt: data.rotated_at }
   }
 
-  async listNumbers(
+  async listWhatsappNumbers(
     client: SupabaseClient,
     tenantId: string,
     publicUrl: string,
@@ -280,15 +278,20 @@ export class TenantsService {
    * when a signature is unavailable. Both are generated here — never chosen by
    * the client — because their entropy is the whole protection.
    */
-  async registerNumber(
-    userId: string,
-    tenantId: string,
-    input: RegisterWhatsappNumberInput,
-    publicUrl: string,
-  ): Promise<WhatsappNumber> {
+  async registerWhatsappNumber({
+    userId,
+    tenantId,
+    input,
+    publicUrl,
+  }: {
+    userId: string
+    tenantId: string
+    input: RegisterWhatsappNumberInput
+    publicUrl: string
+  }): Promise<WhatsappNumber> {
     await this.assertMembership(userId, tenantId)
 
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('whatsapp_numbers')
       .insert({
         tenant_id: tenantId,
@@ -314,7 +317,7 @@ export class TenantsService {
       throw this.toHttpError(error)
     }
 
-    const { data: tenant } = await this.supabase.admin
+    const { data: tenant } = await this.supabase.unscoped
       .from('tenants')
       .select('slug')
       .eq('id', tenantId)
@@ -341,24 +344,27 @@ export class TenantsService {
    * done in Meta's dashboard, so the signal is the only honest one there is,
    * that something actually arrived through it.
    */
-  async setup(userId: string, tenantId: string, publicUrl: string): Promise<TenantSetup> {
+  async getSetupStatus(userId: string, tenantId: string, publicUrl: string): Promise<TenantSetup> {
     await this.assertMembership(userId, tenantId)
 
     const [tenant, credentials, numbers, methods, inbound] = await Promise.all([
-      this.supabase.admin.from('tenants').select('slug, status').eq('id', tenantId).single(),
-      this.supabase.admin.from('tenant_credentials').select('provider').eq('tenant_id', tenantId),
-      this.supabase.admin
+      this.supabase.unscoped.from('tenants').select('slug, status').eq('id', tenantId).single(),
+      this.supabase.unscoped
+        .from('tenant_credentials')
+        .select('provider')
+        .eq('tenant_id', tenantId),
+      this.supabase.unscoped
         .from('whatsapp_numbers')
         .select('verify_token, webhook_token')
         .eq('tenant_id', tenantId)
         .is('valid_to', null)
         .order('valid_from', { ascending: false })
         .limit(1),
-      this.supabase.admin
+      this.supabase.unscoped
         .from('payment_methods')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId),
-      this.supabase.admin
+      this.supabase.unscoped
         .from('messages')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
@@ -375,7 +381,9 @@ export class TenantsService {
       {
         id: 'credentials',
         isDone: missing.length === 0,
-        missingDetail: missing.length ? `Faltan ${missing.map(labelOf).join(' y ')}` : null,
+        missingDetail: missing.length
+          ? `Faltan ${missing.map((provider) => PROVIDER_LABEL[provider]).join(' y ')}`
+          : null,
       },
       {
         id: 'number',
@@ -411,7 +419,7 @@ export class TenantsService {
 
   /** The collection accounts of the company, as Wisphub knows them. */
   listWisphubPaymentMethods(userId: string, tenantId: string): Promise<WisphubNamedEntity[]> {
-    return this.wisphubList(userId, tenantId, 'formas-de-pago')
+    return this.listFromWisphub(userId, tenantId, 'formas-de-pago')
   }
 
   /**
@@ -422,7 +430,7 @@ export class TenantsService {
    * `GET /api/clientes` puts on a customer — the id never travels with them.
    */
   listWisphubZones(userId: string, tenantId: string): Promise<WisphubNamedEntity[]> {
-    return this.wisphubList(userId, tenantId, 'zonas')
+    return this.listFromWisphub(userId, tenantId, 'zonas')
   }
 
   /**
@@ -433,7 +441,7 @@ export class TenantsService {
    * this process is CommonJS — so the base URL and the auth header come from
    * `@cobra/contracts`, which both of them read.
    */
-  private async wisphubList(
+  private async listFromWisphub(
     userId: string,
     tenantId: string,
     resource: 'formas-de-pago' | 'zonas',
@@ -524,16 +532,16 @@ export class TenantsService {
    * `phone_number_id` the moment `valid_to` is set — which is what makes
    * registering it again work.
    *
-   * Runs with the secret key, like `registerNumber` does and for the same
+   * Runs with the secret key, like `registerWhatsappNumber` does and for the same
    * reason: the table has select policies and nothing else, so a write with the
    * caller's client matches no rows and reports no error — it just does nothing.
    * Membership is checked first, which is the check the missing policy would
    * have made.
    */
-  async retireNumber(userId: string, tenantId: string, numberId: string): Promise<void> {
+  async retireWhatsappNumber(userId: string, tenantId: string, numberId: string): Promise<void> {
     await this.assertMembership(userId, tenantId)
 
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('whatsapp_numbers')
       .update({ valid_to: new Date().toISOString() })
       .eq('tenant_id', tenantId)
@@ -574,7 +582,7 @@ export class TenantsService {
     for (let attempt = 1; attempt <= SLUG_ATTEMPTS; attempt += 1) {
       const slug = attempt === 1 ? base : `${base}-${attempt}`
 
-      const { data, error } = await this.supabase.admin
+      const { data, error } = await this.supabase.unscoped
         .from('tenants')
         .insert({
           slug,
@@ -597,7 +605,7 @@ export class TenantsService {
     tenantId: string,
     provider: 'meta' | 'openrouter' | 'wisphub',
   ): Promise<string | null> {
-    const { data } = await this.supabase.admin
+    const { data } = await this.supabase.unscoped
       .from('tenant_credentials')
       .select('ciphertext')
       .eq('tenant_id', tenantId)
@@ -622,7 +630,7 @@ export class TenantsService {
    * happily for a tenant the caller has nothing to do with.
    */
   async assertMembership(userId: string, tenantId: string): Promise<void> {
-    const { data, error } = await this.supabase.admin
+    const { data, error } = await this.supabase.unscoped
       .from('tenant_members')
       .select('tenant_id')
       .eq('tenant_id', tenantId)

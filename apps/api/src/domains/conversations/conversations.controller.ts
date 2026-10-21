@@ -3,14 +3,14 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
 import { type HandoffInput, handoffSchema, sendMessageSchema } from '@cobra/contracts'
-import { AuthClient } from '~/auth/auth-client.decorator'
 import { readCallerId } from '~/auth/caller'
+import { RequireSession } from '~/auth/require-session.decorator'
 import { ZodValidationPipe } from '~/common/pipes/zod-validation.pipe'
 import { ConversationsService } from './conversations.service'
 
 @ApiTags('Conversaciones')
 @Controller('conversations')
-@AuthClient()
+@RequireSession()
 export class ConversationsController {
   constructor(private readonly conversations: ConversationsService) {}
 
@@ -22,11 +22,11 @@ export class ConversationsController {
 
   @Get(':conversationId/messages')
   @ApiOperation({ summary: 'Historial completo de la conversación' })
-  messages(
+  listMessages(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
   ) {
-    return this.conversations.messages(ctx.supabase, conversationId)
+    return this.conversations.listMessages(ctx.supabase, conversationId)
   }
 
   @Post(':conversationId/messages')
@@ -34,14 +34,14 @@ export class ConversationsController {
   send(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
-    @Body(new ZodValidationPipe(sendMessageSchema)) body: { body: string },
+    @Body(new ZodValidationPipe(sendMessageSchema)) input: { body: string },
   ) {
-    return this.conversations.sendFromOperator(
-      ctx.supabase,
-      readCallerId(ctx.userClaims),
+    return this.conversations.sendFromOperator({
+      client: ctx.supabase,
+      userId: readCallerId(ctx.userClaims),
       conversationId,
-      body.body,
-    )
+      body: input.body,
+    })
   }
 
   @Post(':conversationId/handoff')
@@ -49,22 +49,22 @@ export class ConversationsController {
   handoff(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
-    @Body(new ZodValidationPipe(handoffSchema)) body: HandoffInput,
+    @Body(new ZodValidationPipe(handoffSchema)) input: HandoffInput,
   ) {
-    return this.conversations.handoff(
-      ctx.supabase,
-      readCallerId(ctx.userClaims),
+    return this.conversations.handoff({
+      client: ctx.supabase,
+      userId: readCallerId(ctx.userClaims),
       conversationId,
-      body,
-    )
+      input,
+    })
   }
 
   @Get(':conversationId/runs')
   @ApiOperation({ summary: 'Timeline: lo que hizo el agente, paso por paso' })
-  runs(
+  listRuns(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
   ) {
-    return this.conversations.runs(ctx.supabase, conversationId)
+    return this.conversations.listRuns(ctx.supabase, conversationId)
   }
 }
