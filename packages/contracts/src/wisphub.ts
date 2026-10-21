@@ -28,17 +28,17 @@ export const wisphubAuthHeader = (apiKey: string): string => `Api-Key ${apiKey}`
  * `GET /api/clientes` puts on a customer, so it is what the two sides are
  * compared by.
  */
-export const wisphubNamedSchema = z.object({
+export const wisphubNamedEntitySchema = z.object({
   id: z.number().int(),
   nombre: z.string(),
 })
 
-export type WisphubNamed = z.infer<typeof wisphubNamedSchema>
+export type WisphubNamedEntity = z.infer<typeof wisphubNamedEntitySchema>
 
 /** Wisphub paginates in the Django REST style. */
-export const wisphubPageSchema = z.object({
+export const wisphubNamedEntityPageSchema = z.object({
   count: z.number().int(),
   next: z.string().nullable(),
   previous: z.string().nullable(),
-  results: z.array(wisphubNamedSchema),
+  results: z.array(wisphubNamedEntitySchema),
 })

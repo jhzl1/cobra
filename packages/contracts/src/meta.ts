@@ -49,7 +49,7 @@ const metaImageSchema = z.object({
  * `from` and the contact's `wa_id` are absent when the sender has a WhatsApp
  * username: Meta sends `from_user_id` / `user_id` (`CO.1036773249265400`)
  * instead. Both are optional here and the identity is resolved by
- * `readSenderId`, because a schema that requires `from` drops exactly the
+ * `readMessagePersonId`, because a schema that requires `from` drops exactly the
  * customers that already migrated.
  */
 export const metaMessageSchema = z.looseObject({
@@ -132,8 +132,8 @@ export type MetaWebhook = z.infer<typeof metaWebhookSchema>
  * recognise is discarded, never allowed to fail the webhook — Meta retries a
  * non-200 with backoff for up to seven days.
  */
-export const readSenderId = (message: MetaMessage): string | null =>
+export const readMessagePersonId = (message: MetaMessage): string | null =>
   message.from ?? message.from_user_id ?? null
 
-export const readContactId = (contact: MetaContact): string | null =>
+export const readContactPersonId = (contact: MetaContact): string | null =>
   contact.wa_id ?? contact.user_id ?? null

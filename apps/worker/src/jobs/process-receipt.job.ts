@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { readReceipt, validateReceipt } from '@cobra/agent'
-import type { ProcessReceiptJob as ProcessReceiptPayload } from '@cobra/contracts'
+import type { ProcessReceiptPayload } from '@cobra/contracts'
 import { ConversationRepository } from '../repositories/conversation.repository.js'
 import { PaymentMethodRepository } from '../repositories/payment-method.repository.js'
 import { ReceiptRepository } from '../repositories/receipt.repository.js'

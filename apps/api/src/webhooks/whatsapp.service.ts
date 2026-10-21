@@ -3,8 +3,8 @@ import {
   type MetaContact,
   type MetaMessage,
   type MetaWebhook,
-  readContactId,
-  readSenderId,
+  readContactPersonId,
+  readMessagePersonId,
 } from '@cobra/contracts'
 import { CredentialsCryptoService } from '~/crypto/credentials-crypto.service'
 import { QueueService } from '~/queue/queue.service'
@@ -179,11 +179,11 @@ export class WhatsappService {
     for (const message of messages) {
       if (!isSupportedType(message) || !isFresh(message)) continue
 
-      const senderId = readSenderId(message)
+      const senderId = readMessagePersonId(message)
 
       if (!senderId) continue
 
-      const profile = contacts.find((contact) => readContactId(contact) === senderId)
+      const profile = contacts.find((contact) => readContactPersonId(contact) === senderId)
       const contactId = await this.upsertContact(route.tenantId, senderId, profile)
       const conversationId = await this.openConversation(route.tenantId, contactId)
 
@@ -233,7 +233,7 @@ export class WhatsappService {
     for (const echo of echoes) {
       if (!isSupportedType(echo)) continue
 
-      const recipient = readSenderId(echo)
+      const recipient = readMessagePersonId(echo)
 
       if (!recipient) continue
 

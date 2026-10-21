@@ -1,4 +1,4 @@
-import { type ProcessTurnJob, QUEUES } from '@cobra/contracts'
+import { type ProcessTurnPayload, QUEUES } from '@cobra/contracts'
 import type { TurnOutcome } from './process-turn.job.js'
 
 export interface FollowUp {
@@ -14,7 +14,7 @@ export interface FollowUp {
  * pg-boss. It exists because the send was missing there and nothing failed: the
  * turn completed, the reply was stored `pending`, and the customer got nothing.
  */
-export const followUpsFor = (job: ProcessTurnJob, outcome: TurnOutcome): FollowUp[] => {
+export const followUpsFor = (job: ProcessTurnPayload, outcome: TurnOutcome): FollowUp[] => {
   /**
    * The burst window, re-queued rather than slept through: holding the job open
    * would occupy a worker slot doing nothing, and `stately` would refuse the

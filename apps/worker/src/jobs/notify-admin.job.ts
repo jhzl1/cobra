@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import type { NotifyAdminJob as NotifyAdminPayload } from '@cobra/contracts'
+import type { NotifyTenantAdminPayload } from '@cobra/contracts'
 import { TenantRuntimeService } from '../runtime/tenant-runtime.service.js'
 
 /**
@@ -15,7 +15,7 @@ export class NotifyAdminJobHandler {
 
   constructor(private readonly tenants: TenantRuntimeService) {}
 
-  async handle(job: NotifyAdminPayload): Promise<{ sent: boolean }> {
+  async handle(job: NotifyTenantAdminPayload): Promise<{ sent: boolean }> {
     try {
       const runtime = await this.tenants.load(job.tenantId)
 

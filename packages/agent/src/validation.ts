@@ -56,7 +56,7 @@ export const validateReceipt = ({
     isVoucherUnused,
     paymentMethod,
     alertReason: firstFailingRule({
-      isVoucher: extraction.isVoucher,
+      isVoucher: extraction.isReceipt,
       isPaymentDateReadable,
       isPaymentDateValid,
       isPaymentAccountValid,

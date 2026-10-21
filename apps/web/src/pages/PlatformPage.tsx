@@ -2,7 +2,7 @@ import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PlusIcon } from 'lucide-react'
 import { useState } from 'react'
-import { type RoleGrant, createTenantSchema, grantRoleSchema } from '@cobra/contracts'
+import { type PlatformRoleGrant, createTenantSchema, grantRoleSchema } from '@cobra/contracts'
 import { TenantDetail } from '~/components/TenantDetail'
 import {
   AlertDialog,
@@ -289,7 +289,7 @@ const GrantsCard = () => {
   const grants = useQuery({
     queryKey: ['platform', 'roles'],
     queryFn: async () => {
-      const { data } = await api.get<RoleGrant[]>('/platform/roles')
+      const { data } = await api.get<PlatformRoleGrant[]>('/platform/roles')
 
       return data
     },

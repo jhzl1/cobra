@@ -2,11 +2,11 @@ import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } fro
 import { ConfigService } from '@nestjs/config'
 import PgBoss from 'pg-boss'
 import {
-  type NotifyAdminJob,
-  type ProcessReceiptJob,
-  type ProcessTurnJob,
+  type NotifyTenantAdminPayload,
+  type ProcessReceiptPayload,
+  type ProcessTurnPayload,
   QUEUES,
-  type SendMessageJob,
+  type SendMessagePayload,
   TURN_QUEUE_OPTIONS,
 } from '@cobra/contracts'
 import { NotifyAdminJobHandler } from '../jobs/notify-admin.job.js'
@@ -93,7 +93,7 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
 
     // No retries: an alert whose 24-hour window has closed will never get
     // through, and retrying it is a loop with no exit.
-    await this.boss.createQueue(QUEUES.notifyAdmin, {
+    await this.boss.createQueue(QUEUES.notifyTenantAdmin, {
       policy: 'standard',
       retryLimit: 0,
       expireInSeconds: 60,
@@ -103,7 +103,7 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
   private async registerWorkers(): Promise<void> {
     const concurrency = this.config.getOrThrow<number>('TURN_CONCURRENCY')
 
-    await this.boss.work<ProcessTurnJob>(
+    await this.boss.work<ProcessTurnPayload>(
       QUEUES.processTurn,
       { batchSize: concurrency },
       async (jobs) => {
@@ -117,7 +117,7 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
       },
     )
 
-    await this.boss.work<ProcessReceiptJob>(
+    await this.boss.work<ProcessReceiptPayload>(
       QUEUES.processReceipt,
       { batchSize: 2 },
       async (jobs) => {
@@ -125,12 +125,16 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
       },
     )
 
-    await this.boss.work<SendMessageJob>(QUEUES.sendMessage, { batchSize: 5 }, async (jobs) => {
+    await this.boss.work<SendMessagePayload>(QUEUES.sendMessage, { batchSize: 5 }, async (jobs) => {
       for (const job of jobs) await this.sends.handle(job.data)
     })
 
-    await this.boss.work<NotifyAdminJob>(QUEUES.notifyAdmin, { batchSize: 5 }, async (jobs) => {
-      for (const job of jobs) await this.alerts.handle(job.data)
-    })
+    await this.boss.work<NotifyTenantAdminPayload>(
+      QUEUES.notifyTenantAdmin,
+      { batchSize: 5 },
+      async (jobs) => {
+        for (const job of jobs) await this.alerts.handle(job.data)
+      },
+    )
   }
 }

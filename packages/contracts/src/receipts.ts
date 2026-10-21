@@ -36,7 +36,8 @@ export interface ReceiptExtraction {
   destinationAccount: string | null
   /** Normalized to 0–1, whatever scale the model answered on. */
   confidence: number
-  isVoucher: boolean
+  /** The wire's `isVoucher`: the vision prompt asks the model under that name. */
+  isReceipt: boolean
   humanDescription: string
 }
 
@@ -57,7 +58,7 @@ export const toReceiptExtraction = (wire: ReceiptExtractionWire): ReceiptExtract
     destinationAccount: emptyToNull(wire.destinationAccount),
     // The prompt asks for 0–100; a model that answers 0.98 means the same thing.
     confidence: rawConfidence > 1 ? Math.min(rawConfidence / 100, 1) : Math.max(rawConfidence, 0),
-    isVoucher: wire.isVoucher,
+    isReceipt: wire.isVoucher,
     humanDescription: wire.humanDescription?.trim() ?? '',
   }
 }

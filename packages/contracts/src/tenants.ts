@@ -70,13 +70,13 @@ export const saveCredentialSchema = z.object({
 
 export type SaveCredentialInput = z.infer<typeof saveCredentialSchema>
 
-export const credentialStatusSchema = z.object({
+export const credentialSummarySchema = z.object({
   provider: credentialProviderSchema,
   last4: z.string(),
   rotatedAt: z.string(),
 })
 
-export type CredentialStatus = z.infer<typeof credentialStatusSchema>
+export type CredentialSummary = z.infer<typeof credentialSummarySchema>
 
 export const registerWhatsappNumberSchema = z.object({
   phoneNumberId: z
@@ -120,9 +120,9 @@ export type PaymentMethodInput = z.infer<typeof paymentMethodSchema>
  */
 export const setupStepSchema = z.object({
   id: z.enum(['credentials', 'number', 'webhook', 'paymentMethods']),
-  done: z.boolean(),
+  isDone: z.boolean(),
   /** What is missing, when something is. Null once the step is done. */
-  pending: z.string().nullable(),
+  missingDetail: z.string().nullable(),
 })
 
 export type SetupStep = z.infer<typeof setupStepSchema>
@@ -130,7 +130,7 @@ export type SetupStep = z.infer<typeof setupStepSchema>
 export const tenantSetupSchema = z.object({
   steps: z.array(setupStepSchema),
   /** Every step done and the company active. */
-  ready: z.boolean(),
+  isReady: z.boolean(),
   status: tenantStatusSchema,
   /** What to paste into Meta. Null until a number is registered. */
   webhookUrl: z.string().nullable(),

@@ -10,7 +10,7 @@ import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import { randomBytes } from 'node:crypto'
 import type {
   CreateTenantInput,
-  CredentialStatus,
+  CredentialSummary,
   PaymentMethodInput,
   RegisterWhatsappNumberInput,
   SaveCredentialInput,
@@ -21,9 +21,9 @@ import type {
 } from '@cobra/contracts'
 import {
   WISPHUB_BASE_URL,
-  type WisphubNamed,
+  type WisphubNamedEntity,
   wisphubAuthHeader,
-  wisphubPageSchema,
+  wisphubNamedEntityPageSchema,
 } from '@cobra/contracts'
 import { CredentialsCryptoService } from '~/crypto/credentials-crypto.service'
 import { SupabaseService } from '~/supabase/supabase.service'
@@ -199,7 +199,7 @@ export class TenantsService {
   }
 
   /** What the panel is allowed to know about a credential: that it is loaded. */
-  async listCredentials(client: SupabaseClient, tenantId: string): Promise<CredentialStatus[]> {
+  async listCredentials(client: SupabaseClient, tenantId: string): Promise<CredentialSummary[]> {
     const { data, error } = await client
       .from('tenant_credentials')
       .select('provider, last4, rotated_at')
@@ -222,7 +222,7 @@ export class TenantsService {
     userId: string,
     tenantId: string,
     input: SaveCredentialInput,
-  ): Promise<CredentialStatus> {
+  ): Promise<CredentialSummary> {
     await this.assertMembership(userId, tenantId)
 
     const { ciphertext, last4 } = this.crypto.encrypt({ secret: input.secret, extra: input.extra })
@@ -374,24 +374,24 @@ export class TenantsService {
     const steps: TenantSetup['steps'] = [
       {
         id: 'credentials',
-        done: missing.length === 0,
-        pending: missing.length ? `Faltan ${missing.map(labelOf).join(' y ')}` : null,
+        isDone: missing.length === 0,
+        missingDetail: missing.length ? `Faltan ${missing.map(labelOf).join(' y ')}` : null,
       },
       {
         id: 'number',
-        done: !!number,
-        pending: number ? null : 'Todavía no hay ningún número conectado',
+        isDone: !!number,
+        missingDetail: number ? null : 'Todavía no hay ningún número conectado',
       },
       {
         id: 'webhook',
-        done: (inbound.count ?? 0) > 0,
-        pending:
+        isDone: (inbound.count ?? 0) > 0,
+        missingDetail:
           (inbound.count ?? 0) > 0 ? null : 'Todavía no ha llegado ningún mensaje por el webhook',
       },
       {
         id: 'paymentMethods',
-        done: (methods.count ?? 0) > 0,
-        pending:
+        isDone: (methods.count ?? 0) > 0,
+        missingDetail:
           (methods.count ?? 0) > 0
             ? null
             : 'Sin cuentas, todo comprobante se retiene para revisión manual',
@@ -403,14 +403,14 @@ export class TenantsService {
     return {
       steps,
       status: tenant.data.status as TenantStatus,
-      ready: steps.every((step) => step.done) && tenant.data.status === 'active',
+      isReady: steps.every((step) => step.isDone) && tenant.data.status === 'active',
       webhookUrl: number ? `${publicUrl}/wh/wa/${slug}/${number.webhook_token}` : null,
       verifyToken: (number?.verify_token as string | undefined) ?? null,
     }
   }
 
   /** The collection accounts of the company, as Wisphub knows them. */
-  listWisphubPaymentMethods(userId: string, tenantId: string): Promise<WisphubNamed[]> {
+  listWisphubPaymentMethods(userId: string, tenantId: string): Promise<WisphubNamedEntity[]> {
     return this.wisphubList(userId, tenantId, 'formas-de-pago')
   }
 
@@ -421,7 +421,7 @@ export class TenantsService {
    * customer. It is matched by name because that is what
    * `GET /api/clientes` puts on a customer — the id never travels with them.
    */
-  listWisphubZones(userId: string, tenantId: string): Promise<WisphubNamed[]> {
+  listWisphubZones(userId: string, tenantId: string): Promise<WisphubNamedEntity[]> {
     return this.wisphubList(userId, tenantId, 'zonas')
   }
 
@@ -437,7 +437,7 @@ export class TenantsService {
     userId: string,
     tenantId: string,
     resource: 'formas-de-pago' | 'zonas',
-  ): Promise<WisphubNamed[]> {
+  ): Promise<WisphubNamedEntity[]> {
     await this.assertMembership(userId, tenantId)
 
     const apiKey = await this.readCredentialSecret(tenantId, 'wisphub')
@@ -448,7 +448,7 @@ export class TenantsService {
       )
     }
 
-    const found: WisphubNamed[] = []
+    const found: WisphubNamedEntity[] = []
     let url: string | null = `${WISPHUB_BASE_URL}/api/${resource}/`
 
     // Wisphub paginates, and the one the operator needs may be on the second
@@ -464,7 +464,7 @@ export class TenantsService {
         throw new InternalServerErrorException(`Wisphub no respondió a la consulta de ${resource}`)
       }
 
-      const parsed = wisphubPageSchema.safeParse(await response.json())
+      const parsed = wisphubNamedEntityPageSchema.safeParse(await response.json())
 
       if (!parsed.success) {
         this.logger.error(`Wisphub answered an unexpected shape listing ${resource}`)
