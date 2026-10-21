@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-20T00:00:00Z",
+  "title": "Design System: Cobra",
+  "extensions": {
+    "colorMeta": {
+      "console-white": { "role": "primary", "displayName": "Blanco de consola", "canonical": "#ededed", "tonalRamp": ["#262626", "#3a3a3a", "#636363", "#8a8a8a", "#9a9a9a", "#c4c4c4", "#ededed", "#f7f7f7"] },
+      "ground": { "role": "neutral", "displayName": "Fondo", "canonical": "#0a0a0a", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
+      "pane": { "role": "neutral", "displayName": "Panel", "canonical": "#111111", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
+      "popover": { "role": "neutral", "displayName": "Popover", "canonical": "#161616", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
+      "raised": { "role": "neutral", "displayName": "Elevado", "canonical": "#181818", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
+      "accent-wash": { "role": "neutral", "displayName": "Lavado", "canonical": "#1c1c1c", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
+      "secondary-hover": { "role": "neutral", "displayName": "Secundario en hover", "canonical": "#222222", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
+      "secondary-active": { "role": "neutral", "displayName": "Secundario presionado", "canonical": "#2c2c2c", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
+      "seam": { "role": "neutral", "displayName": "Costura", "canonical": "#262626", "tonalRamp": ["#111111", "#181818", "#1c1c1c", "#262626", "#2c2c2c", "#3a3a3a", "#4a4a4a", "#636363"] },
+      "field-edge": { "role": "neutral", "displayName": "Borde de campo", "canonical": "#3a3a3a", "tonalRamp": ["#181818", "#262626", "#2c2c2c", "#3a3a3a", "#4a4a4a", "#636363", "#6b6b6b", "#8a8a8a"] },
+      "control-edge": { "role": "neutral", "displayName": "Borde de control", "canonical": "#636363", "tonalRamp": ["#262626", "#3a3a3a", "#4a4a4a", "#636363", "#6b6b6b", "#8a8a8a", "#9a9a9a", "#c4c4c4"] },
+      "disabled-text": { "role": "neutral", "displayName": "Texto deshabilitado", "canonical": "#6b6b6b", "tonalRamp": ["#262626", "#3a3a3a", "#4a4a4a", "#636363", "#6b6b6b", "#8a8a8a", "#9a9a9a", "#c4c4c4"] },
+      "focus-ring": { "role": "neutral", "displayName": "Anillo de foco", "canonical": "#8a8a8a", "tonalRamp": ["#262626", "#3a3a3a", "#636363", "#6b6b6b", "#8a8a8a", "#9a9a9a", "#c4c4c4", "#ededed"] },
+      "quiet-text": { "role": "neutral", "displayName": "Texto en reposo", "canonical": "#9a9a9a", "tonalRamp": ["#262626", "#3a3a3a", "#636363", "#8a8a8a", "#9a9a9a", "#b0b0b0", "#c4c4c4", "#ededed"] },
+      "state-done": { "role": "tertiary", "displayName": "Listo", "canonical": "#7ee787", "tonalRamp": ["#0f2a13", "#1a4520", "#26602e", "#3a8c45", "#56b862", "#7ee787", "#a6f0ac", "#d2f8d5"] },
+      "state-running": { "role": "tertiary", "displayName": "En curso", "canonical": "#79c0ff", "tonalRamp": ["#0c2238", "#14385c", "#1f5285", "#2f72b3", "#4f9be0", "#79c0ff", "#a6d5ff", "#d3eaff"] },
+      "state-operator": { "role": "tertiary", "displayName": "Operador", "canonical": "#ffa657", "tonalRamp": ["#331c06", "#55300c", "#7a4614", "#a8621f", "#d9823a", "#ffa657", "#ffc48f", "#ffe2c7"] },
+      "state-failed": { "role": "tertiary", "displayName": "Falló", "canonical": "#ff7b72", "tonalRamp": ["#3a0f0c", "#5c1915", "#852520", "#b3372f", "#e0564c", "#ff7b72", "#ffa8a1", "#ffd4d0"] }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Title", "purpose": "Nombre del contacto en la cabecera del chat y marca de la barra; los h1-h3 heredan Display." },
+      "name": { "displayName": "Name", "purpose": "Nombre del contacto en cada fila de la lista; 600 cuando hay mensajes sin leer." },
+      "body": { "displayName": "Body", "purpose": "Texto de las burbujas, pestañas y mensajes vacíos." },
+      "label": { "displayName": "Label", "purpose": "Título en mayúsculas de la franja de cada panel; no es un antetítulo." },
+      "data": { "displayName": "Data", "purpose": "Horas, teléfonos, duraciones, contadores y el registro del agente, en mono tabular." },
+      "data-meta": { "displayName": "Data meta", "purpose": "Autor y hora bajo cada burbuja; JSON de argumentos y resultado." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "state-swap", "value": "color, background-color 100ms", "purpose": "Cambio de estado y hover de filas: un cambio de color, sin fundidos ni entradas." },
+      { "name": "control-transition", "value": "all 150ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Hover y active de botones (transition por defecto de Tailwind)." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "La única acción blanca de la pantalla: Tomar el control, o Enviar con borrador.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Tomar el control</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 8px 16px; border-radius: 6px; font-family: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; border: 1px solid transparent; outline: none; transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary { background: #ededed; color: #0a0a0a; } .ds-btn-primary:hover { background: rgb(237 237 237 / 0.9); } .ds-btn-primary:active { background: rgb(237 237 237 / 0.8); } .ds-btn-primary:focus-visible { border-color: #8a8a8a; box-shadow: 0 0 0 3px rgb(138 138 138 / 0.5); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Gris con borde #636363; el hover sube en luminancia para no leerse como apagado.",
+      "html": "<button class=\"ds-btn2\">Devolver el control</button>",
+      "css": ".ds-btn2 { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 8px 16px; border-radius: 6px; border: 1px solid #636363; background: #181818; color: #ededed; font-family: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; outline: none; transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn2:hover { background: #222222; } .ds-btn2:active { background: #2c2c2c; } .ds-btn2:focus-visible { border-color: #8a8a8a; box-shadow: 0 0 0 3px rgb(138 138 138 / 0.5); }"
+    },
+    {
+      "name": "Disabled Button",
+      "kind": "button",
+      "refersTo": "button-disabled",
+      "description": "Sin relleno ni borde, texto #6b6b6b; no es el secundario a media opacidad.",
+      "html": "<button class=\"ds-btn-off\" disabled>Enviar</button>",
+      "css": ".ds-btn-off { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 8px 16px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #6b6b6b; font-family: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 500; cursor: not-allowed; }"
+    },
+    {
+      "name": "Composer Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de 36px con borde #3a3a3a sobre el fondo; foco con halo gris de 3px.",
+      "html": "<input class=\"ds-input\" placeholder=\"Escribe tu respuesta\" />",
+      "css": ".ds-input { height: 36px; width: 100%; padding: 4px 12px; border-radius: 6px; border: 1px solid #3a3a3a; background: #0a0a0a; color: #ededed; font-family: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif; font-size: 14px; outline: none; transition: color 150ms, box-shadow 150ms; } .ds-input::placeholder { color: #9a9a9a; } .ds-input:focus-visible { border-color: #8a8a8a; box-shadow: 0 0 0 3px rgb(138 138 138 / 0.5); }"
+    },
+    {
+      "name": "Section Tabs",
+      "kind": "nav",
+      "refersTo": "nav-tabs",
+      "description": "Pestañas de 42px como enlaces; la activa en blanco con línea interior de 2px, no leídos en mono negrita.",
+      "html": "<nav class=\"ds-tabs\"><a class=\"ds-tab\" aria-current=\"page\">Conversaciones <b class=\"ds-count\">7</b></a><a class=\"ds-tab\">Puesta en marcha</a><a class=\"ds-tab\">Configuración</a></nav>",
+      "css": ".ds-tabs { display: flex; align-items: stretch; gap: 20px; height: 42px; padding: 0 16px; border-bottom: 1px solid #262626; background: #0a0a0a; } .ds-tab { display: flex; align-items: center; gap: 6px; font-family: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif; font-size: 14px; color: #9a9a9a; text-decoration: none; cursor: pointer; transition: color 150ms; } .ds-tab:hover { color: #ededed; } .ds-tab:focus-visible { color: #ededed; text-decoration: underline; text-underline-offset: 4px; outline: none; } .ds-tab[aria-current=page] { color: #ededed; box-shadow: inset 0 -2px 0 #ededed; } .ds-count { font-family: 'Red Hat Mono Variable', ui-monospace, monospace; font-size: 12px; font-weight: 600; color: #ededed; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "State Tag",
+      "kind": "chip",
+      "refersTo": "badge-neutral",
+      "description": "Etiqueta cuadrada de 4px con tinte al 15%; poco usada en la consola, donde el estado es palabra coloreada.",
+      "html": "<span class=\"ds-tag\">Sin conectar</span> <span class=\"ds-tag ds-tag-warn\">Operador</span>",
+      "css": ".ds-tag { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 4px; background: #181818; color: #9a9a9a; font-family: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-weight: 500; white-space: nowrap; } .ds-tag-warn { background: rgb(255 166 87 / 0.15); color: #ffa657; }"
+    },
+    {
+      "name": "Conversation Row",
+      "kind": "custom",
+      "refersTo": "conversation-row",
+      "description": "Punto de estado, nombre Display, hora mono, previsualización y palabra de estado; lo no leído gana peso.",
+      "html": "<div class=\"ds-list\"><button class=\"ds-row ds-unread\"><span class=\"ds-dot\" style=\"color:#ffa657\"></span><span class=\"ds-name\">Luz Marina Ospina</span><span class=\"ds-time\">21:22</span><span class=\"ds-prev\">Me cobraron dos veces este mes</span><span class=\"ds-state\" style=\"color:#ffa657\">Operador</span></button><button class=\"ds-row\"><span class=\"ds-dot\" style=\"color:#9a9a9a\"></span><span class=\"ds-name\">Jhon Fredy Restrepo</span><span class=\"ds-time\">21:20</span><span class=\"ds-prev\">[comprobante]</span><span class=\"ds-state\" style=\"color:#9a9a9a\">Agente</span></button></div>",
+      "css": ".ds-list { display: flex; flex-direction: column; background: #0a0a0a; width: 360px; } .ds-row { display: grid; grid-template-columns: 8px minmax(0,1fr) auto; align-items: baseline; column-gap: 10px; row-gap: 2px; width: 100%; padding: 10px 16px; border: 0; border-bottom: 1px solid #262626; background: transparent; text-align: left; cursor: pointer; color: #9a9a9a; transition: background-color 100ms, color 100ms; } .ds-row:hover { background: rgb(28 28 28 / 0.6); } .ds-row:focus-visible { background: #1c1c1c; box-shadow: inset 0 0 0 1px #8a8a8a; outline: none; } .ds-dot { width: 8px; height: 8px; border-radius: 9999px; background: currentColor; align-self: center; } .ds-name { font-family: 'Red Hat Display Variable', ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 500; color: #ededed; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-time { font-family: 'Red Hat Mono Variable', ui-monospace, monospace; font-size: 12px; font-variant-numeric: tabular-nums; } .ds-prev { grid-column-start: 2; font-family: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-state { font-family: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif; font-size: 12px; text-align: right; } .ds-unread .ds-name { font-weight: 600; } .ds-unread .ds-time, .ds-unread .ds-prev { color: #ededed; }"
+    },
+    {
+      "name": "Agent Step",
+      "kind": "custom",
+      "refersTo": "agent-step",
+      "description": "Paso del registro del agente en mono: marca rellena, anillo discontinuo en curso, hueca omitida.",
+      "html": "<ol class=\"ds-log\"><li class=\"ds-step\"><span class=\"ds-mark ds-done\"></span><span>LookupCustomer</span><span class=\"ds-dim\">0,4 s</span></li><li class=\"ds-step\"><span class=\"ds-mark ds-run\"></span><span>RegisterPayment</span><span style=\"color:#79c0ff\">en curso</span></li><li class=\"ds-step\"><span class=\"ds-mark ds-skip\"></span><span class=\"ds-dim\" style=\"text-decoration:line-through\">Handoff</span><span class=\"ds-dim\">omitido</span></li></ol>",
+      "css": ".ds-log { list-style: none; margin: 0; padding: 0; width: 340px; background: #0a0a0a; } .ds-step { display: grid; grid-template-columns: 8px minmax(0,1fr) auto; align-items: baseline; column-gap: 10px; padding: 8px 16px; border-top: 1px dashed #262626; font-family: 'Red Hat Mono Variable', ui-monospace, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #ededed; } .ds-mark { width: 8px; height: 8px; border-radius: 9999px; align-self: center; box-sizing: border-box; } .ds-done { background: #7ee787; } .ds-run { border: 1px dashed #79c0ff; } .ds-skip { border: 1px solid #9a9a9a; } .ds-dim { color: #9a9a9a; }"
+    },
+    {
+      "name": "Message Bubbles",
+      "kind": "custom",
+      "refersTo": "bubble-outbound",
+      "description": "Entrante hundida con costura, saliente gris elevada; autor y hora en mono 11px después del texto.",
+      "html": "<div class=\"ds-thread\"><div class=\"ds-bubble ds-in\"><p>Buenas, me llegó el cobro de octubre dos veces</p><p class=\"ds-meta\">Cliente · 21:13</p></div><div class=\"ds-bubble ds-out\"><p>Hola, soy Omar. Ya estoy revisando el segundo cargo.</p><p class=\"ds-meta\">Operador · 21:22 · enviando</p></div></div>",
+      "css": ".ds-thread { display: flex; flex-direction: column; gap: 10px; padding: 20px 24px; background: #111111; } .ds-bubble { max-width: 70%; padding: 8px 12px; border-radius: 8px; font-family: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif; font-size: 14px; color: #ededed; } .ds-bubble p { margin: 0; } .ds-in { align-self: flex-start; background: #0a0a0a; border: 1px solid #262626; } .ds-out { align-self: flex-end; background: #1c1c1c; } .ds-meta { margin-top: 4px !important; font-family: 'Red Hat Mono Variable', ui-monospace, monospace; font-size: 11px; color: #9a9a9a; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "La consola de turno",
+    "overview": "Cobra es la consola que el operador del ISP deja abierta toda la jornada, y que vuelve a abrir en el teléfono cuando llega un handoff. El mundo es grafito oscuro: paneles persistentes separados por costuras de 1px, no tarjetas flotantes. Navegar cambia el contenido de un panel, nunca la disposición. Los grises no tienen tono a propósito; el color se gasta solo en el estado, y por eso un punto naranja o rojo en la lista se encuentra sin buscarlo.\n\nLa densidad es de herramienta: filas de 10px de relleno vertical, cabeceras de panel de 40px, todo número en Red Hat Mono con cifras tabulares para que horas, montos y teléfonos se alineen en columna. La voz tipográfica es una sola familia en tres cortes: Text para leer, Display para nombres y títulos, Mono para datos y para el registro del agente. La jerarquía sale del contraste entre sans y mono, no de tamaños grandes.\n\nLos componentes son contenidos y precisos. La profundidad es tonal más costura, sin sombras. Un cambio de estado es un cambio de color de 100ms, sin fundidos ni entradas.",
+    "keyCharacteristics": [
+      "Tres paneles persistentes (lista, conversación, pasos del agente) separados por costuras de 1px.",
+      "Grises neutros sin tono; el color es exclusivo del estado.",
+      "Un solo botón blanco por pantalla.",
+      "Red Hat Text / Display / Mono; todo número en mono tabular.",
+      "Lo no leído gana peso, nunca color.",
+      "Plano: tono y costura en vez de sombra."
+    ],
+    "rules": [
+      { "name": "The Colour Is State Rule", "body": "Ningún color aparece si no dice un estado. Los grises no llevan tono; un azul de marca, un gradiente o un acento decorativo rompen la lectura de la lista.", "section": "colors" },
+      { "name": "The State Is A Word Rule", "body": "Un estado es una palabra coloreada (y a lo sumo un punto de 8px del mismo color), una sola vez por fila. Los tintes se usan como texto; como relleno van al 15% (etiquetas) o 15/25/40% (botón destructivo), nunca sólidos.", "section": "colors" },
+      { "name": "The One White Rule", "body": "El relleno blanco es la acción primaria y sale una vez por pantalla. La burbuja saliente es gris elevado, no blanca.", "section": "colors" },
+      { "name": "The Mono For Every Number Rule", "body": "Hora, monto, teléfono, duración, versión y contador van en Red Hat Mono con `tabular-nums`. Un número en sans no se alinea con el de la fila de abajo.", "section": "typography" },
+      { "name": "The Weight Not Colour Rule", "body": "Lo no leído sube el nombre a 600 y lleva la previsualización y la hora a contraste pleno, hasta que se abre. El contador de pestañas es mono en negrita, sin globo ni color.", "section": "typography" },
+      { "name": "The Seam Not Shadow Rule", "body": "Dos superficies se separan con una costura de 1px o un escalón de tono, nunca con sombra ni con margen entre tarjetas.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do separar paneles con una costura de 1px (#262626) y escalones de tono; navegar cambia el contenido, no la disposición.",
+      "Do poner todo número, hora, teléfono y paso del agente en Red Hat Mono con cifras tabulares.",
+      "Do decir el estado una vez por fila, como palabra coloreada con su punto: verde listo, azul en curso con anillo discontinuo, naranja operador, rojo falló.",
+      "Do marcar lo no leído con peso (600 y contraste pleno), sostenido hasta que se abre.",
+      "Do dejar un solo relleno blanco por pantalla y dar al secundario su borde #636363 y un hover que sube.",
+      "Do abrir toda creación en un diálogo con `~/components/ui/form-dialog.tsx`, con el botón en el encabezado de su sección.",
+      "Do mantener `<html class=\"dark\">` y los tokens en `:root`; no hay tema claro.",
+      "Do tratar Configuración, Puesta en marcha y Plataforma como pendientes: todavía usan `Card` y varios botones blancos; al migrarlas, llevarlas a paneles y a un solo primario."
+    ],
+    "donts": [
+      "Don't usar color para algo que no sea un estado: ni acento de marca, ni grises con tono, ni gradientes.",
+      "Don't poner tintes de estado como relleno sólido ni usar un globo de color para lo no leído.",
+      "Don't separar superficies con sombra o con tarjetas flotantes dentro de la consola.",
+      "Don't atenuar un control deshabilitado con opacidad; tiene su color propio (#6b6b6b) y pierde relleno y borde.",
+      "Don't pintar de blanco la burbuja saliente ni un segundo botón en la misma pantalla.",
+      "Don't animar entradas ni fundidos; un cambio de estado es un cambio de color de 100ms."
+    ]
+  }
+}

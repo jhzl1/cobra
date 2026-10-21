@@ -1,3 +1,4 @@
+import { ChevronRightIcon } from 'lucide-react'
 import type { AgentRun, AgentStep } from '@cobra/contracts'
 import {
   Accordion,
@@ -5,22 +6,56 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '~/components/ui/accordion'
-import { Badge, type BadgeTone } from '~/components/ui/badge'
-import { Spinner } from '~/components/ui/spinner'
+import { cn } from '~/lib/utils'
 
-const STEP_TONE: Record<AgentStep['status'], BadgeTone> = {
-  running: 'default',
-  done: 'success',
-  error: 'destructive',
-  skipped: 'warning',
+type Status = AgentStep['status']
+
+/**
+ * The mark at the head of each step: filled when it settled, a dashed ring while
+ * it runs, hollow when it was skipped. The shape says it without the colour.
+ */
+const STATUS_MARK: Record<Status, string> = {
+  running: 'border border-dashed border-info',
+  done: 'bg-success',
+  error: 'bg-destructive',
+  skipped: 'border border-muted-foreground',
 }
 
-const STEP_LABEL: Record<AgentStep['status'], string> = {
-  running: 'Corriendo',
-  done: 'Listo',
-  error: 'Error',
-  skipped: 'Saltada',
+/** A state is a coloured word, once; the log has no badges. */
+const STATUS_TONE: Record<Status, string> = {
+  running: 'text-info',
+  done: 'text-success',
+  error: 'text-destructive',
+  skipped: 'text-muted-foreground',
 }
+
+const STATUS_LABEL: Record<Status, string> = {
+  running: 'en curso',
+  done: 'listo',
+  error: 'falló',
+  skipped: 'omitido',
+}
+
+/** Tools are most steps, so only the other kinds say what they are. */
+const KIND_LABEL: Partial<Record<AgentStep['kind'], string>> = {
+  normalize: 'normalización',
+  media: 'archivo',
+  vision: 'lectura de imagen',
+  validation: 'validación',
+  llm: 'modelo',
+  send: 'envío',
+}
+
+const clock = (iso: string): string =>
+  new Date(iso).toLocaleTimeString('es-CO', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+
+const seconds = (ms: number): string =>
+  `${(ms / 1000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} s`
 
 /**
  * What the agent is doing, step by step, while it does it.
@@ -44,61 +79,86 @@ export const Timeline = ({ runs }: { runs: AgentRun[] }) => {
     // when the operator opens another conversation — so without the key the new
     // runs arrive against the old default and nothing is expanded.
     <Accordion key={runs[0]?.id} type="multiple" defaultValue={[runs[0]?.id ?? '']}>
-      {runs.map((run) => (
-        <AccordionItem key={run.id} value={run.id}>
-          <AccordionTrigger>
-            <div className="flex items-center gap-2">
-              <span className="text-sm">
-                {new Date(run.startedAt).toLocaleString('es-CO', { hour12: true })}
+      {runs.map((run) => {
+        const elapsed = run.finishedAt
+          ? new Date(run.finishedAt).getTime() - new Date(run.startedAt).getTime()
+          : null
+
+        return (
+          <AccordionItem key={run.id} value={run.id}>
+            <AccordionTrigger className="items-center rounded-none px-4 py-2.5 hover:bg-accent/60 hover:no-underline focus-visible:bg-accent focus-visible:ring-0">
+              <span className="flex flex-1 items-baseline gap-3 font-mono text-xs">
+                <span className="text-foreground">{clock(run.startedAt)}</span>
+                <span className={STATUS_TONE[run.status]}>
+                  {run.trigger === 'manual_replay' ? 'reenviado · ' : ''}
+                  {STATUS_LABEL[run.status]}
+                </span>
+                {elapsed !== null && (
+                  <span className="ml-auto text-muted-foreground">{seconds(elapsed)}</span>
+                )}
               </span>
-              <Badge variant={run.status === 'error' ? 'destructive' : 'default'}>
-                {run.status}
-              </Badge>
-              {run.status === 'running' && <Spinner />}
-            </div>
-          </AccordionTrigger>
+            </AccordionTrigger>
 
-          <AccordionContent>
-            <ol className="flex flex-col gap-2">
-              {run.steps
-                .slice()
-                .sort((a, b) => a.seq - b.seq)
-                .map((step) => (
-                  <li key={step.id} className="rounded-lg border border-border p-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium">
-                        {step.kind} · {step.name}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {step.durationMs !== null && (
-                          <span className="text-xs text-muted-foreground">
-                            {step.durationMs} ms
-                          </span>
-                        )}
-                        <Badge variant={STEP_TONE[step.status]}>{STEP_LABEL[step.status]}</Badge>
-                      </div>
-                    </div>
-
-                    {(step.input || step.output || step.error) && (
-                      <details className="mt-1">
-                        <summary className="cursor-pointer text-xs text-muted-foreground">
-                          Ver argumentos y resultado
-                        </summary>
-                        <pre className="mt-1 overflow-x-auto rounded bg-muted p-2 text-xs">
-                          {JSON.stringify(
-                            { input: step.input, output: step.output, error: step.error },
-                            null,
-                            2,
-                          )}
-                        </pre>
-                      </details>
-                    )}
-                  </li>
-                ))}
-            </ol>
-          </AccordionContent>
-        </AccordionItem>
-      ))}
+            <AccordionContent className="pb-2">
+              <ol className="flex flex-col">
+                {run.steps
+                  .slice()
+                  .sort((a, b) => a.seq - b.seq)
+                  .map((step) => (
+                    <Step key={step.id} step={step} />
+                  ))}
+              </ol>
+            </AccordionContent>
+          </AccordionItem>
+        )
+      })}
     </Accordion>
+  )
+}
+
+const Step = ({ step }: { step: AgentStep }) => {
+  const hasDetail = Boolean(step.input || step.output || step.error)
+
+  return (
+    <li className="grid grid-cols-[8px_minmax(0,1fr)_auto] items-baseline gap-x-2.5 border-t border-dashed px-4 py-2 font-mono text-xs">
+      <span
+        aria-hidden
+        className={cn('size-2 self-center rounded-full', STATUS_MARK[step.status])}
+      />
+
+      <span
+        className={cn(
+          'truncate',
+          step.status === 'skipped' ? 'text-muted-foreground line-through' : 'text-foreground',
+        )}
+      >
+        {step.name}
+      </span>
+
+      <span className={step.status === 'done' ? 'text-muted-foreground' : STATUS_TONE[step.status]}>
+        {step.status === 'done' && step.durationMs !== null
+          ? seconds(step.durationMs)
+          : STATUS_LABEL[step.status]}
+      </span>
+
+      {KIND_LABEL[step.kind] && (
+        <span className="col-start-2 text-muted-foreground">{KIND_LABEL[step.kind]}</span>
+      )}
+
+      {step.error && <p className="col-span-2 col-start-2 mt-1 text-destructive">{step.error}</p>}
+
+      {hasDetail && (
+        <details className="group col-span-2 col-start-2 mt-1">
+          {/* The browser's own triangle hidden, for the chevron the turn rows use. */}
+          <summary className="flex cursor-pointer list-none items-center gap-1 text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRightIcon className="size-3 transition-transform group-open:rotate-90" />
+            argumentos y resultado
+          </summary>
+          <pre className="mt-1.5 max-h-72 overflow-auto rounded-md border bg-background p-2 text-[11px] leading-relaxed">
+            {JSON.stringify({ input: step.input, output: step.output, error: step.error }, null, 2)}
+          </pre>
+        </details>
+      )}
+    </li>
   )
 }

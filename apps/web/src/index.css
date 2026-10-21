@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+@import '@fontsource-variable/red-hat-text';
+@import '@fontsource-variable/red-hat-display';
+@import '@fontsource-variable/red-hat-mono';
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
@@ -10,58 +12,66 @@
    is fixed in index.html so they resolve. */
 @custom-variant dark (&:is(.dark *));
 
+/* Neutral greys with no hue on purpose. shadcn's zinc carries a blue cast
+   (hue 286) that is the first thing that makes a dark panel read as the
+   generator's default; a console is grey, and colour is spent on state. */
 :root {
   color-scheme: dark;
-  --radius: 0.625rem;
+  --radius: 0.5rem;
 
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
+  --background: #0a0a0a;
+  --foreground: #ededed;
 
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
+  /* The panes. One step above the page, so a seam between two of them is the
+     only line the layout needs. */
+  --card: #111111;
+  --card-foreground: #ededed;
+  --popover: #161616;
+  --popover-foreground: #ededed;
 
-  /* White. Reserved for one action per screen. */
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.21 0.006 285.885);
+  /* Near-white. Reserved for one action per screen. */
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
 
-  /* The interactive grey. Its border and its hover are what separate it from
-     "switched off": on a dark theme the fill alone is 1.19:1 against the card,
-     which reads as a smudge rather than a control. */
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --secondary-border: oklch(0.552 0.016 285.938);
-  --secondary-hover: oklch(0.37 0.013 285.805);
-  --secondary-active: oklch(0.442 0.017 285.786);
+  /* The interactive grey. Its border is what separates it from "switched off":
+     #636363 is the lightest grey that still clears 3:1 against a pane, the
+     contrast WCAG asks of a control's boundary. */
+  --secondary: #181818;
+  --secondary-foreground: #ededed;
+  --secondary-border: #636363;
+  --secondary-hover: #222222;
+  --secondary-active: #2c2c2c;
 
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
+  --muted: #181818;
+  --muted-foreground: #9a9a9a;
+  --accent: #1c1c1c;
+  --accent-foreground: #ededed;
 
   /* Disabled has a colour of its own. It is not "secondary at half opacity",
      which would be the same object, dimmer. */
-  --disabled-foreground: oklch(0.552 0.016 285.938);
+  --disabled-foreground: #6b6b6b;
 
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.21 0.006 285.885);
-  /* shadcn only ships destructive. The timeline and the service window map
-     agent states onto these two. */
-  --success: oklch(0.765 0.177 163.223);
-  --success-foreground: oklch(0.21 0.006 285.885);
-  --warning: oklch(0.828 0.189 84.429);
-  --warning-foreground: oklch(0.21 0.006 285.885);
+  /* State, and nothing else. Each one is a light tint that reads as text on the
+     panes, so a status is a coloured word, not a filled pill. */
+  --destructive: #ff7b72;
+  --destructive-foreground: #0a0a0a;
+  --success: #7ee787;
+  --success-foreground: #0a0a0a;
+  --warning: #ffa657;
+  --warning-foreground: #0a0a0a;
+  /* The agent at work. shadcn has no slot for "in progress". */
+  --info: #79c0ff;
+  --info-foreground: #0a0a0a;
 
-  /* Alpha rather than a flat hex: the same border reads correctly on `card` and
-     on `background`, which sit two steps apart. */
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
+  --border: #262626;
+  --input: #3a3a3a;
+  --ring: #8a8a8a;
 }
 
 @theme inline {
-  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Red Hat Display Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Red Hat Mono Variable', ui-monospace, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -92,6 +102,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -102,7 +114,30 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    /* The browser's own scrollbars are light grey slabs on a dark panel. */
+    scrollbar-color: #363636 transparent;
+    scrollbar-width: thin;
+  }
+
   body {
     @apply bg-background font-sans text-foreground antialiased;
+    caret-color: var(--foreground);
+  }
+
+  ::selection {
+    background: #3d3d3d;
+    color: var(--foreground);
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+
+  /* Times, amounts and phone numbers line up in columns. */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
   }
 }

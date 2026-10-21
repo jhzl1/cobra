@@ -1,7 +1,6 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { BellIcon, BellOffIcon, Volume2Icon, VolumeXIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import {
   Select,
@@ -13,6 +12,7 @@ import {
 import { usePlatformIdentity } from '~/hooks/usePlatform'
 import { askForNotifications, playBlip, setSoundEnabled, soundEnabled } from '~/lib/notify'
 import { supabase } from '~/lib/supabase'
+import { cn } from '~/lib/utils'
 import { useInbox } from '~/providers/InboxProvider'
 import { useTenant } from '~/providers/TenantProvider'
 
@@ -40,54 +40,78 @@ export const AppLayout = () => {
   const sections = SECTIONS.filter((section) => !section.adminOnly || isAdmin)
 
   return (
-    <div className="flex h-screen flex-col gap-3 p-3">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">Cobra</h1>
+    <div className="flex h-dvh flex-col">
+      <header className="flex h-13 shrink-0 items-center gap-2 border-b px-4">
+        <h1 className="text-[15px] font-semibold tracking-tight">Cobra</h1>
+        <span aria-hidden className="text-border select-none">
+          /
+        </span>
 
-          <Select value={tenantId ?? ''} onValueChange={setTenantId}>
-            <SelectTrigger aria-label="Empresa" size="sm" className="w-56">
-              <SelectValue placeholder="Empresa" />
-            </SelectTrigger>
-            <SelectContent>
-              {tenants.map((tenant) => (
-                <SelectItem key={tenant.id} value={tenant.id}>
-                  {tenant.companyName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Select value={tenantId ?? ''} onValueChange={setTenantId}>
+          <SelectTrigger
+            aria-label="Empresa"
+            size="sm"
+            className="max-w-56 min-w-0 border-transparent bg-transparent px-2 shadow-none *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate dark:bg-transparent dark:hover:bg-accent"
+          >
+            <SelectValue placeholder="Empresa" />
+          </SelectTrigger>
+          <SelectContent>
+            {tenants.map((tenant) => (
+              <SelectItem key={tenant.id} value={tenant.id}>
+                {tenant.companyName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          {/* Links and not Tabs: each section is a route, so this has to be
-              something the browser can follow, open in a tab and go back from. */}
-          <nav aria-label="Secciones" className="flex items-center gap-1">
-            {sections.map((section) => {
-              const active = path.startsWith(section.to)
-
-              return (
-                <Button key={section.to} asChild size="sm" variant={active ? 'secondary' : 'ghost'}>
-                  <Link to={section.to} aria-current={active ? 'page' : undefined}>
-                    {section.label}
-                    {section.to === '/chats' && unreadCount > 0 && (
-                      <Badge variant="warning">{unreadCount}</Badge>
-                    )}
-                  </Link>
-                </Button>
-              )
-            })}
-          </nav>
-        </div>
-
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1">
           <AlertControls />
-          <span className="text-xs text-muted-foreground">v{__APP_VERSION__}</span>
-          <Button size="sm" variant="secondary" onClick={() => void supabase.auth.signOut()}>
+          <span className="hidden px-2 font-mono text-xs text-muted-foreground sm:inline">
+            v{__APP_VERSION__}
+          </span>
+          <Button size="sm" variant="ghost" onClick={() => void supabase.auth.signOut()}>
             Salir
           </Button>
         </div>
       </header>
 
-      <Outlet />
+      {/* Links and not Tabs: each section is a route, so this has to be
+          something the browser can follow, open in a tab and go back from. */}
+      <nav
+        aria-label="Secciones"
+        className="flex h-10.5 shrink-0 items-stretch gap-5 overflow-x-auto border-b [mask-image:linear-gradient(to_right,black_85%,transparent)] px-4 sm:[mask-image:none]"
+      >
+        {sections.map((section) => {
+          const active = path.startsWith(section.to)
+
+          return (
+            <Link
+              key={section.to}
+              to={section.to}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'flex shrink-0 items-center gap-1.5 text-sm whitespace-nowrap transition-colors outline-none',
+                'focus-visible:text-foreground focus-visible:underline focus-visible:underline-offset-4',
+                active
+                  ? 'text-foreground shadow-[inset_0_-2px_0_var(--foreground)]'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {section.label}
+              {section.to === '/chats' && unreadCount > 0 && (
+                <span className="font-mono text-xs font-semibold text-foreground">
+                  {unreadCount}
+                  <span className="sr-only"> sin leer</span>
+                </span>
+              )}
+            </Link>
+          )
+        })}
+      </nav>
+
+      <main className="flex min-h-0 flex-1 flex-col">
+        <Outlet />
+      </main>
     </div>
   )
 }
@@ -171,7 +195,7 @@ export const NoTenant = () => {
   if (identity.isLoading) return null
 
   return (
-    <div className="flex flex-col items-start gap-2">
+    <div className="flex flex-col items-start gap-2 p-4 md:p-6">
       <p className="text-sm text-muted-foreground">Todavía no hay ninguna empresa a tu nombre.</p>
       {identity.data?.isPlatformAdmin ? (
         <Button asChild size="sm">
