@@ -53,12 +53,10 @@ screenshots at 1440 and 390. Tests run once before the PR (global rule).
 
 ## Follow-ups (not in scope, recorded by the documenter)
 
-- Dialog fades and zooms in with a large shadow (`ui/dialog.tsx:53`).
-- Inputs and textarea dim with `disabled:opacity-50`, unlike the button rule.
-- Stock `shadow-xs` / `shadow-sm` on buttons, inputs and Card.
+- [x] Dialog/menu entrances, stock shadows and opacity-disabled fields: fixed in 5d707eb.
 - Settings uses a dashed ring for "not connected" (dashed means running here).
 - Settings, Setup and Platform still show several white buttons and Cards.
 
 ## Next step
 
-Decide what of the Impeccable artifacts gets committed; then the PR.
+Migrate Settings, Setup and Platform to the console world; then tests and the PR against develop.
