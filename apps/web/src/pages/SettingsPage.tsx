@@ -681,10 +681,6 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
               </SelectContent>
             </Select>
 
-            <p className="text-xs text-muted-foreground">
-              Sale de Wisphub, de Finanzas → Formas de pago. Es con la que queda registrado el pago.
-            </p>
-
             {fieldError(field) && <p className="text-xs text-destructive">{fieldError(field)}</p>}
           </div>
         )}
@@ -694,7 +690,6 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
         {(field) => (
           <Field
             label="Cuenta o llave"
-            hint="El número de cuenta, o la llave de Nequi o Daviplata. Wisphub no lo guarda, y es contra esto que se compara cada comprobante."
             required
             value={field.state.value}
             error={fieldError(field)}
