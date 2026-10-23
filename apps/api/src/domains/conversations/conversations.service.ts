@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -18,6 +19,9 @@ import { QueueService } from '~/queue/queue.service'
 import { SupabaseService } from '~/supabase/supabase.service'
 
 const SIGNED_URL_TTL_SECONDS = 600
+
+export const READ_ONLY_MESSAGE =
+  'Solo un miembro de la empresa puede responder o tomar el control. Desde la plataforma las conversaciones se leen, no se responden.'
 
 @Injectable()
 export class ConversationsService {
@@ -130,6 +134,8 @@ export class ConversationsService {
   }): Promise<Message> {
     const conversation = await this.findConversationOrThrow(client, conversationId)
 
+    await this.assertMember(client, conversation.tenant_id)
+
     if (conversation.status !== 'human') {
       throw new ConflictException('Toma el control de la conversación antes de escribir')
     }
@@ -206,6 +212,8 @@ export class ConversationsService {
     input: HandoffInput
   }): Promise<{ status: string }> {
     const conversation = await this.findConversationOrThrow(client, conversationId)
+
+    await this.assertMember(client, conversation.tenant_id)
 
     if (input.action === 'replay') {
       await this.queue.enqueueTurn({
@@ -319,6 +327,20 @@ export class ConversationsService {
       .eq('status', 'error')
 
     return new Set((data ?? []).map((row) => row.conversation_id as string))
+  }
+
+  /**
+   * Reading reaches the platform administrator through RLS; writing does not.
+   *
+   * The message insert runs with the service role, so no policy stands in front
+   * of it: this check is the only thing that keeps an administrator from
+   * answering a customer in a company's name.
+   */
+  private async assertMember(client: SupabaseClient, tenantId: string): Promise<void> {
+    const { data, error } = await client.rpc('is_tenant_member', { target: tenantId })
+
+    if (error) throw this.toHttpError(error)
+    if (data !== true) throw new ForbiddenException(READ_ONLY_MESSAGE)
   }
 
   private toHttpError(error: PostgrestError): Error {

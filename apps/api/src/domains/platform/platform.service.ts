@@ -5,11 +5,24 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common'
-import type { PostgrestError } from '@supabase/supabase-js'
-import type { GrantRoleInput, PlatformIdentity, PlatformRoleGrant } from '@cobra/contracts'
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
+import type {
+  GrantRoleInput,
+  JobRun,
+  JobRunStatus,
+  PlatformError,
+  PlatformIdentity,
+  PlatformRoleGrant,
+} from '@cobra/contracts'
 import { SupabaseService } from '~/supabase/supabase.service'
 
 const UNIQUE_VIOLATION = '23505'
+
+/** A page of the list, newest first. Older history is not what the screen is for. */
+const JOB_RUNS_LIMIT = 200
+
+const JOB_RUN_COLUMNS =
+  'id, tenant_id, conversation_id, queue, job_id, attempt, max_attempts, status, error, started_at, finished_at'
 
 @Injectable()
 export class PlatformService {
@@ -107,6 +120,49 @@ export class PlatformService {
     return { revokedAt }
   }
 
+  /**
+   * What the worker ran for one company. Read with the caller's session: RLS
+   * lets the administrator see every company, so nothing here repeats that.
+   */
+  async listJobRuns({
+    client,
+    tenantId,
+    status,
+  }: {
+    client: SupabaseClient
+    tenantId: string
+    status?: JobRunStatus
+  }): Promise<JobRun[]> {
+    let query = client
+      .from('job_runs')
+      .select(JOB_RUN_COLUMNS)
+      .eq('tenant_id', tenantId)
+      .order('started_at', { ascending: false })
+      .limit(JOB_RUNS_LIMIT)
+
+    if (status) query = query.eq('status', status)
+
+    const { data, error } = await query
+
+    if (error) throw this.toHttpError(error)
+
+    return (data ?? []).map(toJobRun)
+  }
+
+  /** The error tray: failed attempts across every company, newest first. */
+  async listErrors(client: SupabaseClient): Promise<PlatformError[]> {
+    const { data, error } = await client
+      .from('job_runs')
+      .select(`${JOB_RUN_COLUMNS}, tenants (company_name)`)
+      .eq('status', 'error')
+      .order('started_at', { ascending: false })
+      .limit(JOB_RUNS_LIMIT)
+
+    if (error) throw this.toHttpError(error)
+
+    return (data ?? []).map(toPlatformError)
+  }
+
   private async linkExistingUser(email: string): Promise<void> {
     const { data } = await this.supabase.unscoped.auth.admin.listUsers()
     const user = data?.users.find(
@@ -127,4 +183,25 @@ export class PlatformService {
 
     return new InternalServerErrorException('No se pudo completar la operación')
   }
+}
+
+/** Supabase answers with its column names, and the panel reads the contract. */
+export const toJobRun = (row: Record<string, unknown>): JobRun => ({
+  id: row['id'] as string,
+  tenantId: row['tenant_id'] as string,
+  conversationId: (row['conversation_id'] as string | null) ?? null,
+  queue: row['queue'] as string,
+  jobId: row['job_id'] as string,
+  attempt: row['attempt'] as number,
+  maxAttempts: row['max_attempts'] as number,
+  status: row['status'] as JobRun['status'],
+  error: (row['error'] as string | null) ?? null,
+  startedAt: row['started_at'] as string,
+  finishedAt: (row['finished_at'] as string | null) ?? null,
+})
+
+export const toPlatformError = (row: Record<string, unknown>): PlatformError => {
+  const tenant = row['tenants'] as { company_name?: string } | null
+
+  return { ...toJobRun(row), companyName: tenant?.company_name ?? '' }
 }
