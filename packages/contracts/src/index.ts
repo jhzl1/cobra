@@ -1,6 +1,7 @@
 export * from './api'
 export * from './conversations'
 export * from './domain'
+export * from './job-runs'
 export * from './meta'
 export * from './queues'
 export * from './receipts'

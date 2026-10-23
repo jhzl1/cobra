@@ -47,6 +47,9 @@ export type AgentStepKind = z.infer<typeof agentStepKindSchema>
 export const agentStepStatusSchema = z.enum(['running', 'done', 'error', 'skipped'])
 export type AgentStepStatus = z.infer<typeof agentStepStatusSchema>
 
+export const jobRunStatusSchema = z.enum(['running', 'done', 'error'])
+export type JobRunStatus = z.infer<typeof jobRunStatusSchema>
+
 export const paymentAttemptKindSchema = z.enum(['invoice_payment', 'credit'])
 export type PaymentAttemptKind = z.infer<typeof paymentAttemptKindSchema>
 
