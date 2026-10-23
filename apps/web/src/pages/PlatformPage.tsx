@@ -1,8 +1,15 @@
 import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { PlusIcon } from 'lucide-react'
 import { useState } from 'react'
-import { type PlatformRoleGrant, createTenantSchema, grantRoleSchema } from '@cobra/contracts'
+import {
+  type PlatformError,
+  type PlatformRoleGrant,
+  createTenantSchema,
+  grantRoleSchema,
+} from '@cobra/contracts'
+import { JobRunTable } from '~/components/JobRunTable'
 import { TenantDetail } from '~/components/TenantDetail'
 import {
   AlertDialog,
@@ -49,10 +56,63 @@ import type { TenantSummary } from '~/lib/tenants'
  */
 export const PlatformPage = () => (
   <div className="flex flex-col gap-4 p-4">
+    <ErrorsCard />
     <TenantsCard />
     <GrantsCard />
   </div>
 )
+
+/* Errors --------------------------------------------------------------------- */
+
+/**
+ * Every failed attempt of every company, newest first. It sits above the
+ * companies because it is the part of this screen that asks for something.
+ */
+const ErrorsCard = () => {
+  const errors = useQuery({
+    queryKey: queryKeys.platformErrors,
+    queryFn: async () => {
+      const { data } = await api.get<PlatformError[]>('/platform/errors')
+
+      return data
+    },
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Errores</CardTitle>
+        <CardDescription>
+          Ejecuciones que fallaron en cualquier empresa. Las que dicen “se reintenta” todavía pueden
+          salir bien solas; las que dicen “Falló” ya agotaron sus intentos.
+        </CardDescription>
+        <CardAction>
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={errors.isFetching}
+            onClick={() => void errors.refetch()}
+          >
+            Actualizar
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        {errors.isLoading ? (
+          <Spinner className="mx-auto" />
+        ) : errors.error ? (
+          <p className="text-sm text-destructive">{errors.error.message}</p>
+        ) : (
+          <JobRunTable
+            runs={errors.data ?? []}
+            showCompany
+            emptyText="Ninguna ejecución ha fallado"
+          />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 /* Companies ------------------------------------------------------------------ */
 
@@ -126,6 +186,11 @@ const TenantsCard = () => {
                   <TableCell>{tenant.memberCount}</TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-2">
+                      <Button asChild size="sm" variant="ghost">
+                        <Link to="/platform/tenants/$companyId" params={{ companyId: tenant.id }}>
+                          Conversaciones
+                        </Link>
+                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => setViewedTenant(tenant)}>
                         Ver
                       </Button>

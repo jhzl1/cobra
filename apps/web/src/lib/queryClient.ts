@@ -27,4 +27,7 @@ export const queryKeys = {
   conversations: (tenantId: string) => ['conversations', tenantId] as const,
   messages: (conversationId: string) => ['conversations', conversationId, 'messages'] as const,
   runs: (conversationId: string) => ['conversations', conversationId, 'runs'] as const,
+  jobRuns: (tenantId: string, onlyErrors: boolean) =>
+    ['platform', 'tenants', tenantId, 'job-runs', onlyErrors] as const,
+  platformErrors: ['platform', 'errors'] as const,
 }

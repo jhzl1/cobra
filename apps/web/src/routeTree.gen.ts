@@ -18,6 +18,7 @@ import { Route as TenantIdSetupRouteImport } from './routes/$tenantId.setup'
 import { Route as PlatformPlatformRouteImport } from './routes/_platform.platform'
 import { Route as TenantIdConversationsIndexRouteImport } from './routes/$tenantId.conversations.index'
 import { Route as TenantIdConversationsConversationIdRouteImport } from './routes/$tenantId.conversations.$conversationId'
+import { Route as PlatformPlatformTenantsCompanyIdRouteImport } from './routes/_platform.platform_.tenants.$companyId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -65,6 +66,12 @@ const TenantIdConversationsConversationIdRoute =
     path: '/conversations/$conversationId',
     getParentRoute: () => TenantIdRoute,
   } as any)
+const PlatformPlatformTenantsCompanyIdRoute =
+  PlatformPlatformTenantsCompanyIdRouteImport.update({
+    id: '/platform_/tenants/$companyId',
+    path: '/platform/tenants/$companyId',
+    getParentRoute: () => PlatformRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/$tenantId/': typeof TenantIdIndexRoute
   '/$tenantId/conversations/$conversationId': typeof TenantIdConversationsConversationIdRoute
   '/$tenantId/conversations/': typeof TenantIdConversationsIndexRoute
+  '/platform/tenants/$companyId': typeof PlatformPlatformTenantsCompanyIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -84,6 +92,7 @@ export interface FileRoutesByTo {
   '/$tenantId': typeof TenantIdIndexRoute
   '/$tenantId/conversations/$conversationId': typeof TenantIdConversationsConversationIdRoute
   '/$tenantId/conversations': typeof TenantIdConversationsIndexRoute
+  '/platform/tenants/$companyId': typeof PlatformPlatformTenantsCompanyIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -96,6 +105,7 @@ export interface FileRoutesById {
   '/$tenantId/': typeof TenantIdIndexRoute
   '/$tenantId/conversations/$conversationId': typeof TenantIdConversationsConversationIdRoute
   '/$tenantId/conversations/': typeof TenantIdConversationsIndexRoute
+  '/_platform/platform_/tenants/$companyId': typeof PlatformPlatformTenantsCompanyIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/$tenantId/'
     | '/$tenantId/conversations/$conversationId'
     | '/$tenantId/conversations/'
+    | '/platform/tenants/$companyId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/$tenantId'
     | '/$tenantId/conversations/$conversationId'
     | '/$tenantId/conversations'
+    | '/platform/tenants/$companyId'
   id:
     | '__root__'
     | '/'
@@ -128,6 +140,7 @@ export interface FileRouteTypes {
     | '/$tenantId/'
     | '/$tenantId/conversations/$conversationId'
     | '/$tenantId/conversations/'
+    | '/_platform/platform_/tenants/$companyId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -201,6 +214,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantIdConversationsConversationIdRouteImport
       parentRoute: typeof TenantIdRoute
     }
+    '/_platform/platform_/tenants/$companyId': {
+      id: '/_platform/platform_/tenants/$companyId'
+      path: '/platform/tenants/$companyId'
+      fullPath: '/platform/tenants/$companyId'
+      preLoaderRoute: typeof PlatformPlatformTenantsCompanyIdRouteImport
+      parentRoute: typeof PlatformRoute
+    }
   }
 }
 
@@ -227,10 +247,12 @@ const TenantIdRouteWithChildren = TenantIdRoute._addFileChildren(
 
 interface PlatformRouteChildren {
   PlatformPlatformRoute: typeof PlatformPlatformRoute
+  PlatformPlatformTenantsCompanyIdRoute: typeof PlatformPlatformTenantsCompanyIdRoute
 }
 
 const PlatformRouteChildren: PlatformRouteChildren = {
   PlatformPlatformRoute: PlatformPlatformRoute,
+  PlatformPlatformTenantsCompanyIdRoute: PlatformPlatformTenantsCompanyIdRoute,
 }
 
 const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
