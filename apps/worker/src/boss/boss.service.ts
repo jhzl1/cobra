@@ -14,6 +14,7 @@ import { ProcessReceiptJobHandler } from '../jobs/process-receipt.job.js'
 import { ProcessTurnJobHandler } from '../jobs/process-turn.job.js'
 import { SendMessageJobHandler } from '../jobs/send-message.job.js'
 import { followUpsFor } from '../jobs/turn-follow-ups.js'
+import { JobRunRepository } from '../repositories/job-run.repository.js'
 
 const RECEIPT_QUEUE_OPTIONS = {
   retryLimit: 2,
@@ -55,6 +56,7 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
     private readonly processReceiptHandler: ProcessReceiptJobHandler,
     private readonly sendMessageHandler: SendMessageJobHandler,
     private readonly notifyTenantAdminHandler: NotifyTenantAdminJobHandler,
+    private readonly jobRuns: JobRunRepository,
   ) {
     this.boss = new PgBoss({
       connectionString: config.getOrThrow<string>('DATABASE_URL'),
@@ -125,40 +127,92 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
 
     await this.boss.work<ProcessTurnPayload>(
       QUEUES.processTurn,
-      { batchSize: concurrency },
+      { batchSize: concurrency, includeMetadata: true },
       async (jobs) => {
         for (const job of jobs) {
-          const outcome = await this.processTurnHandler.run(job.data)
+          await this.recordAttempt(job, async () => {
+            const outcome = await this.processTurnHandler.run(job.data)
 
-          for (const followUp of followUpsFor(job.data, outcome)) {
-            await this.boss.send(followUp.queue, followUp.payload, followUp.options ?? {})
-          }
+            for (const followUp of followUpsFor(job.data, outcome)) {
+              await this.boss.send(followUp.queue, followUp.payload, followUp.options ?? {})
+            }
+
+            return outcome.error ?? null
+          })
         }
       },
     )
 
     await this.boss.work<ProcessReceiptPayload>(
       QUEUES.processReceipt,
-      { batchSize: RECEIPT_QUEUE_OPTIONS.batchSize },
+      { batchSize: RECEIPT_QUEUE_OPTIONS.batchSize, includeMetadata: true },
       async (jobs) => {
-        for (const job of jobs) await this.processReceiptHandler.run(job.data)
+        for (const job of jobs) {
+          await this.recordAttempt(job, async () => {
+            await this.processReceiptHandler.run(job.data)
+          })
+        }
       },
     )
 
     await this.boss.work<SendMessagePayload>(
       QUEUES.sendMessage,
-      { batchSize: SEND_QUEUE_OPTIONS.batchSize },
+      { batchSize: SEND_QUEUE_OPTIONS.batchSize, includeMetadata: true },
       async (jobs) => {
-        for (const job of jobs) await this.sendMessageHandler.run(job.data)
+        for (const job of jobs) {
+          await this.recordAttempt(job, async () => {
+            await this.sendMessageHandler.run(job.data)
+          })
+        }
       },
     )
 
     await this.boss.work<NotifyTenantAdminPayload>(
       QUEUES.notifyTenantAdmin,
-      { batchSize: TENANT_ADMIN_ALERT_QUEUE_OPTIONS.batchSize },
+      { batchSize: TENANT_ADMIN_ALERT_QUEUE_OPTIONS.batchSize, includeMetadata: true },
       async (jobs) => {
-        for (const job of jobs) await this.notifyTenantAdminHandler.run(job.data)
+        for (const job of jobs) {
+          await this.recordAttempt(job, async () => {
+            await this.notifyTenantAdminHandler.run(job.data)
+          })
+        }
       },
     )
+  }
+
+  /**
+   * Every queue goes through here, so a new one cannot be added without its
+   * attempts showing up on the platform.
+   *
+   * `retryCount` is how many attempts came before this one: pg-boss bumps it
+   * when it hands the job out again, not when it fails.
+   *
+   * `work` may resolve to an error message: a job that failed without
+   * throwing, because what it does next still has to happen.
+   */
+  private async recordAttempt(
+    job: PgBoss.JobWithMetadata<{ tenantId: string; conversationId?: string }>,
+    work: () => Promise<string | null | void>,
+  ): Promise<void> {
+    const { tenantId, conversationId } = job.data
+
+    const runId = await this.jobRuns.start(tenantId, {
+      conversationId: conversationId ?? null,
+      queue: job.name,
+      jobId: job.id,
+      attempt: job.retryCount + 1,
+      maxAttempts: job.retryLimit + 1,
+    })
+
+    let handledError: string | null | void
+
+    try {
+      handledError = await work()
+    } catch (caught) {
+      await this.jobRuns.finish(tenantId, runId, caught)
+      throw caught
+    }
+
+    await this.jobRuns.finish(tenantId, runId, handledError ?? undefined)
   }
 }

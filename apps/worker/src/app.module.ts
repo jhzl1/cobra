@@ -9,6 +9,7 @@ import { ProcessReceiptJobHandler } from './jobs/process-receipt.job.js'
 import { ProcessTurnJobHandler } from './jobs/process-turn.job.js'
 import { SendMessageJobHandler } from './jobs/send-message.job.js'
 import { ConversationRepository } from './repositories/conversation.repository.js'
+import { JobRunRepository } from './repositories/job-run.repository.js'
 import { PaymentMethodRepository } from './repositories/payment-method.repository.js'
 import { ReceiptRepository } from './repositories/receipt.repository.js'
 import { TraceRepository } from './repositories/trace.repository.js'
@@ -36,6 +37,7 @@ const here = dirname(fileURLToPath(import.meta.url))
     ReceiptRepository,
     PaymentMethodRepository,
     TraceRepository,
+    JobRunRepository,
     ProcessTurnJobHandler,
     ProcessReceiptJobHandler,
     SendMessageJobHandler,
