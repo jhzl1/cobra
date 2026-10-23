@@ -17,9 +17,14 @@ import { ServiceWindow, remainingWindowMs } from './ServiceWindow'
 
 interface Props {
   conversation: ConversationSummary
+  /**
+   * The platform's view of a company: the thread and nothing to act with. The
+   * API refuses the writes anyway; this keeps the screen from offering them.
+   */
+  isReadOnly?: boolean
 }
 
-export const ConversationPanel = ({ conversation }: Props) => {
+export const ConversationPanel = ({ conversation, isReadOnly = false }: Props) => {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState('')
   const bottom = useRef<HTMLDivElement>(null)
@@ -101,19 +106,23 @@ export const ConversationPanel = ({ conversation }: Props) => {
           </p>
         </div>
 
-        <Button
-          size="sm"
-          variant={isHuman ? 'secondary' : 'default'}
-          loading={handoff.isPending}
-          title={
-            isHuman
-              ? 'El agente vuelve a responder los mensajes que entren'
-              : 'El agente deja de responder y escribes tú'
-          }
-          onClick={() => handoff.mutate(isHuman ? 'release' : 'take')}
-        >
-          {isHuman ? 'Devolver el control' : 'Tomar el control'}
-        </Button>
+        {isReadOnly ? (
+          <span className="text-xs text-muted-foreground">Solo lectura</span>
+        ) : (
+          <Button
+            size="sm"
+            variant={isHuman ? 'secondary' : 'default'}
+            loading={handoff.isPending}
+            title={
+              isHuman
+                ? 'El agente vuelve a responder los mensajes que entren'
+                : 'El agente deja de responder y escribes tú'
+            }
+            onClick={() => handoff.mutate(isHuman ? 'release' : 'take')}
+          >
+            {isHuman ? 'Devolver el control' : 'Tomar el control'}
+          </Button>
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-5 md:px-6">
@@ -129,54 +138,68 @@ export const ConversationPanel = ({ conversation }: Props) => {
         <div ref={bottom} />
       </div>
 
-      <footer className="flex shrink-0 flex-col gap-2 border-t px-4 py-3 md:px-6">
-        {/* The failed turn still has to be visible — it is the reason the failed
-            tray exists — but the only way out on screen is now the operator. */}
-        {conversation.lastRunFailed && (
-          <p className="text-xs text-destructive">
-            El último turno del agente falló, así que el cliente se quedó sin respuesta.{' '}
-            {isHuman ? 'Escríbele tú.' : 'Toma el control y escríbele tú.'}
+      {isReadOnly ? (
+        <footer className="flex shrink-0 flex-col gap-1 border-t px-4 py-3 text-xs md:px-6">
+          {conversation.lastRunFailed && (
+            <p className="text-destructive">
+              El último turno del agente falló, así que el cliente se quedó sin respuesta.
+            </p>
+          )}
+          <p className="text-muted-foreground">
+            Las conversaciones de una empresa las responde su equipo. Desde la plataforma solo se
+            leen.
           </p>
-        )}
+        </footer>
+      ) : (
+        <footer className="flex shrink-0 flex-col gap-2 border-t px-4 py-3 md:px-6">
+          {/* The failed turn still has to be visible — it is the reason the failed
+            tray exists — but the only way out on screen is now the operator. */}
+          {conversation.lastRunFailed && (
+            <p className="text-xs text-destructive">
+              El último turno del agente falló, así que el cliente se quedó sin respuesta.{' '}
+              {isHuman ? 'Escríbele tú.' : 'Toma el control y escríbele tú.'}
+            </p>
+          )}
 
-        {/* The composer locks when the window closes. Leaving it open would let
+          {/* The composer locks when the window closes. Leaving it open would let
             the operator write a message WhatsApp refuses with 131047, and they
             would only find out from the customer. */}
-        {isServiceWindowClosed ? (
-          <p className="text-xs text-destructive">
-            Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp no permite
-            escribirle sin una plantilla aprobada.
-          </p>
-        ) : (
-          !isHuman &&
-          !conversation.lastRunFailed && (
-            <p className="text-xs text-muted-foreground">
-              El agente está respondiendo. Toma el control para escribirle tú.
+          {isServiceWindowClosed ? (
+            <p className="text-xs text-destructive">
+              Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp no permite
+              escribirle sin una plantilla aprobada.
             </p>
-          )
-        )}
+          ) : (
+            !isHuman &&
+            !conversation.lastRunFailed && (
+              <p className="text-xs text-muted-foreground">
+                El agente está respondiendo. Toma el control para escribirle tú.
+              </p>
+            )
+          )}
 
-        <div className="flex items-end gap-2">
-          <Textarea
-            aria-label="Mensaje"
-            rows={1}
-            className="max-h-32 min-h-9 resize-none"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            disabled={!isHuman || isServiceWindowClosed}
-            placeholder={isHuman ? 'Escribe tu respuesta' : 'Toma el control para escribir'}
-          />
-          <Button
-            disabled={!isHuman || isServiceWindowClosed || !draft.trim()}
-            loading={send.isPending}
-            onClick={() => send.mutate(draft.trim())}
-          >
-            Enviar
-          </Button>
-        </div>
+          <div className="flex items-end gap-2">
+            <Textarea
+              aria-label="Mensaje"
+              rows={1}
+              className="max-h-32 min-h-9 resize-none"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              disabled={!isHuman || isServiceWindowClosed}
+              placeholder={isHuman ? 'Escribe tu respuesta' : 'Toma el control para escribir'}
+            />
+            <Button
+              disabled={!isHuman || isServiceWindowClosed || !draft.trim()}
+              loading={send.isPending}
+              onClick={() => send.mutate(draft.trim())}
+            >
+              Enviar
+            </Button>
+          </div>
 
-        {send.error && <p className="text-xs text-destructive">{send.error.message}</p>}
-      </footer>
+          {send.error && <p className="text-xs text-destructive">{send.error.message}</p>}
+        </footer>
+      )}
     </div>
   )
 }

@@ -37,6 +37,12 @@ export interface TurnOutcome {
    */
   outboundMessageId?: string | null
   skipped?: 'no-messages' | 'human' | 'no-conversation' | 'suspended'
+  /**
+   * The turn failed but answered anyway, with the fallback reply. The job does
+   * not throw — the reply still has to go out — so this is how the failure
+   * reaches the platform's error tray.
+   */
+  error?: string | null
 }
 
 @Injectable()
@@ -128,104 +134,116 @@ export class ProcessTurnJobHandler {
       rejectedReceipt ? 'rules-only' : AGENT_MODEL,
     )
 
-    /**
-     * A rejected receipt skips the agent entirely.
-     *
-     * The customer reads the same fixed sentence whatever the rule was, and the
-     * reason goes to the administrator. Letting the model near a rejected
-     * receipt is how it ends up explaining our validation rules to a customer.
-     */
-    if (rejectedReceipt) {
-      const step = await run.recorder.start({
-        kind: 'validation',
-        name: 'receipt-rejected',
-        input: { alertReason: rejectedReceipt.alertReason },
+    try {
+      /**
+       * A rejected receipt skips the agent entirely.
+       *
+       * The customer reads the same fixed sentence whatever the rule was, and the
+       * reason goes to the administrator. Letting the model near a rejected
+       * receipt is how it ends up explaining our validation rules to a customer.
+       */
+      if (rejectedReceipt) {
+        const step = await run.recorder.start({
+          kind: 'validation',
+          name: 'receipt-rejected',
+          input: { alertReason: rejectedReceipt.alertReason },
+        })
+
+        await this.tenantAdminAlerts
+          .forTenant(runtime)
+          .notifyTenantAdmin(
+            [
+              `COMPROBANTE RETENIDO — ${ALERT_REASON_TEXT[rejectedReceipt.alertReason as AlertReason] ?? rejectedReceipt.alertReason}`,
+              `Cliente: ${conversation.phone ?? conversation.personId}`,
+            ].join('\n'),
+            rejectedReceipt.mediaId,
+          )
+
+        await run.recorder.finish(step, { status: 'done', output: { reply: MANUAL_REVIEW_REPLY } })
+        await this.conversations.finishTurn(
+          tenantId,
+          conversationId,
+          consumedMessageIds,
+          MANUAL_REVIEW_REPLY,
+        )
+        await this.trace.finishRun(tenantId, run.runId, { status: 'done' })
+
+        return { reply: MANUAL_REVIEW_REPLY }
+      }
+
+      const startedAt = new Date()
+      const pendingReceiptLookup = await this.receipts.findPending(tenantId, conversationId)
+
+      const steering = new Steering({
+        readUnconsumed: async () => {
+          const fresh = await this.conversations.unprocessedInbound(tenantId, conversationId)
+
+          return fresh.filter((message) => !consumedMessageIds.includes(message.id))
+        },
       })
 
-      await this.tenantAdminAlerts
-        .forTenant(runtime)
-        .notifyTenantAdmin(
-          [
-            `COMPROBANTE RETENIDO — ${ALERT_REASON_TEXT[rejectedReceipt.alertReason as AlertReason] ?? rejectedReceipt.alertReason}`,
-            `Cliente: ${conversation.phone ?? conversation.personId}`,
-          ].join('\n'),
-          rejectedReceipt.mediaId,
-        )
+      const history = await this.conversations.history(
+        tenantId,
+        conversationId,
+        conversation.contextResetAt,
+      )
 
-      await run.recorder.finish(step, { status: 'done', output: { reply: MANUAL_REVIEW_REPLY } })
-      await this.conversations.finishTurn(
+      const turnResult = await runTurn({
+        tenant: runtime.agentConfig,
+        conversationId,
+        model: runtime.models.agent,
+        phone: conversation.phone,
+        history,
+        burstText: burst.text,
+        receiptArrivedThisTurn: receiptsOfBurst.length > 0,
+        pendingReceiptLookup,
+        pendingReceipt: pendingReceiptLookup.receipt,
+        mediaId: burst.mediaIds.at(-1) ?? pendingReceiptLookup.receipt?.mediaId ?? null,
+        deps: {
+          wisphub: runtime.wisphub,
+          receipts: this.receiptPort(tenantId),
+          messaging: this.tenantAdminAlerts.forTenant(runtime),
+          steps: run.recorder,
+          steering,
+          listPaymentMethods: (zone) => this.paymentMethods.list(tenantId, zone),
+        },
+      })
+
+      const outboundMessageId = await this.conversations.finishTurn(
         tenantId,
         conversationId,
         consumedMessageIds,
-        MANUAL_REVIEW_REPLY,
+        turnResult.reply,
       )
-      await this.trace.finishRun(tenantId, run.runId, { status: 'done' })
 
-      return { reply: MANUAL_REVIEW_REPLY }
+      await this.trace.finishRun(tenantId, run.runId, {
+        status: turnResult.error ? 'error' : 'done',
+        error: turnResult.error,
+        inputTokens: turnResult.inputTokens,
+        outputTokens: turnResult.outputTokens,
+      })
+
+      /**
+       * After money moves, the agent's memory starts over — the same effect
+       * `Memory Cleaner v3` had in n8n, except nothing is deleted and the panel
+       * keeps the whole thread.
+       */
+      if (await this.receipts.hasConfirmedAttemptSince(tenantId, conversationId, startedAt)) {
+        await this.conversations.resetContext(tenantId, conversationId)
+      }
+
+      return { reply: turnResult.reply, outboundMessageId, error: turnResult.error }
+    } catch (caught) {
+      // Without this the run stays in `running` forever and the only trace of
+      // the failure is the worker's log, which is what the platform's error
+      // tray exists to replace. Rethrown so the job still fails in pg-boss.
+      await this.trace.finishRun(tenantId, run.runId, {
+        status: 'error',
+        error: caught instanceof Error ? caught.message : String(caught),
+      })
+
+      throw caught
     }
-
-    const startedAt = new Date()
-    const pendingReceiptLookup = await this.receipts.findPending(tenantId, conversationId)
-
-    const steering = new Steering({
-      readUnconsumed: async () => {
-        const fresh = await this.conversations.unprocessedInbound(tenantId, conversationId)
-
-        return fresh.filter((message) => !consumedMessageIds.includes(message.id))
-      },
-    })
-
-    const history = await this.conversations.history(
-      tenantId,
-      conversationId,
-      conversation.contextResetAt,
-    )
-
-    const turnResult = await runTurn({
-      tenant: runtime.agentConfig,
-      conversationId,
-      model: runtime.models.agent,
-      phone: conversation.phone,
-      history,
-      burstText: burst.text,
-      receiptArrivedThisTurn: receiptsOfBurst.length > 0,
-      pendingReceiptLookup,
-      pendingReceipt: pendingReceiptLookup.receipt,
-      mediaId: burst.mediaIds.at(-1) ?? pendingReceiptLookup.receipt?.mediaId ?? null,
-      deps: {
-        wisphub: runtime.wisphub,
-        receipts: this.receiptPort(tenantId),
-        messaging: this.tenantAdminAlerts.forTenant(runtime),
-        steps: run.recorder,
-        steering,
-        listPaymentMethods: (zone) => this.paymentMethods.list(tenantId, zone),
-      },
-    })
-
-    const outboundMessageId = await this.conversations.finishTurn(
-      tenantId,
-      conversationId,
-      consumedMessageIds,
-      turnResult.reply,
-    )
-
-    await this.trace.finishRun(tenantId, run.runId, {
-      status: turnResult.error ? 'error' : 'done',
-      error: turnResult.error,
-      inputTokens: turnResult.inputTokens,
-      outputTokens: turnResult.outputTokens,
-    })
-
-    /**
-     * After money moves, the agent's memory starts over — the same effect
-     * `Memory Cleaner v3` had in n8n, except nothing is deleted and the panel
-     * keeps the whole thread.
-     */
-    if (await this.receipts.hasConfirmedAttemptSince(tenantId, conversationId, startedAt)) {
-      await this.conversations.resetContext(tenantId, conversationId)
-    }
-
-    return { reply: turnResult.reply, outboundMessageId }
   }
 
   /** Bounded: a receipt job that never finishes must not hold the turn forever. */

@@ -1,8 +1,13 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
-import { type GrantRoleInput, grantRoleSchema } from '@cobra/contracts'
+import {
+  type GrantRoleInput,
+  type JobRunStatus,
+  grantRoleSchema,
+  jobRunStatusSchema,
+} from '@cobra/contracts'
 import { readCallerId } from '~/auth/caller'
 import { RequirePlatformAdmin } from '~/auth/require-platform-admin.decorator'
 import { RequireSession } from '~/auth/require-session.decorator'
@@ -43,6 +48,24 @@ export class PlatformController {
     @Body(new ZodValidationPipe(grantRoleSchema)) body: GrantRoleInput,
   ) {
     return this.platform.grant(readCallerId(ctx.userClaims), body)
+  }
+
+  @Get('tenants/:tenantId/job-runs')
+  @RequirePlatformAdmin()
+  @ApiOperation({ summary: 'Ejecuciones del worker para una empresa, por intento' })
+  listJobRuns(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Query('status', new ZodValidationPipe(jobRunStatusSchema.optional())) status?: JobRunStatus,
+  ) {
+    return this.platform.listJobRuns({ client: ctx.supabase, tenantId, status })
+  }
+
+  @Get('errors')
+  @RequirePlatformAdmin()
+  @ApiOperation({ summary: 'Intentos fallidos de todas las empresas' })
+  listErrors(@SupabaseCtx() ctx: SupabaseContext) {
+    return this.platform.listErrors(ctx.supabase)
   }
 
   @Delete('roles/:grantId')
