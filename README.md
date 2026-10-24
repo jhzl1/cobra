@@ -103,10 +103,28 @@ el agente no puede hablar con Meta ni con Wisphub.
 
 ## Desplegar
 
-Dos servicios de Railway sobre el mismo repo, más Supabase:
+Dos servicios de Railway y un proyecto de Vercel sobre el mismo repo, más
+Supabase:
 
-1. **`@cobra/api`** — `pnpm --filter @cobra/api build && node apps/api/dist/main.js`.
-2. **`@cobra/worker`** — `pnpm --filter @cobra/worker build && node apps/worker/dist/main.js`.
+1. **`@cobra/api`** en Railway — `apps/api/railway.json`.
+2. **`@cobra/worker`** en Railway — `apps/worker/railway.json`.
+3. **`@cobra/web`** en Vercel — `apps/web/vercel.json`, con `apps/web` como Root
+   Directory.
+
+En Railway cada servicio deja el Root Directory en la raíz del repo y apunta su
+_Config File_ a la ruta absoluta de su `railway.json`. El build va por `turbo` y
+no por `pnpm --filter`: los paquetes de `packages/*` se importan desde su
+`dist/`, y solo `turbo` los compila antes (`dependsOn: ["^build"]`).
+
+El `rewrite` de `vercel.json` manda toda ruta a `index.html`. Sin él, recargar
+`/platform` o `/settings` da 404: esas rutas existen en el router del panel, no
+como archivos.
+
+Cada environment de Railway sigue una rama (`develop` → desarrollo, `main` →
+producción) con **Wait for CI** activo, para que el deploy espere a
+`migrate-dev.yml` y el código nuevo no arranque contra el esquema viejo.
+`CREDENTIALS_MASTER_KEY` va como _Shared Variable_ del environment: tiene que
+ser idéntica en `api` y en `worker`.
 
 Son dos servicios y no uno porque pg-boss corre mantenimiento por instancia
 (`supervise`, `schedule`, vacuum, reindex). En cada réplica de la API eso se
