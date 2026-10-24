@@ -4,7 +4,7 @@ description: 'Trigger: tabla nueva, columna nueva, política RLS, función SQL, 
 license: Apache-2.0
 metadata:
   author: jhzl
-  version: '1.0'
+  version: '1.1'
   auto_invoke:
     - 'Crear una tabla o cambiar el esquema de la base'
     - 'Agregar una columna a una tabla existente'
@@ -77,6 +77,13 @@ pnpm db:deploy
 pnpm db:types      # regenera packages/db/src/database.types.ts
 pnpm tscheck
 ```
+
+**Desarrollo se migra solo.** Al mergear a `develop` una migración nueva,
+`.github/workflows/migrate-dev.yml` corre `db push` contra el proyecto del
+GitHub Environment `dev`. `pnpm db:deploy` a mano sigue sirviendo para probar
+antes del PR; no hace daño, porque el workflow salta lo que ya está aplicado.
+Producción todavía no tiene workflow: será otro llamador de `migrate.yml` sobre
+`main`.
 
 Mientras no existan tipos generados, el acceso a datos pasa por la interfaz
 `TenantQuery` de `@cobra/data`, que devuelve `Record<string, unknown>`. Cuando
