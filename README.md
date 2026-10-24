@@ -106,15 +106,26 @@ el agente no puede hablar con Meta ni con Wisphub.
 Dos servicios de Railway y un proyecto de Vercel sobre el mismo repo, más
 Supabase:
 
-1. **`@cobra/api`** en Railway — `apps/api/railway.json`.
-2. **`@cobra/worker`** en Railway — `apps/worker/railway.json`.
-3. **`@cobra/web`** en Vercel — `apps/web/vercel.json`, con `apps/web` como Root
+1. **`api`** y **`worker`** en Railway — los dos en `.railway/railway.ts`.
+2. **`@cobra/web`** en Vercel — `apps/web/vercel.json`, con `apps/web` como Root
    Directory.
 
-En Railway cada servicio deja el Root Directory en la raíz del repo y apunta su
-_Config File_ a la ruta absoluta de su `railway.json`. El build va por `turbo` y
-no por `pnpm --filter`: los paquetes de `packages/*` se importan desde su
-`dist/`, y solo `turbo` los compila antes (`dependsOn: ["^build"]`).
+`.railway/railway.ts` no lo lee Railway al desplegar: se aplica a mano contra el
+environment enlazado.
+
+```bash
+railway environment link development
+railway config plan     # muestra qué cambiaría, no toca nada
+railway config apply    # lo aplica después de confirmar
+```
+
+Un cambio en ese archivo que nadie aplica no llega a Railway. Las variables
+también las gestiona el archivo: una que se agregue solo en el dashboard aparece
+como borrado en el siguiente `plan`.
+
+El build va por `turbo` y no por `pnpm --filter`: los paquetes de `packages/*`
+se importan desde su `dist/`, y solo `turbo` los compila antes
+(`dependsOn: ["^build"]`).
 
 El `rewrite` de `vercel.json` manda toda ruta a `index.html`. Sin él, recargar
 `/platform` o `/settings` da 404: esas rutas existen en el router del panel, no
@@ -123,17 +134,20 @@ como archivos.
 Cada environment de Railway sigue una rama (`develop` → desarrollo, `main` →
 producción) con **Wait for CI** activo, para que el deploy espere a
 `migrate-dev.yml` y el código nuevo no arranque contra el esquema viejo.
-`CREDENTIALS_MASTER_KEY` va como _Shared Variable_ del environment: tiene que
-ser idéntica en `api` y en `worker`.
+
+`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `DATABASE_URL` y `CREDENTIALS_MASTER_KEY`
+son _Shared Variables_ del environment (Project Settings → Shared Variables), y
+los dos servicios las referencian: `CREDENTIALS_MASTER_KEY` tiene que ser
+idéntica en `api` y en `worker`. Hay que crearlas antes del primer `apply`.
 
 Son dos servicios y no uno porque pg-boss corre mantenimiento por instancia
 (`supervise`, `schedule`, vacuum, reindex). En cada réplica de la API eso se
 multiplica contra la misma base, así que allá va con `supervise: false`,
 `schedule: false`, `migrate: false`: solo encola.
 
-**El primer deploy falla con `ENETUNREACH`.** La conexión directa de Supabase es
-solo IPv6 y Railway no trae IPv6 saliente por defecto: se activa en
-Settings → Networking → Outbound IPv6 y se redespliega. El pooler no es
+**Sin IPv6 saliente, el primer deploy falla con `ENETUNREACH`.** La conexión
+directa de Supabase es solo IPv6 y Railway lo trae apagado; `railway.ts` lo
+enciende en los dos servicios (`ipv6EgressEnabled`). El pooler no es
 alternativa — en modo transacción desactiva `LISTEN/NOTIFY`, que es de lo que
 vive pg-boss, y en modo sesión limita los clientes al tamaño del pool.
 
