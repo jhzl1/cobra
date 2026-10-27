@@ -44,7 +44,6 @@ export default defineRailway((ctx) => {
    */
   const deployFor = (app: 'api' | 'worker') => ({
     startCommand: `node apps/${app}/dist/main.js`,
-    restartPolicyType: 'ON_FAILURE' as const,
     ipv6EgressEnabled: true,
   })
 
