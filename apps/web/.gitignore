@@ -1,0 +1,3 @@
+# Written by `vercel link`: the project link and the OIDC token it pulls.
+.vercel
+.env*.local
