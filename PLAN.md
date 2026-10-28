@@ -372,17 +372,17 @@ después.
 Las 4 tools de negocio son los subflujos de n8n convertidos en servicios. Las reglas de negocio
 están extraídas literales en el spec y hay que preservarlas al pie de la letra:
 
-- **`LookupCustomer(documento)`** → `GET /api/clientes?cedula=` y `GET /api/clientes/{id}/saldo`.
+- **`LookupCustomer(document)`** → `GET /api/clientes?cedula=` y `GET /api/clientes/{id}/saldo`.
   Devuelve `totalDebt` formateado en pesos colombianos (para mostrarle al cliente) y `totalDebtRaw`
   numérico (para comparar). El formato `es-CO`/`COP`/`maximumFractionDigits: 0` se conserva exacto
   porque va literal dentro de mensajes de rechazo.
-- **`RegisterPayment(documentos, monto, reference, fecha_pago, forma_pago)`** →
+- **`RegisterPayment(documents, amount, reference, paymentMethodId)`** →
   `POST /api/facturas/{id}/registrar-pago/`, **una llamada por factura, por su monto exacto**.
   El excedente nunca se mete dentro del cobro de la última factura: Wisphub solo lo convierte en
   saldo a favor cuando hay una sola factura, y con varias lo pierde sin dar error. Hay un incidente
   real documentado en el código (ejecución 7030, $45.000 perdidos). El excedente se abona aparte
   con `PUT /api/clientes/{id}/perfil/`.
-- **`ApplyCredit(documento, abono, ...)`** → `PUT /api/clientes/{id}/perfil/`. En Wisphub el
+- **`ApplyCredit(document, amount, reference, paymentMethodId)`** → `PUT /api/clientes/{id}/perfil/`. En Wisphub el
   `saldo` negativo es plata a favor del cliente: `nuevo = actual - abono`, enviado como string con
   dos decimales.
 - **`CheckPendingReceipt()`** → solo lee la base. Ventana de vigencia de 24 horas, solo el
@@ -394,7 +394,7 @@ Respetar la inconsistencia de las barras finales de Wisphub: `/saldo` sin barra,
 `fecha_pago` que va a Wisphub es `now()` en `America/Bogota` con formato `YYYY-MM-DD HH:mm`,
 **no** la fecha del comprobante. La del comprobante se guarda en `paid_at`.
 
-Las dos tools de notificación al administrador —una para texto y otra para imagen— pasan a
+Las dos tools de notificación al administrador de n8n —una para texto y otra para imagen— quedan en una sola, `NotifyAdmin(message, attachImage)`, y pasan a
 escribir en el panel **y** mandar el WhatsApp al `admin_phone` del tenant. El teléfono del
 administrador escrito a mano en 4 nodos desaparece.
 
