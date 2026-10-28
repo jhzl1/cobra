@@ -20,6 +20,12 @@ import { SupabaseService } from '~/supabase/supabase.service'
 
 const SIGNED_URL_TTL_SECONDS = 600
 
+export const SUSPENDED_MESSAGE =
+  'El agente de esta empresa está apagado y no sale ningún mensaje hacia WhatsApp. Para escribir, hay que encenderlo desde la página de la empresa en la plataforma.'
+
+export const DRY_RUN_MESSAGE =
+  'Esta empresa está en modo de prueba: los mensajes no salen hacia WhatsApp. Para escribir, hay que desactivar el modo de prueba desde la página de la empresa en la plataforma.'
+
 export const READ_ONLY_MESSAGE =
   'Solo un miembro de la empresa puede responder o tomar el control. Desde la plataforma las conversaciones se leen, no se responden.'
 
@@ -115,11 +121,12 @@ export class ConversationsService {
   /**
    * The operator's reply.
    *
-   * Two checks before anything is written, and both answer 409 rather than
-   * failing silently: the conversation has to be in `human`, and Meta's 24-hour
-   * service window has to be open. Outside it a free-form message is rejected
-   * with error 131047 — the operator would see their message on screen and the
-   * customer would never receive it.
+   * Every check answers 409 rather than failing silently. The company has to be
+   * live: suspended or in dry-run, the send job would drop the message and the
+   * operator would believe the customer got it. The conversation has to be in
+   * `human`, and Meta's 24-hour service window has to be open. Outside it a
+   * free-form message is rejected with error 131047 — the operator would see
+   * their message on screen and the customer would never receive it.
    */
   async sendFromOperator({
     client,
@@ -135,6 +142,7 @@ export class ConversationsService {
     const conversation = await this.findConversationOrThrow(client, conversationId)
 
     await this.assertMember(client, conversation.tenant_id)
+    await this.assertTenantIsLive(client, conversation.tenant_id)
 
     if (conversation.status !== 'human') {
       throw new ConflictException('Toma el control de la conversación antes de escribir')
@@ -341,6 +349,18 @@ export class ConversationsService {
 
     if (error) throw this.toHttpError(error)
     if (data !== true) throw new ForbiddenException(READ_ONLY_MESSAGE)
+  }
+
+  private async assertTenantIsLive(client: SupabaseClient, tenantId: string): Promise<void> {
+    const { data, error } = await client
+      .from('tenants')
+      .select('status, dry_run')
+      .eq('id', tenantId)
+      .single()
+
+    if (error) throw this.toHttpError(error)
+    if (data.status === 'suspended') throw new ConflictException(SUSPENDED_MESSAGE)
+    if (data.dry_run === true) throw new ConflictException(DRY_RUN_MESSAGE)
   }
 
   private toHttpError(error: PostgrestError): Error {

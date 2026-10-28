@@ -1,14 +1,19 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import type { LanguageModel } from 'ai'
-import { type TenantConfig, WisphubClient, createModels } from '@cobra/agent'
+import {
+  type TenantConfig,
+  WisphubClient,
+  type WisphubPort,
+  createModels,
+} from '@cobra/agent'
 import {
   CredentialsCrypto,
   type TenantRuntimeConfig,
   loadTenantRuntimeConfig,
   requireCredential,
 } from '@cobra/data'
-import { MetaClient } from '../meta/meta.client.js'
+import { DualhookClient } from '../whatsapp/dualhook.client.js'
 import { SupabaseService } from './supabase.service.js'
 
 export interface TenantRuntime {
@@ -16,8 +21,10 @@ export interface TenantRuntime {
   agentConfig: TenantConfig
   /** The whole decrypted tenant row: credentials, status, phone number id. */
   runtimeConfig: TenantRuntimeConfig
-  meta: MetaClient
-  wisphub: WisphubClient
+  /** WhatsApp: sending, read receipts and media, through Dualhook. */
+  whatsapp: DualhookClient
+  /** Simulates its writes while the company is in dry-run. */
+  wisphub: WisphubPort
   models: { agent: LanguageModel; vision: LanguageModel }
 }
 
@@ -45,7 +52,7 @@ export class TenantRuntimeService {
       tenantId,
     )
 
-    const meta = requireCredential(runtimeConfig, 'meta')
+    const dualhook = requireCredential(runtimeConfig, 'dualhook')
     const openrouter = requireCredential(runtimeConfig, 'openrouter')
     const wisphub = requireCredential(runtimeConfig, 'wisphub')
 
@@ -61,11 +68,11 @@ export class TenantRuntimeService {
         supportPhone: runtimeConfig.supportPhone,
         adminPhone: runtimeConfig.adminPhone,
       },
-      meta: new MetaClient({
-        accessToken: meta.secret,
+      whatsapp: new DualhookClient({
+        apiKey: dualhook.secret,
         phoneNumberId: runtimeConfig.phoneNumberId,
       }),
-      wisphub: new WisphubClient({ apiKey: wisphub.secret }),
+      wisphub: new WisphubClient({ apiKey: wisphub.secret, dryRun: runtimeConfig.dryRun }),
       models: createModels(openrouter.secret),
     }
   }

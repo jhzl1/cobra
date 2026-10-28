@@ -43,6 +43,17 @@ export const updateTenantStatusSchema = z.object({ status: tenantStatusSchema })
 
 export type UpdateTenantStatusInput = z.infer<typeof updateTenantStatusSchema>
 
+/**
+ * Dry-run is the platform's call for the same reason suspension is: a member who
+ * could switch it off would decide on their own when the agent starts writing to
+ * customers and registering payments in Wisphub.
+ */
+export const updateTenantDryRunSchema = z.object({
+  dryRun: z.boolean({ error: 'Indica si la empresa queda en modo de prueba' }),
+})
+
+export type UpdateTenantDryRunInput = z.infer<typeof updateTenantDryRunSchema>
+
 export const tenantMemberSchema = z.object({
   userId: z.uuid(),
   /** Null when the account was removed from auth but the membership row stayed. */
@@ -58,14 +69,13 @@ export type UpdateTenantInput = z.infer<typeof updateTenantSchema>
  * Loading a credential. The plaintext travels once, over TLS, and is encrypted
  * before it reaches Postgres; what comes back is `last4`.
  *
- * `extra` is where Meta's non-secret companions live — `wabaId`, and the
- * `appSecret` that verifies `X-Hub-Signature-256`. It is encrypted with the
- * secret, in the same envelope.
+ * One secret per provider and nothing beside it. The Meta app secret that used
+ * to ride along is gone: through Dualhook, Meta signs the webhook with
+ * Dualhook's app secret, which no tenant has.
  */
 export const saveCredentialSchema = z.object({
   provider: credentialProviderSchema,
   secret: z.string().min(8, 'La credencial es muy corta. Revisa que la hayas copiado completa'),
-  extra: z.record(z.string(), z.string()).optional(),
 })
 
 export type SaveCredentialInput = z.infer<typeof saveCredentialSchema>
@@ -81,7 +91,7 @@ export type CredentialSummary = z.infer<typeof credentialSummarySchema>
 export const registerWhatsappNumberSchema = z.object({
   phoneNumberId: z
     .string()
-    .min(5, 'El identificador del número es muy corto. Cópialo de la app de Meta'),
+    .min(5, 'El identificador del número es muy corto. Cópialo del panel de Dualhook'),
   displayNumber: phoneSchema,
 })
 
@@ -92,11 +102,10 @@ export const whatsappNumberSchema = z.object({
   id: z.string(),
   phoneNumberId: z.string(),
   displayNumber: z.string(),
-  verifyToken: z.string(),
   /**
-   * The complete URL to paste into Meta. Built by the API and not in the panel:
-   * the panel knows the address it calls, which behind a tunnel is not the one
-   * Meta has to reach.
+   * The complete URL n8n forwards this number's events to. Built by the API and
+   * not in the panel: the panel knows the address it calls, which behind a
+   * tunnel is not the one n8n has to reach.
    */
   webhookUrl: z.string(),
   /** Set once the number is out of service. Its history stays. */
@@ -150,9 +159,13 @@ export const tenantSetupSchema = z.object({
   /** Every step done and the company active. */
   isReady: z.boolean(),
   status: tenantStatusSchema,
-  /** What to paste into Meta. Null until a number is registered. */
+  /**
+   * Nothing leaves towards the customer, the administrator or Wisphub. Not part
+   * of `isReady`: a company in dry-run is set up, it is just not live yet.
+   */
+  dryRun: z.boolean(),
+  /** Where n8n forwards the events. Null until a number is registered. */
   webhookUrl: z.string().nullable(),
-  verifyToken: z.string().nullable(),
 })
 
 export type TenantSetup = z.infer<typeof tenantSetupSchema>

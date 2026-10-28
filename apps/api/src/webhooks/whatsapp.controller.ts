@@ -1,32 +1,23 @@
-import {
-  Body,
-  Controller,
-  ForbiddenException,
-  Get,
-  Headers,
-  Param,
-  Post,
-  Query,
-  Req,
-} from '@nestjs/common'
+import { Body, Controller, Param, Post } from '@nestjs/common'
 import { ApiExcludeController } from '@nestjs/swagger'
-import type { Request } from 'express'
 import { metaWebhookSchema } from '@cobra/contracts'
 import { PublicRoute } from '~/auth/public-route.decorator'
-import { RawResponse } from '~/common/decorators/raw-response.decorator'
 import { WhatsappService } from './whatsapp.service'
-
-interface RawBodyRequest extends Request {
-  rawBody?: Buffer
-}
 
 /**
  * One route per tenant, not a single endpoint.
  *
- * `/wh/wa/:tenantSlug/:webhookToken` — the reasons are in `resolveRoute`, and
- * they are the two that decide the shape of this whole controller: Meta's GET
- * handshake carries no phone_number_id, and resolving a tenant from an
- * unauthenticated body lets anyone inject messages into any client's chat.
+ * `/wh/wa/:tenantSlug/:webhookToken` — Dualhook's Webhook Override makes Meta
+ * deliver to a self-hosted n8n, which forwards the identical body here. Meta's
+ * GET handshake is answered by n8n, so this route only takes the POST.
+ *
+ * ACCEPTED RISK (user, 2026-10-27): nothing authenticates the caller beyond the
+ * opaque token in the path. Meta signs with Dualhook's app secret, which we do
+ * not have, so `X-Hub-Signature-256` cannot be verified, and n8n adds nothing
+ * of its own. Anyone who knows a tenant's URL and its phone_number_id can inject
+ * events — and the agent registers payments off them. The fix is a shared
+ * secret header between the forwarder and this route, once n8n is retired or
+ * before production, whichever comes first.
  *
  * Excluded from the docs on purpose: it is Meta's contract, not ours, and its
  * URL carries a secret.
@@ -37,29 +28,6 @@ export class WhatsappController {
   constructor(private readonly whatsapp: WhatsappService) {}
 
   /**
-   * The handshake Meta performs when the webhook URL is saved. It answers the
-   * challenge as plain text — a JSON envelope here fails the verification.
-   */
-  @Get(':tenantSlug/:webhookToken')
-  @PublicRoute()
-  @RawResponse()
-  async verify(
-    @Param('tenantSlug') tenantSlug: string,
-    @Param('webhookToken') webhookToken: string,
-    @Query('hub.mode') mode: string,
-    @Query('hub.verify_token') verifyToken: string,
-    @Query('hub.challenge') challenge: string,
-  ): Promise<string> {
-    const route = await this.whatsapp.resolveRoute(tenantSlug, webhookToken)
-
-    if (mode !== 'subscribe' || verifyToken !== route.verifyToken) {
-      throw new ForbiddenException()
-    }
-
-    return challenge
-  }
-
-  /**
    * Persist, then answer. Meta retries anything that is not a 200 with backoff
    * for up to seven days, so the 200 has to mean "stored", not "received".
    */
@@ -68,15 +36,9 @@ export class WhatsappController {
   async receive(
     @Param('tenantSlug') tenantSlug: string,
     @Param('webhookToken') webhookToken: string,
-    @Headers('x-hub-signature-256') signature: string | undefined,
-    @Req() request: RawBodyRequest,
     @Body() body: unknown,
   ): Promise<{ received: true }> {
     const route = await this.whatsapp.resolveRoute(tenantSlug, webhookToken)
-
-    // Over the exact bytes Meta sent. Re-serialising the parsed object breaks
-    // the signature for every message with an accent.
-    this.whatsapp.assertSignature(route, request.rawBody ?? Buffer.alloc(0), signature)
 
     const parsed = metaWebhookSchema.safeParse(body)
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import type { NotifyTenantAdminPayload } from '@cobra/contracts'
-import { errorMessageOf } from '../runtime/tenant-admin-alert.service.js'
+import { errorMessageOf, headlineOf } from '../runtime/tenant-admin-alert.service.js'
 import { TenantRuntimeService } from '../runtime/tenant-runtime.service.js'
 
 /**
@@ -20,14 +20,24 @@ export class NotifyTenantAdminJobHandler {
     try {
       const runtime = await this.tenantRuntimes.load(payload.tenantId)
 
+      // Checked at send and not at enqueue: the company can leave or enter
+      // dry-run while the alert waits in the queue.
+      if (runtime.runtimeConfig.dryRun) {
+        this.logger.log(
+          `Dry-run: alert to the administrator of ${payload.tenantId} not sent — ${headlineOf(payload.text, payload.mediaId)}`,
+        )
+
+        return { sent: false }
+      }
+
       if (payload.mediaId) {
-        await runtime.meta.sendImage(
+        await runtime.whatsapp.sendImage(
           runtime.runtimeConfig.adminPhone,
           payload.mediaId,
           payload.text,
         )
       } else {
-        await runtime.meta.sendText(runtime.runtimeConfig.adminPhone, payload.text)
+        await runtime.whatsapp.sendText(runtime.runtimeConfig.adminPhone, payload.text)
       }
 
       return { sent: true }

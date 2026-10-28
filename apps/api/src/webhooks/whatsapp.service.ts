@@ -6,18 +6,14 @@ import {
   readContactPersonId,
   readMessagePersonId,
 } from '@cobra/contracts'
-import { CredentialsCryptoService } from '~/crypto/credentials-crypto.service'
 import { QueueService } from '~/queue/queue.service'
 import { SupabaseService } from '~/supabase/supabase.service'
 import { isFresh, isSupportedType } from './inbound-filters'
-import { verifyMetaSignature } from './signature'
 
 export interface WebhookRoute {
   tenantId: string
   whatsappNumberId: string
   phoneNumberId: string
-  verifyToken: string
-  appSecret: string | null
   /** A suspended company's events are acknowledged and dropped. */
   isTenantSuspended: boolean
 }
@@ -31,7 +27,6 @@ export class WhatsappService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly queue: QueueService,
-    private readonly crypto: CredentialsCryptoService,
   ) {}
 
   /**
@@ -40,17 +35,14 @@ export class WhatsappService {
    * Resolving it from `metadata.phone_number_id` in an unauthenticated body
    * would mean that anyone who guesses a phone_number_id injects messages into
    * any client's conversation — and the agent registers payments in Wisphub off
-   * those messages. The opaque token in the path closes that; the body is then
-   * cross-checked against it.
-   *
-   * It is also what makes the GET handshake possible at all: Meta sends
-   * `hub.verify_token` with no phone_number_id, so with a single URL there
-   * would be no way to know which token to compare against.
+   * those messages. With no signature to verify (Meta signs with Dualhook's app
+   * secret), the opaque token in the path is the only thing that closes that;
+   * the body is then cross-checked against it.
    */
   async resolveRoute(slug: string, webhookToken: string): Promise<WebhookRoute> {
     const { data, error } = await this.supabase.unscoped
       .from('whatsapp_numbers')
-      .select('id, tenant_id, phone_number_id, verify_token, tenants!inner (slug, status)')
+      .select('id, tenant_id, phone_number_id, tenants!inner (slug, status)')
       .eq('webhook_token', webhookToken)
       .is('valid_to', null)
       .maybeSingle()
@@ -73,39 +65,7 @@ export class WhatsappService {
       tenantId: data.tenant_id as string,
       whatsappNumberId: data.id as string,
       phoneNumberId: data.phone_number_id as string,
-      verifyToken: data.verify_token as string,
-      appSecret: await this.readAppSecret(data.tenant_id as string),
       isTenantSuspended: tenant?.status === 'suspended',
-    }
-  }
-
-  /**
-   * The signature check.
-   *
-   * When the tenant has loaded their app secret this is mandatory. When they
-   * have not, the request is accepted on the strength of the path token alone
-   * and the fact is logged — a deliberate, visible decision rather than a
-   * silent one.
-   */
-  assertSignature(route: WebhookRoute, rawBody: Buffer, header: string | undefined): void {
-    if (!route.appSecret) {
-      this.logger.warn(
-        `Tenant ${route.tenantId} has no Meta app secret loaded: the webhook is authenticated by its path token only`,
-      )
-      return
-    }
-
-    if (!verifyMetaSignature(rawBody, header, route.appSecret)) {
-      // The 403 alone says nothing, and the two causes need different fixes: an
-      // empty body means the raw buffer never arrived, a full one means the app
-      // secret does not belong to the app that signed. Neither the secret nor
-      // the body is logged.
-      this.logger.warn(
-        `Signature mismatch for tenant ${route.tenantId}: ${rawBody.length} bytes of body, ` +
-          `header ${header ? 'present' : 'absent'}`,
-      )
-
-      throw new ForbiddenException()
     }
   }
 
@@ -356,23 +316,5 @@ export class WhatsappService {
     }
 
     return created.data.id as string
-  }
-
-  private async readAppSecret(tenantId: string): Promise<string | null> {
-    const { data } = await this.supabase.unscoped
-      .from('tenant_credentials')
-      .select('ciphertext')
-      .eq('tenant_id', tenantId)
-      .eq('provider', 'meta')
-      .maybeSingle()
-
-    if (!data) return null
-
-    try {
-      return this.crypto.decrypt(data.ciphertext as string).extra?.['appSecret'] ?? null
-    } catch {
-      this.logger.error(`Could not decrypt the Meta credential of tenant ${tenantId}`)
-      return null
-    }
   }
 }

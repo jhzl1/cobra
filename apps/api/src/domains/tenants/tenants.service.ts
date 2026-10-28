@@ -10,6 +10,7 @@ import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import { randomBytes } from 'node:crypto'
 import type {
   CreateTenantInput,
+  CredentialProvider,
   CredentialSummary,
   PaymentMethodInput,
   RegisterWhatsappNumberInput,
@@ -39,16 +40,16 @@ const WISPHUB_MAX_PAGES = 20
 const WISPHUB_TIMEOUT_MS = 15_000
 
 /** Without all three the agent cannot read, think or register a payment. */
-const REQUIRED_PROVIDERS = ['meta', 'openrouter', 'wisphub'] as const
+const REQUIRED_PROVIDERS = ['dualhook', 'openrouter', 'wisphub'] as const
 
 const PROVIDER_LABEL: Record<(typeof REQUIRED_PROVIDERS)[number], string> = {
-  meta: 'WhatsApp Cloud API',
+  dualhook: 'Dualhook',
   openrouter: 'OpenRouter',
   wisphub: 'Wisphub',
 }
 
 const TENANT_COLUMNS =
-  'id, slug, company_name, support_phone, admin_phone, status, tenant_members(count)'
+  'id, slug, company_name, support_phone, admin_phone, status, dry_run, tenant_members(count)'
 
 export interface Tenant {
   id: string
@@ -57,6 +58,8 @@ export interface Tenant {
   supportPhone: string
   adminPhone: string
   status: TenantStatus
+  /** Nothing leaves towards the customer, the administrator or Wisphub. */
+  dryRun: boolean
   /** How many people belong to it. Zero means it is unreachable to everyone. */
   memberCount: number
 }
@@ -85,6 +88,22 @@ export class TenantsService {
     if (error) throw this.toHttpError(error)
 
     return data.map(toTenant)
+  }
+
+  /**
+   * One company, through the caller's client: RLS answers "not found" for a
+   * company the caller does not reach, so there is no membership check to write.
+   */
+  async findOne(client: SupabaseClient, tenantId: string): Promise<Tenant> {
+    const { data, error } = await client
+      .from('tenants')
+      .select(TENANT_COLUMNS)
+      .eq('id', tenantId)
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    return toTenant(data)
   }
 
   /**
@@ -126,6 +145,26 @@ export class TenantsService {
     const { data, error } = await this.supabase.unscoped
       .from('tenants')
       .update({ status })
+      .eq('id', tenantId)
+      .select(TENANT_COLUMNS)
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    return toTenant(data)
+  }
+
+  /**
+   * Dry-run keeps everything the agent does inside Cobra: replies are stored and
+   * not sent, Wisphub writes are simulated, the administrator is not notified.
+   *
+   * The worker reads it at the moment of each send and each turn, so switching
+   * it takes effect on whatever is already queued.
+   */
+  async setDryRun(tenantId: string, dryRun: boolean): Promise<Tenant> {
+    const { data, error } = await this.supabase.unscoped
+      .from('tenants')
+      .update({ dry_run: dryRun })
       .eq('id', tenantId)
       .select(TENANT_COLUMNS)
       .single()
@@ -210,7 +249,7 @@ export class TenantsService {
   ): Promise<CredentialSummary> {
     await this.assertMembership(userId, tenantId)
 
-    const { ciphertext, last4 } = this.crypto.encrypt({ secret: input.secret, extra: input.extra })
+    const { ciphertext, last4 } = this.crypto.encrypt({ secret: input.secret })
 
     const { data, error } = await this.supabase.unscoped
       .from('tenant_credentials')
@@ -239,7 +278,7 @@ export class TenantsService {
   ): Promise<WhatsappNumber[]> {
     const { data, error } = await client
       .from('whatsapp_numbers')
-      .select('id, phone_number_id, display_number, verify_token, webhook_token, valid_to')
+      .select('id, phone_number_id, display_number, webhook_token, valid_to')
       .eq('tenant_id', tenantId)
       .order('valid_from', { ascending: false })
 
@@ -251,19 +290,18 @@ export class TenantsService {
       id: row.id,
       phoneNumberId: row.phone_number_id,
       displayNumber: row.display_number,
-      verifyToken: row.verify_token,
       webhookUrl: `${publicUrl}/wh/wa/${tenant?.slug ?? ''}/${row.webhook_token}`,
       validTo: row.valid_to,
     }))
   }
 
   /**
-   * Registers a number and mints its two tokens.
+   * Registers a number and mints its webhook token.
    *
-   * `verify_token` is what Meta echoes in the GET handshake; `webhook_token` is
-   * the opaque segment of the URL and is what authenticates an inbound POST
-   * when a signature is unavailable. Both are generated here — never chosen by
-   * the client — because their entropy is the whole protection.
+   * `webhook_token` is the opaque segment of the URL n8n forwards to, and the
+   * only thing that authenticates an inbound POST: through Dualhook, Meta signs
+   * with an app secret we do not have. It is generated here — never chosen by
+   * the client — because its entropy is the whole protection.
    */
   async registerWhatsappNumber({
     userId,
@@ -284,10 +322,9 @@ export class TenantsService {
         tenant_id: tenantId,
         phone_number_id: input.phoneNumberId,
         display_number: input.displayNumber,
-        verify_token: randomBytes(24).toString('base64url'),
         webhook_token: randomBytes(32).toString('base64url'),
       })
-      .select('id, phone_number_id, display_number, verify_token, webhook_token, valid_to')
+      .select('id, phone_number_id, display_number, webhook_token, valid_to')
       .single()
 
     if (error) {
@@ -314,7 +351,6 @@ export class TenantsService {
       id: data.id,
       phoneNumberId: data.phone_number_id,
       displayNumber: data.display_number,
-      verifyToken: data.verify_token,
       webhookUrl: `${publicUrl}/wh/wa/${tenant?.slug ?? ''}/${data.webhook_token}`,
       validTo: data.valid_to,
     }
@@ -328,21 +364,26 @@ export class TenantsService {
    * nothing from doing it here — the caller's access is checked before this.
    *
    * The webhook step is the only one nobody can complete from the panel: it is
-   * done in Meta's dashboard, so the signal is the only honest one there is,
-   * that something actually arrived through it.
+   * done in n8n, whose forward node has to point at this company's URL, so the
+   * signal is the only honest one there is, that something actually arrived
+   * through it.
    */
   async getSetupStatus(userId: string, tenantId: string, publicUrl: string): Promise<TenantSetup> {
     await this.assertMembership(userId, tenantId)
 
     const [tenant, credentials, numbers, methods, inbound] = await Promise.all([
-      this.supabase.unscoped.from('tenants').select('slug, status').eq('id', tenantId).single(),
+      this.supabase.unscoped
+        .from('tenants')
+        .select('slug, status, dry_run')
+        .eq('id', tenantId)
+        .single(),
       this.supabase.unscoped
         .from('tenant_credentials')
         .select('provider')
         .eq('tenant_id', tenantId),
       this.supabase.unscoped
         .from('whatsapp_numbers')
-        .select('verify_token, webhook_token')
+        .select('webhook_token')
         .eq('tenant_id', tenantId)
         .is('valid_to', null)
         .order('valid_from', { ascending: false })
@@ -398,9 +439,9 @@ export class TenantsService {
     return {
       steps,
       status: tenant.data.status as TenantStatus,
+      dryRun: tenant.data.dry_run as boolean,
       isReady: steps.every((step) => step.isDone) && tenant.data.status === 'active',
       webhookUrl: number ? `${publicUrl}/wh/wa/${slug}/${number.webhook_token}` : null,
-      verifyToken: (number?.verify_token as string | undefined) ?? null,
     }
   }
 
@@ -577,7 +618,7 @@ export class TenantsService {
           support_phone: input.supportPhone,
           admin_phone: input.adminPhone,
         })
-        .select('id, slug, company_name, support_phone, admin_phone, status')
+        .select('id, slug, company_name, support_phone, admin_phone, status, dry_run')
         .single()
 
       if (!error) return data
@@ -590,7 +631,7 @@ export class TenantsService {
   /** The decrypted secret of one provider. It exists in this process and nowhere else. */
   private async readCredentialSecret(
     tenantId: string,
-    provider: 'meta' | 'openrouter' | 'wisphub',
+    provider: CredentialProvider,
   ): Promise<string | null> {
     const { data } = await this.supabase.unscoped
       .from('tenant_credentials')
@@ -679,6 +720,7 @@ const toTenant = (row: Record<string, unknown>): Tenant => ({
   supportPhone: row['support_phone'] as string,
   adminPhone: row['admin_phone'] as string,
   status: row['status'] as TenantStatus,
+  dryRun: row['dry_run'] as boolean,
   // Supabase returns an aggregate relation as an array with one row.
   memberCount: (row['tenant_members'] as Array<{ count: number }> | undefined)?.[0]?.count ?? 0,
 })
