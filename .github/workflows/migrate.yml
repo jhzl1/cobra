@@ -1,8 +1,8 @@
 name: Migrate
 
-# The shared job. migrate-dev.yml is a thin caller that only picks which GitHub
-# Environment supplies the project and its credentials, so production becomes a
-# second caller on main instead of a copy of this file.
+# Called by deploy.yml before anything ships, with the GitHub Environment
+# (`dev` or `production`) that supplies the project and its credentials. A
+# failure here stops that deploy.
 #
 # It applies what the remote `supabase_migrations.schema_migrations` does not
 # already record. A migration that is already there is skipped whatever its file

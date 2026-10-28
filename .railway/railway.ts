@@ -1,4 +1,4 @@
-import { defineRailway, github, preserve, project, service } from 'railway/iac'
+import { defineRailway, empty, preserve, project, service } from 'railway/iac'
 
 /**
  * The Railway project, applied with `railway config plan` and `railway config
@@ -8,17 +8,14 @@ import { defineRailway, github, preserve, project, service } from 'railway/iac'
  * It replaces the per-service railway.json files, which Railway deprecated and
  * stopped accepting for services created after 2026-08-28.
  */
-export default defineRailway((ctx) => {
-  const isProduction = ctx.environment === 'production'
-
+export default defineRailway(() => {
   /**
-   * `checkSuites` is Wait for CI: the deploy waits for migrate-dev.yml, so new
-   * code never boots against the schema it expects before the migration lands.
+   * No repository: .github/workflows/deploy.yml uploads each build with
+   * `railway up` after the migrations it needs. A GitHub source would deploy the
+   * same push a second time on its own, before the migration and with whatever
+   * variables Railway held, and under no version.
    */
-  const source = github('jhzl1/cobra', {
-    branch: isProduction ? 'main' : 'develop',
-    checkSuites: true,
-  })
+  const source = empty()
 
   /**
    * Builds through turbo and not `pnpm --filter`: packages/* are imported from
@@ -27,13 +24,6 @@ export default defineRailway((ctx) => {
   const buildFor = (app: 'api' | 'worker') => ({
     builder: 'RAILPACK' as const,
     buildCommand: `pnpm turbo run build --filter=@cobra/${app}`,
-    watchPatterns: [
-      `/apps/${app}/**`,
-      '/packages/**',
-      '/package.json',
-      '/pnpm-lock.yaml',
-      '/turbo.json',
-    ],
   })
 
   /**
@@ -48,38 +38,54 @@ export default defineRailway((ctx) => {
   })
 
   /**
-   * Shared variables, defined once per environment in Railway, because api and
-   * worker must read the same values: a CREDENTIALS_MASTER_KEY that differs
-   * between them makes every stored credential unreadable to one of the two.
+   * Every value comes from the GitHub Environment: deploy.yml writes it before
+   * each `railway up` (.github/scripts/sync-railway-variables.sh holds the
+   * lists). `preserve()` declares the names so `apply` neither deletes them nor
+   * writes a value of its own over the one GitHub set.
    */
-  const sharedEnv = {
-    NODE_ENV: 'production',
-    SUPABASE_URL: ctx.shared.SUPABASE_URL,
-    SUPABASE_SECRET_KEY: ctx.shared.SUPABASE_SECRET_KEY,
-    DATABASE_URL: ctx.shared.DATABASE_URL,
-    CREDENTIALS_MASTER_KEY: ctx.shared.CREDENTIALS_MASTER_KEY,
+  const fromGitHub = (names: string[]) => {
+    const variables: Record<string, ReturnType<typeof preserve>> = {}
+    for (const name of names) variables[name] = preserve()
+    return variables
   }
+
+  /**
+   * Both services read these from the same GitHub secret, which is what keeps
+   * CREDENTIALS_MASTER_KEY identical: if it differed, every stored credential
+   * would be unreadable to one of the two.
+   */
+  const commonNames = [
+    'NODE_ENV',
+    'APP_VERSION',
+    'SUPABASE_URL',
+    'SUPABASE_SECRET_KEY',
+    'DATABASE_URL',
+    'CREDENTIALS_MASTER_KEY',
+  ]
+
+  const apiEnv = fromGitHub([
+    ...commonNames,
+    'PUBLIC_URL',
+    'CORS_ORIGINS',
+    'SUPABASE_PUBLISHABLE_KEY',
+    'SUPABASE_JWKS_URL',
+  ])
 
   const api = service('api', {
     source,
     build: buildFor('api'),
     deploy: { ...deployFor('api'), healthcheckPath: '/api/health' },
-    env: {
-      ...sharedEnv,
-      // Set in Railway: they depend on the domains each environment was given.
-      PUBLIC_URL: preserve(),
-      CORS_ORIGINS: preserve(),
-      SUPABASE_PUBLISHABLE_KEY: preserve(),
-      SUPABASE_JWKS_URL: preserve(),
-    },
+    env: apiEnv,
   })
+
+  const workerEnv = fromGitHub([...commonNames, 'TURN_CONCURRENCY'])
 
   // No healthcheck: the worker is a standalone context with no HTTP port.
   const worker = service('worker', {
     source,
     build: buildFor('worker'),
     deploy: deployFor('worker'),
-    env: sharedEnv,
+    env: workerEnv,
   })
 
   return project('cobra', { resources: [api, worker] })
