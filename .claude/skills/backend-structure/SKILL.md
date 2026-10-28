@@ -66,7 +66,7 @@ razón.
 ```
 apps/api/src/
 ├── domains/{nombre}/    módulo que responde HTTP: controller, service, module
-├── webhooks/            lo que entra de Meta
+├── webhooks/            lo que reenvía n8n desde Dualhook
 ├── auth/ common/ config/ docs/ crypto/ queue/ supabase/   plomería
 └── main.ts app.module.ts
 
@@ -74,7 +74,7 @@ apps/worker/src/
 ├── jobs/                un archivo por cola
 ├── repositories/        acceso a datos, siempre con tenantId
 ├── runtime/             lo que arma un cliente para actuar por un tenant
-├── meta/                el cliente de WhatsApp Cloud API
+├── whatsapp/            el cliente de la Runtime API de Dualhook
 └── boss/                creación de colas y registro de workers
 ```
 
