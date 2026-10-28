@@ -1,16 +1,16 @@
-import type { WisphubCustomer, WisphubPort } from './types'
+import type { WisphubCustomer, WisphubPort } from '../types'
 
 export interface ApplyCreditInput {
-  documento: string
-  abono: number
+  document: string
+  amount: number
   reference: string
-  forma_pago: string
+  paymentMethodId: string
 }
 
 export interface ApplyCreditResult {
   success: boolean
   message: string
-  saldo_a_favor?: string
+  creditBalance?: string
   adminMessage?: string
 }
 
@@ -27,7 +27,7 @@ export type CreditPlan =
  * the worst possible outcome for someone who just paid.
  */
 export const planCredit = (input: ApplyCreditInput, customer: WisphubCustomer): CreditPlan => {
-  const amount = Number(input.abono) || 0
+  const amount = Number(input.amount) || 0
 
   if (amount <= 0) {
     return { decision: 'reject', message: 'El abono debe ser mayor a 0. No se registro nada.' }
@@ -38,7 +38,7 @@ export const planCredit = (input: ApplyCreditInput, customer: WisphubCustomer): 
       decision: 'reject',
       message:
         customer.message ??
-        `No existe ningun cliente registrado con el documento ${input.documento}.`,
+        `No existe ningun cliente registrado con el documento ${input.document}.`,
     }
   }
 
@@ -65,14 +65,14 @@ export const applyCredit = async (
   input: ApplyCreditInput,
   deps: { wisphub: WisphubPort },
 ): Promise<ApplyCreditResult> => {
-  const customer = await deps.wisphub.lookupCustomer(input.documento)
+  const customer = await deps.wisphub.lookupCustomer(input.document)
   const plan = planCredit(input, customer)
 
   if (plan.decision === 'reject') {
     return { success: false, message: plan.message }
   }
 
-  const amount = Number(input.abono) || 0
+  const amount = Number(input.amount) || 0
   const profile = await deps.wisphub.getProfile(plan.serviceId)
   const current = Number.parseFloat(String(profile.saldo ?? '0')) || 0
   const next = current - amount
@@ -83,11 +83,11 @@ export const applyCredit = async (
   return {
     success: true,
     message: 'Abono aplicado como saldo a favor y voucher guardado',
-    saldo_a_favor: creditBalance,
+    creditBalance,
     adminMessage: [
       'Pago SIN factura pendiente (abonado a saldo a favor)',
       `Cliente: ${plan.customerName || 'desconocido'}`,
-      `Documento: ${input.documento}`,
+      `Documento: ${input.document}`,
       `Monto abonado: $${amount}`,
       `Referencia: ${input.reference}`,
       `Nuevo saldo a favor: $${creditBalance}`,

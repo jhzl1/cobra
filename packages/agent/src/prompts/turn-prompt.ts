@@ -58,7 +58,7 @@ export const buildTurnPrompt = ({
       'COMPROBANTE: HAY uno pendiente sin registrar (ya consultado por el sistema en este turno). Usa estos datos tal cual para RegisterPayment o ApplyCredit:',
       `- amount: ${receipt.amount}`,
       `- reference: ${receipt.reference}`,
-      `- forma_pago: ${receipt.wisphubPaymentMethodId}`,
+      `- paymentMethodId: ${receipt.wisphubPaymentMethodId}`,
       `- destinationMethod: ${receipt.destinationMethod || '(sin dato)'}`,
     )
   } else {

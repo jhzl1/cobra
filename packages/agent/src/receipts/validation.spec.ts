@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ReceiptExtraction } from '@cobra/contracts'
-import type { PaymentMethod } from './types'
+import type { PaymentMethod } from '../types'
 import { validateReceipt } from './validation'
 
 const method: PaymentMethod = {

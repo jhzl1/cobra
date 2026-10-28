@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { ConversationMessage } from '../types'
 import { Steering } from './steering'
-import type { ConversationMessage } from './types'
 
 const message = (id: string, body: string): ConversationMessage => ({
   id,

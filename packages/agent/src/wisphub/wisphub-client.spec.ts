@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { applyCredit } from './apply-credit'
-import { registerPayment } from './register-payment'
-import { SIMULATED_WISPHUB_WRITE, WisphubClient } from './wisphub'
+import { applyCredit } from '../payments/apply-credit'
+import { registerPayment } from '../payments/register-payment'
+import { SIMULATED_WISPHUB_WRITE, WisphubClient } from './wisphub-client'
 
 /** Wisphub answering one customer, 111, with one invoice of $50.000 and no balance. */
 const fakeWisphub = (options: { invoices: Array<{ id: number; total: number }> }) =>
@@ -50,16 +50,16 @@ describe('WisphubClient in dry-run', () => {
     const wisphub = new WisphubClient({ apiKey: 'key', dryRun: true, fetchImpl })
 
     const result = await registerPayment(
-      { documentos: '111', monto: 70000, reference: 'M123456', forma_pago: '7' },
+      { documents: '111', amount: 70000, reference: 'M123456', paymentMethodId: '7' },
       { wisphub },
     )
 
     // The model must hear the production answer, excess credited included, or
     // the dry-run trains it on a conversation no customer will ever have.
     expect(result.success).toBe(true)
-    expect(result.estado).toBe('completo')
-    expect(result.facturas_pagadas).toBe(1)
-    expect(result.excedente_a_saldo).toBe(20000)
+    expect(result.status).toBe('complete')
+    expect(result.paidInvoices).toBe(1)
+    expect(result.creditedExcess).toBe(20000)
     expect(writesIn(fetchImpl)).toHaveLength(0)
   })
 
@@ -68,12 +68,12 @@ describe('WisphubClient in dry-run', () => {
     const wisphub = new WisphubClient({ apiKey: 'key', dryRun: true, fetchImpl })
 
     const result = await applyCredit(
-      { documento: '111', abono: 30000, reference: 'M123456', forma_pago: '7' },
+      { document: '111', amount: 30000, reference: 'M123456', paymentMethodId: '7' },
       { wisphub },
     )
 
     expect(result.success).toBe(true)
-    expect(result.saldo_a_favor).toBe('30000.00')
+    expect(result.creditBalance).toBe('30000.00')
     expect(writesIn(fetchImpl)).toHaveLength(0)
   })
 

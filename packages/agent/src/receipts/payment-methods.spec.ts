@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import type { PaymentMethod } from '../types'
 import { resolvePaymentMethod } from './payment-methods'
-import type { PaymentMethod } from './types'
 
 const method = (over: Partial<PaymentMethod>): PaymentMethod => ({
   id: 'pm',

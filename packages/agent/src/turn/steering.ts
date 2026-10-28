@@ -1,4 +1,4 @@
-import type { ConversationMessage } from './types'
+import type { ConversationMessage } from '../types'
 
 /**
  * The exact string OpenClaw returns for a tool it skipped. Kept verbatim: the
