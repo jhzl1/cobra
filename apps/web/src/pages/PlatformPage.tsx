@@ -10,17 +10,7 @@ import {
   grantRoleSchema,
 } from '@cobra/contracts'
 import { JobRunTable } from '~/components/JobRunTable'
-import { TenantDetail } from '~/components/TenantDetail'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '~/components/ui/alert-dialog'
+import { TenantStateBadges } from '~/components/TenantStateBadges'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import {
@@ -117,9 +107,6 @@ const ErrorsCard = () => {
 /* Companies ------------------------------------------------------------------ */
 
 const TenantsCard = () => {
-  const queryClient = useQueryClient()
-  const [viewedTenant, setViewedTenant] = useState<TenantSummary | null>(null)
-  const [tenantToSuspend, setTenantToSuspend] = useState<TenantSummary | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
   const tenants = useQuery({
@@ -131,23 +118,13 @@ const TenantsCard = () => {
     },
   })
 
-  const updateTenantStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: TenantSummary['status'] }) => {
-      await api.patch(`/tenants/${id}/status`, { status })
-    },
-    onSuccess: () => {
-      setTenantToSuspend(null)
-      void queryClient.invalidateQueries({ queryKey: queryKeys.tenants })
-    },
-  })
-
   return (
     <Card>
       <CardHeader>
         <CardTitle>Empresas</CardTitle>
         <CardDescription>
-          Suspender una empresa detiene su agente: deja de recibir mensajes de WhatsApp y deja de
-          responderle a sus clientes.
+          Abre una empresa para ver sus datos y sus conversaciones, y para encender o apagar su
+          agente y su modo de prueba.
         </CardDescription>
         <CardAction>
           <Button size="sm" onClick={() => setIsCreateDialogOpen(true)}>
@@ -157,7 +134,7 @@ const TenantsCard = () => {
         </CardAction>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-4">
+      <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
@@ -179,41 +156,16 @@ const TenantsCard = () => {
                 <TableRow key={tenant.id}>
                   <TableCell className="font-medium">{tenant.companyName}</TableCell>
                   <TableCell>
-                    <Badge variant={tenant.status === 'active' ? 'success' : 'default'}>
-                      {tenant.status === 'active' ? 'Activa' : 'Suspendida'}
-                    </Badge>
+                    <TenantStateBadges tenant={tenant} />
                   </TableCell>
                   <TableCell>{tenant.memberCount}</TableCell>
                   <TableCell>
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end">
                       <Button asChild size="sm" variant="ghost">
                         <Link to="/platform/tenants/$companyId" params={{ companyId: tenant.id }}>
-                          Conversaciones
+                          Abrir
                         </Link>
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setViewedTenant(tenant)}>
-                        Ver
-                      </Button>
-                      {tenant.status === 'active' ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => setTenantToSuspend(tenant)}
-                        >
-                          Suspender
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          loading={updateTenantStatus.isPending}
-                          onClick={() =>
-                            updateTenantStatus.mutate({ id: tenant.id, status: 'active' })
-                          }
-                        >
-                          Reactivar
-                        </Button>
-                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -227,46 +179,9 @@ const TenantsCard = () => {
             )}
           </TableBody>
         </Table>
-
-        {updateTenantStatus.error && (
-          <p className="text-sm text-destructive">{updateTenantStatus.error.message}</p>
-        )}
       </CardContent>
 
-      <TenantDetail tenant={viewedTenant} onClose={() => setViewedTenant(null)} />
-
       {isCreateDialogOpen && <CreateTenantDialog onClose={() => setIsCreateDialogOpen(false)} />}
-
-      {/* Suspending is not "are you sure": it says what stops happening. */}
-      <AlertDialog
-        open={!!tenantToSuspend}
-        onOpenChange={(open) => {
-          if (!open) setTenantToSuspend(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Suspender {tenantToSuspend?.companyName}</AlertDialogTitle>
-            <AlertDialogDescription>
-              Su número deja de recibir mensajes de WhatsApp y el agente deja de responderle a sus
-              clientes. Lo que llegue mientras esté suspendida se descarta: al reactivarla no se
-              recupera. El histórico y la configuración no se tocan.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault()
-                if (tenantToSuspend)
-                  updateTenantStatus.mutate({ id: tenantToSuspend.id, status: 'suspended' })
-              }}
-            >
-              Suspender
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Card>
   )
 }

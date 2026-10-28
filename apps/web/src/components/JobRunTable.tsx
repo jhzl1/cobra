@@ -69,7 +69,7 @@ export const JobRunTable = ({ runs, showCompany = false, emptyText }: Props) => 
                         <Link
                           to="/platform/tenants/$companyId"
                           params={{ companyId: run.tenantId }}
-                          search={{ conversationId: run.conversationId }}
+                          search={{ tab: 'conversations', conversationId: run.conversationId }}
                         >
                           Ver conversación
                         </Link>

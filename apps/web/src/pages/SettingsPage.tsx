@@ -74,13 +74,11 @@ export const SettingsPage = ({ tenantId }: { tenantId: string }) => (
 /* Credentials ---------------------------------------------------------------- */
 
 /**
- * The server schema plus the field only Meta uses. TanStack validates the whole
- * form at once, so the schema has to cover every default value — a `.pick()`
- * that leaves one out fails to typecheck.
+ * Only the secret: the provider comes from the row that opened the dialog, not
+ * from a field. TanStack validates the whole form at once, so the schema has to
+ * cover every default value.
  */
-const credentialFormSchema = saveCredentialSchema
-  .pick({ secret: true })
-  .extend({ appSecret: z.string() })
+const credentialFormSchema = saveCredentialSchema.pick({ secret: true })
 
 interface ProviderSpec {
   provider: CredentialProvider
@@ -90,18 +88,16 @@ interface ProviderSpec {
   secretLabel: string
   /** Where to find it, so the label never has to be the vendor's field name. */
   secretHint: string
-  /** Meta's app secret rides in the same envelope as the access token. */
-  hasAppSecret?: boolean
 }
 
 const PROVIDERS: ProviderSpec[] = [
   {
-    provider: 'meta',
-    name: 'WhatsApp Cloud API',
-    purpose: 'Recibe y envía los mensajes del número de la empresa.',
-    secretLabel: 'Token de acceso permanente',
-    secretHint: 'En Meta: WhatsApp → Configuración de la API, campo «Access token».',
-    hasAppSecret: true,
+    provider: 'dualhook',
+    name: 'WhatsApp (Dualhook)',
+    purpose: 'Envía los mensajes del número de la empresa y descarga los comprobantes.',
+    secretLabel: 'Llave de Dualhook',
+    secretHint:
+      'En el panel de Dualhook, en la conexión del número: la llave de la API. Empieza por dh_live_.',
   },
   {
     provider: 'openrouter',
@@ -224,7 +220,7 @@ const CredentialDialog = ({
   const [failure, setFailure] = useState<string | null>(null)
 
   const form = useForm({
-    defaultValues: { secret: '', appSecret: '' },
+    defaultValues: { secret: '' },
     validators: { onChange: credentialFormSchema },
     onSubmit: async ({ value }) => {
       setFailure(null)
@@ -233,9 +229,6 @@ const CredentialDialog = ({
         await api.put(`/tenants/${tenantId}/credentials`, {
           provider: spec.provider,
           secret: value.secret,
-          ...(spec.hasAppSecret && value.appSecret
-            ? { extra: { appSecret: value.appSecret } }
-            : {}),
         })
       } catch (error) {
         const [unmatched] = applyServerErrors(form, error)
@@ -278,23 +271,6 @@ const CredentialDialog = ({
           />
         )}
       </form.Field>
-
-      {spec.hasAppSecret && (
-        <form.Field name="appSecret">
-          {(field) => (
-            <Field
-              label="Clave secreta de la aplicación"
-              hint="En Meta: Configuración de la app → Básica, campo «App secret». Sin ella el webhook queda autenticado solo por el token de su URL."
-              type="password"
-              autoComplete="off"
-              value={field.state.value}
-              error={fieldError(field)}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-            />
-          )}
-        </form.Field>
-      )}
     </FormDialog>
   )
 }
@@ -334,8 +310,8 @@ const WhatsappNumbersCard = ({ tenantId }: { tenantId: string }) => {
       <CardHeader>
         <CardTitle>Números de WhatsApp</CardTitle>
         <CardDescription>
-          Al conectar un número se generan su URL de webhook y su token de verificación, que van en
-          la configuración de Meta.
+          Al conectar un número se genera su URL de webhook. El flujo de n8n que recibe los mensajes
+          de Dualhook los reenvía a esa URL.
         </CardDescription>
         <CardAction>
           <Button size="sm" onClick={() => setIsConnectDialogOpen(true)}>
@@ -358,7 +334,6 @@ const WhatsappNumbersCard = ({ tenantId }: { tenantId: string }) => {
                 </Button>
               </div>
               <CopyField className="max-w-full" value={number.webhookUrl} />
-              <CopyField label="Token de verificación:" value={number.verifyToken} />
             </div>
           ))
         ) : (
@@ -401,8 +376,8 @@ const WhatsappNumbersCard = ({ tenantId }: { tenantId: string }) => {
             <AlertDialogTitle>Dar de baja {numberToRetire?.displayNumber}</AlertDialogTitle>
             <AlertDialogDescription>
               Deja de recibir mensajes y su URL de webhook deja de servir, así que hay que quitarla
-              de la configuración de Meta. Las conversaciones que entraron por él se conservan, y su
-              identificador queda libre para volver a registrarlo.
+              del flujo de n8n que la reenvía. Las conversaciones que entraron por él se conservan, y
+              su identificador queda libre para volver a registrarlo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -451,7 +426,7 @@ const WhatsappNumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose
       open
       onClose={onClose}
       title="Conectar un número"
-      description="Los dos datos salen de la app de Meta. Al guardarlos, el panel genera la URL del webhook y su token de verificación."
+      description="Los dos datos salen del panel de Dualhook. Al guardarlos, el panel genera la URL a la que n8n reenvía los mensajes."
       submitLabel="Conectar"
       form={form}
       error={failure}
@@ -460,7 +435,7 @@ const WhatsappNumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose
         {(field) => (
           <Field
             label="Identificador del número"
-            hint="En Meta: WhatsApp → Configuración de la API, campo «Phone number ID»."
+            hint="En el panel de Dualhook, en la conexión del número, campo «Phone number ID»."
             required
             value={field.state.value}
             error={fieldError(field)}

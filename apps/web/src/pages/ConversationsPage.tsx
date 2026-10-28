@@ -11,8 +11,10 @@ import { Spinner } from '~/components/ui/spinner'
 import { useConversationStream } from '~/hooks/useConversationStream'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
+import { sendBlockedReason } from '~/lib/tenants'
 import { cn } from '~/lib/utils'
 import { useInbox } from '~/providers/InboxProvider'
+import { useTenant } from '~/providers/TenantProvider'
 
 interface Props {
   tenantId: string
@@ -23,6 +25,12 @@ interface Props {
 export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
   const navigate = useNavigate()
   const inbox = useInbox()
+  const { tenants } = useTenant()
+
+  // The list `TenantProvider` already holds carries both fields, so the
+  // composer needs no request of its own to know the company cannot send.
+  const tenant = tenants.find((candidate) => candidate.id === tenantId)
+  const blockedReason = tenant ? sendBlockedReason(tenant) : null
 
   // What is on screen stops counting as unread, and stops interrupting.
   useEffect(() => {
@@ -155,7 +163,10 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
             <Timeline runs={runs.data ?? []} />
           </div>
         ) : (
-          <ConversationPanel conversation={selectedConversation} />
+          <ConversationPanel
+            conversation={selectedConversation}
+            sendBlockedReason={blockedReason}
+          />
         )}
       </section>
 

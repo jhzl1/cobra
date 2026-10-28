@@ -1,15 +1,7 @@
-import { Link, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router'
+import { Link, Outlet, useMatchRoute } from '@tanstack/react-router'
 import { BellIcon, BellOffIcon, Volume2Icon, VolumeXIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '~/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/components/ui/select'
-import { usePlatformIdentity } from '~/hooks/usePlatformIdentity'
 import { askForNotifications, isSoundEnabled, playBlip, setSoundEnabled } from '~/lib/notify'
 import { supabase } from '~/lib/supabase'
 import { cn } from '~/lib/utils'
@@ -28,52 +20,34 @@ const TENANT_SECTIONS: Section[] = [
   { to: '/$tenantId/settings', label: 'Configuración' },
 ]
 
-/** The frame every signed-in screen renders inside: company picker and nav. */
+/**
+ * The frame every signed-in screen renders inside.
+ *
+ * No company picker and no link to the platform: the administrator reaches a
+ * company from the platform's list, and the brand goes back home, which `/`
+ * resolves to the platform for an administrator and to the company otherwise.
+ */
 export const AppLayout = () => {
-  const { tenants, tenantId } = useTenant()
+  const { tenantId } = useTenant()
   const { unreadCount } = useInbox()
-  const identity = usePlatformIdentity()
-  const isPlatformAdmin = identity.data?.isPlatformAdmin ?? false
-  const navigate = useNavigate()
   const matchRoute = useMatchRoute()
 
-  const isActive = (to: Section['to'] | '/platform') =>
+  const isActive = (to: Section['to']) =>
     !!matchRoute({ to, params: { tenantId: tenantId ?? '' }, fuzzy: true })
 
   const sections = tenantId ? TENANT_SECTIONS : []
 
-  // Switching company keeps the section on screen. Not the conversation: it
-  // belongs to the company being left.
-  const openTenant = (next: string) => {
-    const current = sections.find((section) => isActive(section.to))
-
-    void navigate({ to: current?.to ?? '/$tenantId/conversations', params: { tenantId: next } })
-  }
-
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex h-13 shrink-0 items-center gap-2 border-b px-4">
-        <h1 className="text-[15px] font-semibold tracking-tight">Cobra</h1>
-        <span aria-hidden className="text-border select-none">
-          /
-        </span>
-
-        <Select value={tenantId ?? ''} onValueChange={openTenant}>
-          <SelectTrigger
-            aria-label="Empresa"
-            size="sm"
-            className="max-w-56 min-w-0 border-transparent bg-transparent px-2 shadow-none *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate dark:bg-transparent dark:hover:bg-accent"
+        <h1 className="text-[15px] font-semibold tracking-tight">
+          <Link
+            to="/"
+            className="outline-none focus-visible:underline focus-visible:underline-offset-4"
           >
-            <SelectValue placeholder="Empresa" />
-          </SelectTrigger>
-          <SelectContent>
-            {tenants.map((tenant) => (
-              <SelectItem key={tenant.id} value={tenant.id}>
-                {tenant.companyName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            Cobra
+          </Link>
+        </h1>
 
         <div className="ml-auto flex items-center gap-1">
           <AlertControls />
@@ -88,42 +62,34 @@ export const AppLayout = () => {
 
       {/* Links and not Tabs: each section is a route, so this has to be
           something the browser can follow, open in a tab and go back from. */}
-      <nav
-        aria-label="Secciones"
-        className="flex h-10.5 shrink-0 items-stretch gap-5 overflow-x-auto border-b [mask-image:linear-gradient(to_right,black_85%,transparent)] px-4 sm:[mask-image:none]"
-      >
-        {sections.map((section) => {
-          const active = isActive(section.to)
+      {sections.length > 0 && (
+        <nav
+          aria-label="Secciones"
+          className="flex h-10.5 shrink-0 items-stretch gap-5 overflow-x-auto border-b [mask-image:linear-gradient(to_right,black_85%,transparent)] px-4 sm:[mask-image:none]"
+        >
+          {sections.map((section) => {
+            const active = isActive(section.to)
 
-          return (
-            <Link
-              key={section.to}
-              to={section.to}
-              params={{ tenantId: tenantId ?? '' }}
-              aria-current={active ? 'page' : undefined}
-              className={navLinkClass(active)}
-            >
-              {section.label}
-              {section.to === '/$tenantId/conversations' && unreadCount > 0 && (
-                <span className="font-mono text-xs font-semibold text-foreground">
-                  {unreadCount}
-                  <span className="sr-only"> sin leer</span>
-                </span>
-              )}
-            </Link>
-          )
-        })}
-
-        {isPlatformAdmin && (
-          <Link
-            to="/platform"
-            aria-current={isActive('/platform') ? 'page' : undefined}
-            className={navLinkClass(isActive('/platform'))}
-          >
-            Plataforma
-          </Link>
-        )}
-      </nav>
+            return (
+              <Link
+                key={section.to}
+                to={section.to}
+                params={{ tenantId: tenantId ?? '' }}
+                aria-current={active ? 'page' : undefined}
+                className={navLinkClass(active)}
+              >
+                {section.label}
+                {section.to === '/$tenantId/conversations' && unreadCount > 0 && (
+                  <span className="font-mono text-xs font-semibold text-foreground">
+                    {unreadCount}
+                    <span className="sr-only"> sin leer</span>
+                  </span>
+                )}
+              </Link>
+            )
+          })}
+        </nav>
+      )}
 
       <main className="flex min-h-0 flex-1 flex-col">
         <Outlet />
