@@ -261,10 +261,12 @@ Antes del primer push que traiga `deploy.yml`, en este orden:
    `--service worker`. También a mano si el `plan` no toca la fuente.
 
    Después de aplicar, el `plan` sigue mostrando dos diferencias por servicio:
-   `source.type (null → "empty")` y los _watch patterns_ pasando a `null`.
-   Railway guarda una fuente desconectada como `null` y no borra los _watch
-   patterns_, así que esas dos líneas no convergen nunca. No cambian nada: sin
-   repositorio conectado no hay push que vigilar.
+   `source.type (null → "empty")` y `build.watchPatterns (null → [])`. Railway
+   guarda una fuente desconectada y una lista vacía como `null`, así que esas
+   líneas no convergen nunca y no cambian nada. Los _watch patterns_ tienen que
+   quedar vacíos: con cualquier patrón, `railway up` compara la subida con el
+   último deploy, la marca `SKIPPED` si no cambió nada y el job se queda
+   esperando.
 
 5. **`VERCEL_ALIAS` de `dev`**: hoy es
    `cobra-web-git-develop-jhzl1s-projects.vercel.app`, la URL que ya está en

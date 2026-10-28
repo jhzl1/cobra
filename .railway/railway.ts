@@ -24,6 +24,16 @@ export default defineRailway(() => {
   const buildFor = (app: 'api' | 'worker') => ({
     builder: 'RAILPACK' as const,
     buildCommand: `pnpm turbo run build --filter=@cobra/${app}`,
+    /**
+     * None, on purpose, and written as `[]`: Railway keeps the old patterns when
+     * the field is left out. With patterns, `railway up` compares the upload
+     * with the last deploy and ends SKIPPED ("No changes to watched files")
+     * when nothing they cover changed — a push that only touched the workflow,
+     * or a re-run — and `railway up --ci` waits on that forever. Even `**`
+     * skips a re-run. Deploys come only from the workflow now, so there is
+     * nothing for the patterns to filter.
+     */
+    watchPatterns: [],
   })
 
   /**

@@ -84,6 +84,9 @@ jobs:
     needs: [target, version]
     runs-on: ubuntu-latest
     environment: ${{ needs.target.outputs.environment }}
+    # `railway up --ci` waits for a final status, and a deployment Railway
+    # skips never reaches one. Without a ceiling the job hangs for six hours.
+    timeout-minutes: 20
     strategy:
       # Each service finishes its own deploy: cancelling the other one's CLI
       # would not stop its build on Railway, only hide how it ended.
@@ -214,10 +217,18 @@ jobs:
             url="$(vercel deploy --prebuilt --prod --meta "version=$VITE_APP_VERSION" --token="$VERCEL_TOKEN")"
           else
             url="$(vercel deploy --prebuilt --meta "version=$VITE_APP_VERSION" --token="$VERCEL_TOKEN")"
-            # `alias` does not read the project link the way `deploy` does: without
-            # an explicit scope it asks for the token's own user and fails with
-            # "User not found", because the project lives under a team.
-            vercel alias set "$url" "$VERCEL_ALIAS" --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+            # The REST API and not `vercel alias set`: the CLI loads the token's
+            # user before anything else, and this token cannot read one, so it
+            # fails with "User not found" even with --scope. The API only needs
+            # the team, which deploy already proved the token can act on.
+            api='https://api.vercel.com'
+            auth="Authorization: Bearer $VERCEL_TOKEN"
+            deployment="$(curl -fsS "$api/v13/deployments/${url#https://}?teamId=$VERCEL_ORG_ID" -H "$auth")"
+            deployment_id="$(printf '%s' "$deployment" | jq -r .id)"
+            alias_body="$(jq -nc --arg alias "$VERCEL_ALIAS" '{alias: $alias}')"
+            curl -fsS -X POST "$api/v2/deployments/$deployment_id/aliases?teamId=$VERCEL_ORG_ID" \
+              -H "$auth" -H 'Content-Type: application/json' -d "$alias_body" >/dev/null
+            echo "Alias $VERCEL_ALIAS now points to $url"
           fi
           echo "Deployed $url"
           echo "web: $url" >> "$GITHUB_STEP_SUMMARY"
