@@ -1,12 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import type { LanguageModel } from 'ai'
-import {
-  type TenantConfig,
-  WisphubClient,
-  type WisphubPort,
-  createModels,
-} from '@cobra/agent'
+import { type TenantConfig, WisphubClient, type WisphubPort, createModels } from '@cobra/agent'
 import {
   CredentialsCrypto,
   type TenantRuntimeConfig,
@@ -73,7 +68,7 @@ export class TenantRuntimeService {
         phoneNumberId: runtimeConfig.phoneNumberId,
       }),
       wisphub: new WisphubClient({ apiKey: wisphub.secret, dryRun: runtimeConfig.dryRun }),
-      models: createModels(openrouter.secret),
+      models: createModels(openrouter.secret, runtimeConfig.models),
     }
   }
 }
