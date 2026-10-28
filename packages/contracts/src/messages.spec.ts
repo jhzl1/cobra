@@ -7,6 +7,7 @@ import {
   paymentMethodSchema,
   registerWhatsappNumberSchema,
   saveCredentialSchema,
+  updateTenantDryRunSchema,
 } from './tenants'
 
 /**
@@ -40,7 +41,7 @@ describe('validation messages', () => {
     ],
     ['wrong types', createTenantSchema, { companyName: 42, supportPhone: null }],
     ['bad address', grantRoleSchema, { email: 'jahaziel' }],
-    ['short secret', saveCredentialSchema, { provider: 'meta', secret: 'corto' }],
+    ['short secret', saveCredentialSchema, { provider: 'dualhook', secret: 'corto' }],
     ['short number', registerWhatsappNumberSchema, { phoneNumberId: 'abc', displayNumber: 'no' }],
     [
       'empty account',
@@ -48,6 +49,7 @@ describe('validation messages', () => {
       { entityName: '', paymentAddress: '', zone: 'z'.repeat(81), wisphubId: 'w'.repeat(41) },
     ],
     ['empty message', sendMessageSchema, { body: '' }],
+    ['dry-run as text', updateTenantDryRunSchema, { dryRun: 'true' }],
   ]
 
   it.each(cases)('answers in Spanish: %s', (_name, schema, input) => {

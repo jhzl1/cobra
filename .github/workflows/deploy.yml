@@ -1,0 +1,218 @@
+name: Deploy
+
+# The only way code reaches Railway and Vercel. Both platforms have their git
+# auto-deploys turned off (.railway/railway.ts, apps/web/vercel.json), so every
+# deploy happens once, here, after the migrations it depends on.
+#
+# The GitHub Environment (`dev` or `production`) is the single source of every
+# app's variables: the jobs below copy them into Railway and into the Vercel
+# build on each run. A value changed in Railway's or Vercel's dashboard is
+# overwritten by the next deploy.
+on:
+  push:
+    branches: [develop, main]
+  # Redeploys the branch it is run from, with a new version number. Only develop
+  # and main are accepted; see the `target` job.
+  workflow_dispatch:
+
+# One deploy per environment at a time, never cancelled halfway: a run that is
+# migrating or uploading must finish. GitHub keeps one pending run per group, so
+# a burst of pushes deploys the latest commit and skips the ones in between.
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  target:
+    name: Target
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.pick.outputs.environment }}
+      railway-environment: ${{ steps.pick.outputs.railway-environment }}
+    steps:
+      # Fails instead of skipping: a dispatch from a feature branch would
+      # otherwise end green having deployed nothing.
+      - id: pick
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          case "$REF_NAME" in
+            develop) environment=dev; railway_environment=development ;;
+            main) environment=production; railway_environment=production ;;
+            *)
+              echo "::error::Only develop and main deploy. This run is on $REF_NAME."
+              exit 1
+              ;;
+          esac
+          echo "environment=$environment" >> "$GITHUB_OUTPUT"
+          echo "railway-environment=$railway_environment" >> "$GITHUB_OUTPUT"
+
+  # A failed migration stops the deploy: new code must never boot against the
+  # schema it does not expect yet.
+  migrate:
+    needs: target
+    uses: ./.github/workflows/migrate.yml
+    with:
+      environment: ${{ needs.target.outputs.environment }}
+    secrets: inherit
+
+  version:
+    name: Version
+    needs: [target, migrate]
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.stamp.outputs.version }}
+    steps:
+      # The minute the deploy started, in Bogota time: the business is Colombian,
+      # and a deploy at 8 p.m. local time belongs to that day, not the next UTC
+      # one. A timestamp needs no state to count from, and two deploys of one
+      # environment cannot share a minute because the concurrency group runs them
+      # one after the other.
+      - id: stamp
+        env:
+          ENVIRONMENT: ${{ needs.target.outputs.environment }}
+        run: |
+          version="$(TZ=America/Bogota date +%Y.%m.%d-%H:%M)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "### $ENVIRONMENT · $version" >> "$GITHUB_STEP_SUMMARY"
+
+  railway:
+    name: Railway · ${{ matrix.service }}
+    needs: [target, version]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.target.outputs.environment }}
+    strategy:
+      # Each service finishes its own deploy: cancelling the other one's CLI
+      # would not stop its build on Railway, only hide how it ended.
+      fail-fast: false
+      matrix:
+        service: [api, worker]
+    # Every name sync-railway-variables.sh may read. Which service gets which is
+    # decided there; this block only exposes them.
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_TARGET_ENVIRONMENT: ${{ needs.target.outputs.railway-environment }}
+      NODE_ENV: production
+      APP_VERSION: ${{ needs.version.outputs.version }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_JWKS_URL: ${{ vars.SUPABASE_JWKS_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      CREDENTIALS_MASTER_KEY: ${{ secrets.CREDENTIALS_MASTER_KEY }}
+      CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+      PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+      TURN_CONCURRENCY: ${{ vars.TURN_CONCURRENCY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Pinned so a CLI release cannot change how production deploys between
+      # two runs. Bump it on purpose, after reading its changelog.
+      - run: npm install --global @railway/cli@5.71.0
+
+      - name: Check the token
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::Missing RAILWAY_TOKEN in the ${{ needs.target.outputs.environment }} GitHub Environment."
+            exit 1
+          fi
+
+      - name: Variables
+        run: bash .github/scripts/sync-railway-variables.sh "${{ matrix.service }}" "$RAILWAY_TARGET_ENVIRONMENT"
+
+      # --ci streams the build and exits with the deploy's outcome: 0 once it is
+      # live, 1 when the build fails, the healthcheck never passes or it crashes.
+      # The upload is the checked-out tree; Railway builds it with the service's
+      # own build command from .railway/railway.ts.
+      - name: Deploy
+        run: >-
+          railway up
+          --ci
+          --service "${{ matrix.service }}"
+          --environment "$RAILWAY_TARGET_ENVIRONMENT"
+          --message "$APP_VERSION"
+
+  vercel:
+    name: Vercel · web
+    needs: [target, version]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.target.outputs.environment }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      # Develop has no production domain, so its fixed address is an alias moved
+      # onto every new preview. The api's CORS_ORIGINS names it.
+      VERCEL_ALIAS: ${{ vars.VERCEL_ALIAS }}
+      IS_PRODUCTION: ${{ needs.target.outputs.environment == 'production' }}
+      # What ends up inside the bundle, so only public values: apps/web/.env.example.
+      # The Supabase pair is the api's own, read once from the same variables.
+      VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
+      VITE_APP_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # No version pinned: pnpm/action-setup reads `packageManager` from the root
+      # package.json. `vercel build` runs the project's install with it.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: npm install --global vercel@65.2.0
+
+      - name: Check the environment
+        run: |
+          missing=()
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_API_URL; do
+            [ -n "${!name:-}" ] || missing+=("$name")
+          done
+          if [ "$IS_PRODUCTION" != 'true' ] && [ -z "$VERCEL_ALIAS" ]; then
+            missing+=(VERCEL_ALIAS)
+          fi
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing in the ${{ needs.target.outputs.environment }} GitHub Environment: ${missing[*]}"
+            exit 1
+          fi
+
+      # Run from the repository root: the Vercel project's Root Directory is
+      # apps/web, and the CLI resolves it from here.
+      - name: Pull project settings
+        run: |
+          target=preview
+          [ "$IS_PRODUCTION" = 'true' ] && target=production
+          vercel pull --yes --environment="$target" --token="$VERCEL_TOKEN"
+
+      # The VITE_* values come from this job's env, not from Vercel: the project
+      # keeps no variables of its own, so GitHub stays the only source.
+      - name: Build
+        run: |
+          if [ "$IS_PRODUCTION" = 'true' ]; then
+            vercel build --prod --token="$VERCEL_TOKEN"
+          else
+            vercel build --token="$VERCEL_TOKEN"
+          fi
+
+      # stdout is the deployment URL; everything else goes to stderr.
+      - name: Deploy
+        run: |
+          if [ "$IS_PRODUCTION" = 'true' ]; then
+            url="$(vercel deploy --prebuilt --prod --meta "version=$VITE_APP_VERSION" --token="$VERCEL_TOKEN")"
+          else
+            url="$(vercel deploy --prebuilt --meta "version=$VITE_APP_VERSION" --token="$VERCEL_TOKEN")"
+            vercel alias set "$url" "$VERCEL_ALIAS" --token="$VERCEL_TOKEN"
+          fi
+          echo "Deployed $url"
+          echo "web: $url" >> "$GITHUB_STEP_SUMMARY"

@@ -6,8 +6,6 @@ const VERSION = 'v1'
 
 export interface DecryptedCredential {
   secret: string
-  /** Meta's non-secret companions travel in the same envelope: wabaId, appSecret. */
-  extra?: Record<string, string>
 }
 
 export class CredentialDecryptionError extends Error {

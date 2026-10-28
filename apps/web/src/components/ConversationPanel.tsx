@@ -22,9 +22,19 @@ interface Props {
    * API refuses the writes anyway; this keeps the screen from offering them.
    */
   isReadOnly?: boolean
+  /**
+   * Why nothing can be sent from this company right now — agent off or dry-run —
+   * or null. The API refuses the send either way; this keeps the composer from
+   * inviting a message that was never going to leave.
+   */
+  sendBlockedReason?: string | null
 }
 
-export const ConversationPanel = ({ conversation, isReadOnly = false }: Props) => {
+export const ConversationPanel = ({
+  conversation,
+  isReadOnly = false,
+  sendBlockedReason = null,
+}: Props) => {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState('')
   const bottom = useRef<HTMLDivElement>(null)
@@ -77,6 +87,8 @@ export const ConversationPanel = ({ conversation, isReadOnly = false }: Props) =
 
   const isServiceWindowClosed = remainingWindowMs(conversation.lastInboundAt) <= 0
   const isHuman = conversation.status === 'human'
+  const isSendBlocked = sendBlockedReason !== null
+  const isComposerLocked = !isHuman || isServiceWindowClosed || isSendBlocked
 
   const name =
     conversation.contact.displayName ?? conversation.contact.phone ?? conversation.contact.personId
@@ -156,15 +168,17 @@ export const ConversationPanel = ({ conversation, isReadOnly = false }: Props) =
             tray exists — but the only way out on screen is now the operator. */}
           {conversation.lastRunFailed && (
             <p className="text-xs text-destructive">
-              El último turno del agente falló, así que el cliente se quedó sin respuesta.{' '}
-              {isHuman ? 'Escríbele tú.' : 'Toma el control y escríbele tú.'}
+              El último turno del agente falló, así que el cliente se quedó sin respuesta.
+              {!isSendBlocked && (isHuman ? ' Escríbele tú.' : ' Toma el control y escríbele tú.')}
             </p>
           )}
 
           {/* The composer locks when the window closes. Leaving it open would let
             the operator write a message WhatsApp refuses with 131047, and they
             would only find out from the customer. */}
-          {isServiceWindowClosed ? (
+          {isSendBlocked ? (
+            <p className="text-xs text-muted-foreground">{sendBlockedReason}</p>
+          ) : isServiceWindowClosed ? (
             <p className="text-xs text-destructive">
               Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp no permite
               escribirle sin una plantilla aprobada.
@@ -185,11 +199,11 @@ export const ConversationPanel = ({ conversation, isReadOnly = false }: Props) =
               className="max-h-32 min-h-9 resize-none"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              disabled={!isHuman || isServiceWindowClosed}
+              disabled={isComposerLocked}
               placeholder={isHuman ? 'Escribe tu respuesta' : 'Toma el control para escribir'}
             />
             <Button
-              disabled={!isHuman || isServiceWindowClosed || !draft.trim()}
+              disabled={isComposerLocked || !draft.trim()}
               loading={send.isPending}
               onClick={() => send.mutate(draft.trim())}
             >
@@ -212,6 +226,9 @@ const AUTHOR_LABEL: Record<Message['author'], string> = {
 
 const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad: () => void }) => {
   const isOutbound = message.direction === 'outbound'
+  // A reply the agent wrote and nobody received: it reads as part of the
+  // thread, so the bubble itself has to look unlike one that went out.
+  const isDryRun = message.deliveryState === 'dry_run'
 
   return (
     <div className={isOutbound ? 'flex justify-end' : 'flex justify-start'}>
@@ -221,6 +238,7 @@ const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad
         className={cn(
           'max-w-[85%] rounded-lg px-3 py-2 text-sm md:max-w-[70%]',
           isOutbound ? 'bg-accent' : 'border bg-background',
+          isDryRun && 'border border-dashed border-info/50',
         )}
       >
         {message.mediaUrl && (
@@ -248,6 +266,7 @@ const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad
           {message.deliveryState === 'failed' && (
             <span className="text-destructive">· no entregado</span>
           )}
+          {isDryRun && <span className="text-info">· no enviado · modo de prueba</span>}
         </p>
       </div>
     </div>

@@ -28,12 +28,12 @@ const SETUP_STEP_COPY: Record<SetupStep['id'], StepCopy> = {
   },
   number: {
     title: 'Conectar el número de WhatsApp',
-    why: 'Al registrarlo, el panel genera la URL del webhook y su token de verificación.',
+    why: 'Al registrarlo, el panel genera la URL a la que n8n reenvía sus mensajes.',
     action: 'Conectar número',
     to: '/$tenantId/settings',
   },
   webhook: {
-    title: 'Pegar el webhook en Meta',
+    title: 'Apuntar el reenvío de n8n a la URL',
     why: 'Este es el único paso que no se hace desde aquí. Se da por hecho cuando llega el primer mensaje.',
     action: 'Ver la URL',
     to: '/$tenantId/settings',
@@ -51,7 +51,7 @@ const SETUP_STEP_COPY: Record<SetupStep['id'], StepCopy> = {
  *
  * It exists because the alternative is an empty conversation list that explains
  * nothing: four things have to be true for a message to get a reply, three of
- * them live on another screen, and one is done in Meta's dashboard.
+ * them live on another screen, and one is done in n8n.
  */
 export const SetupPage = ({ tenantId }: { tenantId: string }) => {
   const setup = useQuery({
@@ -73,7 +73,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
 
   if (!setup.data) return null
 
-  const { steps, isReady, status, webhookUrl, verifyToken } = setup.data
+  const { steps, isReady, status, webhookUrl } = setup.data
   const doneCount = steps.filter((step) => step.isDone).length
 
   return (
@@ -116,32 +116,24 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
       {webhookUrl && (
         <Card>
           <CardHeader>
-            <CardTitle>Lo que va en Meta</CardTitle>
+            <CardTitle>Lo que va en n8n</CardTitle>
             <CardDescription>
-              En la app de Meta, WhatsApp → Configuración → Webhook. Después hay que suscribir el
-              campo <code className="font-mono">messages</code>; si la empresa además contesta desde
-              el celular físico, también <code className="font-mono">smb_message_echoes</code>.
+              Dualhook le entrega los mensajes de este número a n8n. En ese flujo, el nodo que los
+              reenvía a Cobra tiene que apuntar a esta URL, con el cuerpo tal cual llegó.
             </CardDescription>
           </CardHeader>
 
           <CardContent className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <p className="text-xs text-muted-foreground">URL de devolución de llamada</p>
+              <p className="text-xs text-muted-foreground">URL del webhook de esta empresa</p>
               <CopyField value={webhookUrl} />
             </div>
-
-            {verifyToken && (
-              <div className="flex flex-col gap-1">
-                <p className="text-xs text-muted-foreground">Token de verificación</p>
-                <CopyField value={verifyToken} />
-              </div>
-            )}
 
             {/* The URL is built from the request the API answered, so a tunnel
                 needs no configuration — and it changes when the tunnel does. */}
             {webhookUrl.includes('localhost') && (
               <p className="text-xs text-muted-foreground">
-                Esta URL es local: Meta no la alcanza. Expón la API con un túnel y vuelve a abrir
+                Esta URL es local: n8n no la alcanza. Expón la API con un túnel y vuelve a abrir
                 esta página desde esa dirección para verla ya armada.
               </p>
             )}

@@ -6,6 +6,13 @@ interface Search {
   conversationId?: string
 }
 
+/** The conversations tab is the default, so the URL only names the other two. */
+const tabOf = (value: unknown): PlatformTenantTab | undefined => {
+  if (value === 'executions' || value === 'settings') return value
+
+  return undefined
+}
+
 /**
  * One company as the platform sees it.
  *
@@ -16,7 +23,7 @@ interface Search {
  */
 export const Route = createFileRoute('/_platform/platform_/tenants/$companyId')({
   validateSearch: (search: Record<string, unknown>): Search => ({
-    tab: search['tab'] === 'executions' ? 'executions' : undefined,
+    tab: tabOf(search['tab']),
     conversationId:
       typeof search['conversationId'] === 'string' ? search['conversationId'] : undefined,
   }),

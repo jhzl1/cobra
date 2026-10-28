@@ -1,48 +1,57 @@
-import { META_GRAPH_URL } from '@cobra/contracts'
+/**
+ * Dualhook's Runtime API. Same paths and bodies as Meta's Graph API, on
+ * Dualhook's host, authenticated with the tenant's `dh_live_` key.
+ */
+export const DUALHOOK_API_URL = 'https://api.dualhook.com/v25.0'
 
 const DEFAULT_TIMEOUT_MS = 20_000
 
-export interface MetaClientOptions {
-  accessToken: string
+/** Dualhook does not say what it sends; a receipt photographed on a phone is a JPEG. */
+const FALLBACK_MEDIA_TYPE = 'image/jpeg'
+
+export interface DualhookClientOptions {
+  apiKey: string
   phoneNumberId: string
   baseUrl?: string
   timeoutMs?: number
   fetchImpl?: typeof fetch
 }
 
-export class MetaError extends Error {
+export class DualhookError extends Error {
   constructor(
     message: string,
     readonly status: number | null,
     readonly body: unknown,
   ) {
     super(message)
-    this.name = 'MetaError'
+    this.name = 'DualhookError'
   }
 }
 
 /**
- * WhatsApp Cloud API, spoken to directly.
+ * WhatsApp through Dualhook, a Meta Tech Partner for Coexistence.
  *
- * Media is two calls, unlike Dualhook's single `/{media_id}/content`: the first
- * returns a short-lived URL, the second fetches the bytes from it with the same
- * bearer token. Skipping the token on the second call answers 401 with an HTML
- * body, which is a confusing way to find out.
+ * The bearer is Dualhook's per-connection key, never a Meta token: Dualhook
+ * holds the Meta side and adds `appsecret_proof` itself.
+ *
+ * Media is one call: `GET /{media_id}/content` answers the bytes. The `url` that
+ * arrives in the webhook is useless here — downloading from it needs a Meta
+ * access token that a Dualhook connection does not have.
  */
-export class MetaClient {
+export class DualhookClient {
   private readonly baseUrl: string
   private readonly timeoutMs: number
   private readonly fetchImpl: typeof fetch
 
-  constructor(private readonly options: MetaClientOptions) {
-    this.baseUrl = options.baseUrl ?? META_GRAPH_URL
+  constructor(private readonly options: DualhookClientOptions) {
+    this.baseUrl = options.baseUrl ?? DUALHOOK_API_URL
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
     this.fetchImpl = options.fetchImpl ?? fetch
   }
 
   /** Returns the `wamid`, which is what the delivery statuses come back keyed by. */
   async sendText(to: string, body: string): Promise<string | null> {
-    const response = await this.post({
+    const response = await this.postMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to,
@@ -54,7 +63,7 @@ export class MetaClient {
   }
 
   async sendImage(to: string, mediaId: string, caption: string): Promise<string | null> {
-    const response = await this.post({
+    const response = await this.postMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to,
@@ -67,7 +76,7 @@ export class MetaClient {
 
   /** The read receipt and the typing indicator, so the customer sees no silence. */
   async markAsRead(wamid: string): Promise<void> {
-    await this.post({
+    await this.postMessage({
       messaging_product: 'whatsapp',
       status: 'read',
       message_id: wamid,
@@ -76,56 +85,55 @@ export class MetaClient {
   }
 
   async downloadMedia(mediaId: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
-    const metadata = (await this.request('GET', `/${mediaId}`)) as {
-      url?: string
-      mime_type?: string
-    }
-
-    if (!metadata.url) throw new MetaError(`Media ${mediaId} has no URL`, null, metadata)
-
-    const response = await this.fetchImpl(metadata.url, {
-      // The bytes live on a lookaside host that still wants the bearer token.
-      headers: { Authorization: `Bearer ${this.options.accessToken}` },
+    const path = `/${mediaId}/content`
+    const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+      headers: this.authHeaders(),
       signal: AbortSignal.timeout(this.timeoutMs),
     })
 
     if (!response.ok) {
-      throw new MetaError(`Media download answered ${response.status}`, response.status, null)
+      const text = await response.text()
+
+      throw new DualhookError(
+        `Dualhook GET ${path} answered ${response.status}`,
+        response.status,
+        parseBody(text),
+      )
     }
+
+    const mediaType = response.headers.get('content-type')?.split(';')[0]?.trim()
 
     return {
       bytes: new Uint8Array(await response.arrayBuffer()),
-      mediaType: metadata.mime_type ?? 'image/jpeg',
+      mediaType: mediaType || FALLBACK_MEDIA_TYPE,
     }
   }
 
-  private post(body: unknown): Promise<unknown> {
-    return this.request('POST', `/${this.options.phoneNumberId}/messages`, body)
-  }
-
-  private async request(method: string, path: string, body?: unknown): Promise<unknown> {
+  private async postMessage(body: unknown): Promise<unknown> {
+    const path = `/${this.options.phoneNumberId}/messages`
     const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${this.options.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      method: 'POST',
+      headers: { ...this.authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(this.timeoutMs),
     })
 
     const text = await response.text()
-    const parsed = text ? safeJson(text) : null
+    const parsed = parseBody(text)
 
     if (!response.ok) {
-      throw new MetaError(
-        `Meta ${method} ${path} answered ${response.status}`,
+      throw new DualhookError(
+        `Dualhook POST ${path} answered ${response.status}`,
         response.status,
         parsed,
       )
     }
 
     return parsed
+  }
+
+  private authHeaders(): Record<string, string> {
+    return { Authorization: `Bearer ${this.options.apiKey}` }
   }
 }
 
@@ -135,7 +143,9 @@ const readWamid = (response: unknown): string | null => {
   return messages?.[0]?.id ?? null
 }
 
-const safeJson = (text: string): unknown => {
+const parseBody = (text: string): unknown => {
+  if (!text) return null
+
   try {
     return JSON.parse(text)
   } catch {

@@ -16,10 +16,12 @@ import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
 import type { Request } from 'express'
 import {
+  type UpdateTenantDryRunInput,
   createTenantSchema,
   paymentMethodSchema,
   registerWhatsappNumberSchema,
   saveCredentialSchema,
+  updateTenantDryRunSchema,
   updateTenantSchema,
   updateTenantStatusSchema,
 } from '@cobra/contracts'
@@ -49,6 +51,12 @@ export class TenantsController {
   @ApiOperation({ summary: 'Listar las empresas del usuario' })
   list(@SupabaseCtx() ctx: SupabaseContext) {
     return this.tenants.listMine(ctx.supabase)
+  }
+
+  @Get(':tenantId')
+  @ApiOperation({ summary: 'Ver una empresa' })
+  findOne(@SupabaseCtx() ctx: SupabaseContext, @Param('tenantId', ParseUUIDPipe) tenantId: string) {
+    return this.tenants.findOne(ctx.supabase, tenantId)
   }
 
   /**
@@ -98,6 +106,17 @@ export class TenantsController {
     @Body(new ZodValidationPipe(updateTenantStatusSchema)) body: unknown,
   ) {
     return this.tenants.setStatus(tenantId, (body as { status: 'active' | 'suspended' }).status)
+  }
+
+  /** Its own route for the same reason as the status: PATCH /:tenantId is the company's. */
+  @Patch(':tenantId/dry-run')
+  @RequirePlatformAdmin()
+  @ApiOperation({ summary: 'Activar o desactivar el modo de prueba de una empresa' })
+  setDryRun(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Body(new ZodValidationPipe(updateTenantDryRunSchema)) body: unknown,
+  ) {
+    return this.tenants.setDryRun(tenantId, (body as UpdateTenantDryRunInput).dryRun)
   }
 
   @Get(':tenantId/members')

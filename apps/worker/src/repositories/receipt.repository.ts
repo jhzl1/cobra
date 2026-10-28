@@ -140,7 +140,9 @@ export class ReceiptRepository {
    * The references are spent in the same call: from here on rule 4 rejects that
    * receipt, whoever sends it again.
    */
-  async recordAttempt(input: RecordPaymentAttempt): Promise<{ attemptId: string }> {
+  async recordAttempt(
+    input: RecordPaymentAttempt & { dryRun: boolean },
+  ): Promise<{ attemptId: string }> {
     const scope = this.supabase.scope(input.tenantId)
 
     const { data, error } = await scope
@@ -151,6 +153,9 @@ export class ReceiptRepository {
         documents: input.documents,
         amount: input.amount,
         state: 'pending',
+        // Its Wisphub writes were simulated. Without the mark it reads as money
+        // that moved.
+        dry_run: input.dryRun,
       })
       .select('id')
       .single()

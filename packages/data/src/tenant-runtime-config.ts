@@ -9,6 +9,11 @@ export interface TenantRuntimeConfig {
   supportPhone: string
   adminPhone: string
   status: TenantStatus
+  /**
+   * Nothing leaves towards the customer, the administrator or Wisphub. Read per
+   * job like everything else here, so switching it applies to what is queued.
+   */
+  dryRun: boolean
   credentials: Partial<Record<CredentialProvider, DecryptedCredential>>
   /** The number this tenant sends from. Null when none is active. */
   phoneNumberId: string | null
@@ -29,7 +34,7 @@ export const loadTenantRuntimeConfig = async (
   const [tenant, credentials, number] = await Promise.all([
     client
       .from('tenants')
-      .select('id, slug, company_name, support_phone, admin_phone, status')
+      .select('id, slug, company_name, support_phone, admin_phone, status, dry_run')
       .eq('id', tenantId)
       .single(),
     client.from('tenant_credentials').select('provider, ciphertext').eq('tenant_id', tenantId),
@@ -64,6 +69,7 @@ export const loadTenantRuntimeConfig = async (
     supportPhone: tenant.data.support_phone as string,
     adminPhone: tenant.data.admin_phone as string,
     status: tenant.data.status as TenantStatus,
+    dryRun: tenant.data.dry_run as boolean,
     credentials: decrypted,
     phoneNumberId: (number.data?.phone_number_id as string | undefined) ?? null,
   }

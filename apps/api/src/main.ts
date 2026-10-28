@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { NestFactory, Reflector } from '@nestjs/core'
+import { NestFactory } from '@nestjs/core'
 import helmet from 'helmet'
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter'
@@ -11,24 +11,19 @@ const SCALAR_CDN = 'https://cdn.jsdelivr.net'
 const SCALAR_FONTS = 'https://fonts.scalar.com'
 
 const bootstrap = async (): Promise<void> => {
-  /**
-   * `rawBody: true` is what makes the webhook verifiable: Meta signs the exact
-   * bytes it sent, and re-serialising the parsed object produces different ones
-   * for any message with an accent.
-   */
-  const app = await NestFactory.create(AppModule, { rawBody: true })
+  const app = await NestFactory.create(AppModule)
   const config = app.get(ConfigService)
 
   app.use(buildHelmet())
   app.setGlobalPrefix('api', {
-    // Meta's URL is configured in their dashboard and is not part of our API
-    // surface, so it does not carry the prefix.
+    // The webhook URL is pasted into n8n's forward node and is not part of our
+    // API surface, so it does not carry the prefix.
     exclude: [{ path: 'wh/wa/:tenantSlug/:webhookToken', method: -1 as never }],
   })
 
   app.enableCors({ origin: config.getOrThrow<string[]>('CORS_ORIGINS') })
 
-  app.useGlobalInterceptors(new ResponseEnvelopeInterceptor(app.get(Reflector)))
+  app.useGlobalInterceptors(new ResponseEnvelopeInterceptor())
   app.useGlobalFilters(new HttpExceptionFilter())
 
   setupDocs(app)

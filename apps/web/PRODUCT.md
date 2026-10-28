@@ -69,9 +69,9 @@ En este orden:
   mensaje en pantalla, y el cliente nunca lo recibe.
 - **Timeline por conversación.** Cada paso muestra tipo, nombre, estado, duración
   y, desplegable, sus argumentos y su resultado.
-- **Puesta en marcha de un cliente.** Cargar las tres credenciales (Meta,
-  OpenRouter, Wisphub), copiar la URL del webhook y el verify token que genera el
-  panel y pegarlos en Meta.
+- **Puesta en marcha de un cliente.** Cargar las tres credenciales (Dualhook,
+  OpenRouter, Wisphub), copiar la URL del webhook que genera el panel y ponerla
+  como destino del reenvío en n8n.
 
 ## Capabilities and Constraints
 

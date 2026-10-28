@@ -5,8 +5,17 @@ import type { WisphubCustomer, WisphubInvoice, WisphubPort } from './types'
 /** Default ceiling for one Wisphub call. */
 const WISPHUB_TIMEOUT_MS = 20_000
 
+/** What a simulated write resolves with. The tools never read it; a person reading a trace might. */
+export const SIMULATED_WISPHUB_WRITE = { simulated: true } as const
+
 export interface WisphubClientOptions {
   apiKey: string
+  /**
+   * The company is in dry-run: reads hit Wisphub, writes resolve as accepted
+   * without leaving the process. Wisphub has no test environment, so this is
+   * the only way to train the agent against real accounts.
+   */
+  dryRun?: boolean
   baseUrl?: string
   /** Kept short on purpose: a hung call here is a customer left without an answer. */
   timeoutMs?: number
@@ -100,10 +109,18 @@ export class WisphubClient implements WisphubPort {
       forma_pago: string
     },
   ): Promise<unknown> {
+    // Resolving as accepted, not rejecting: `registerPayment` and `applyCredit`
+    // then run every branch they run in production and the model hears the
+    // answer a customer would get. An error here would train it on a path no
+    // customer ever sees.
+    if (this.options.dryRun) return Promise.resolve(SIMULATED_WISPHUB_WRITE)
+
     return this.request('POST', `/api/facturas/${invoiceId}/registrar-pago/`, body)
   }
 
   updateBalance(serviceId: number, saldo: string): Promise<unknown> {
+    if (this.options.dryRun) return Promise.resolve(SIMULATED_WISPHUB_WRITE)
+
     return this.request('PUT', `/api/clientes/${serviceId}/perfil/`, { saldo })
   }
 

@@ -84,10 +84,11 @@ packages/db                     migraciones de Supabase
   de llegar a Postgres. **Tiene que ser idéntica en `api` y en `worker`.**
 - El panel nunca ve el `ciphertext`: ve `last4`. Eso lo hace cumplir un `grant` de
   columnas, no una política.
-- Un token de acceso, una API key o un app secret **nunca** se loguean, ni
-  siquiera truncados, ni en un error.
-- Las tres credenciales por cliente son `meta` (access token + `extra.appSecret`),
-  `openrouter` y `wisphub`.
+- Una llave de API o un token **nunca** se loguean, ni siquiera truncados, ni en
+  un error.
+- Las tres credenciales por cliente son `dualhook` (la llave `dh_live_` de la
+  conexión del número), `openrouter` y `wisphub`. Cada una es un solo secreto,
+  sin nada al lado.
 
 ## 5 · Reglas de código
 
@@ -250,8 +251,9 @@ Al hacer cualquiera de estas acciones, **invoca primero la skill correspondiente
 | Tocar el webhook de WhatsApp o su ruta                         | `.claude/skills/whatsapp-webhook/SKILL.md`   |
 | Cambiar cómo se resuelve el tenant de un evento entrante       | `.claude/skills/whatsapp-webhook/SKILL.md`   |
 | Cambiar los filtros de mensajes entrantes                      | `.claude/skills/whatsapp-webhook/SKILL.md`   |
-| Enviar un mensaje por WhatsApp Cloud API                       | `.claude/skills/whatsapp-webhook/SKILL.md`   |
-| Descargar media de Meta                                        | `.claude/skills/whatsapp-webhook/SKILL.md`   |
+| Enviar un mensaje por WhatsApp                                 | `.claude/skills/whatsapp-webhook/SKILL.md`   |
+| Cambiar el cliente de Dualhook                                 | `.claude/skills/whatsapp-webhook/SKILL.md`   |
+| Descargar media de WhatsApp                                    | `.claude/skills/whatsapp-webhook/SKILL.md`   |
 | Manejar statuses, errors o smb_message_echoes                  | `.claude/skills/whatsapp-webhook/SKILL.md`   |
 
 <!-- END AUTO-INVOKE -->

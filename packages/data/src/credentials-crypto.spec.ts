@@ -8,17 +8,11 @@ describe('CredentialsCrypto', () => {
   it('round-trips a credential and exposes only its last four characters', () => {
     const crypto = new CredentialsCrypto(key)
 
-    const { ciphertext, last4 } = crypto.encrypt({
-      secret: 'EAAG-super-secret-token-9821',
-      extra: { wabaId: '100000000000001' },
-    })
+    const { ciphertext, last4 } = crypto.encrypt({ secret: 'dh_live_super-secret-key-9821' })
 
     expect(last4).toBe('9821')
     expect(ciphertext).not.toContain('super-secret')
-    expect(crypto.decrypt(ciphertext)).toEqual({
-      secret: 'EAAG-super-secret-token-9821',
-      extra: { wabaId: '100000000000001' },
-    })
+    expect(crypto.decrypt(ciphertext)).toEqual({ secret: 'dh_live_super-secret-key-9821' })
   })
 
   it('refuses a ciphertext that was edited instead of decrypting it into something else', () => {

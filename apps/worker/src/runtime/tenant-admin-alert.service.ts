@@ -18,13 +18,20 @@ export class TenantAdminAlertService {
   forTenant(runtime: TenantRuntime): MessagingPort {
     return {
       notifyTenantAdmin: async (message: string, mediaId?: string | null) => {
+        if (runtime.runtimeConfig.dryRun) {
+          this.logger.log(
+            `Dry-run: alert to the administrator of tenant ${runtime.runtimeConfig.id} not sent — ${headlineOf(message, mediaId)}`,
+          )
+          return
+        }
+
         try {
           if (mediaId) {
-            await runtime.meta.sendImage(runtime.runtimeConfig.adminPhone, mediaId, message)
+            await runtime.whatsapp.sendImage(runtime.runtimeConfig.adminPhone, mediaId, message)
             return
           }
 
-          await runtime.meta.sendText(runtime.runtimeConfig.adminPhone, message)
+          await runtime.whatsapp.sendText(runtime.runtimeConfig.adminPhone, message)
         } catch (error) {
           /**
            * Outside the 24-hour window Meta answers 131047 and the alert never
@@ -43,3 +50,20 @@ export class TenantAdminAlertService {
 
 export const errorMessageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
+
+/** How much of an alert's first line reaches the log. */
+const MAX_HEADLINE_LENGTH_CHARS = 120
+
+/**
+ * What a held-back alert was about, for the log of a company in dry-run.
+ *
+ * Only the first line: it is the kind of alert ("Pago registrado", "COMPROBANTE
+ * RETENIDO — …"), and the lines below carry the customer's name and documents,
+ * which do not belong in a log that outlives the conversation.
+ */
+export const headlineOf = (message: string, mediaId?: string | null): string => {
+  const firstLine = message.split('\n')[0] ?? ''
+  const headline = firstLine.slice(0, MAX_HEADLINE_LENGTH_CHARS)
+
+  return mediaId ? `${headline} (with image)` : headline
+}

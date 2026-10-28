@@ -4,7 +4,8 @@ import { join } from 'node:path'
 /**
  * The build this process is running.
  *
- * The deploy stamps APP_VERSION into the image; the manifest is the fallback for
+ * deploy.yml sets APP_VERSION on the Railway service before each deploy, to the
+ * minute the deploy started (`YYYY.MM.DD-HH:MM`, Bogota time); the manifest is the fallback for
  * running locally. Deliberately not part of `env.ts` — that file holds what has
  * to stop the boot when it is missing, and a version always resolves to
  * something.

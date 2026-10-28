@@ -4,35 +4,19 @@ import { z } from 'zod'
 import './locale'
 
 /**
- * WhatsApp Cloud API, spoken directly to Meta.
+ * Meta's webhook envelope, as it reaches Cobra.
  *
- * PLAN.md was written against Dualhook, a reseller that proxies Meta and hides
- * the app secret. Cobra talks to `graph.facebook.com` itself, which changes three
- * things and nothing else:
- *
- *  - the app secret is ours, so `X-Hub-Signature-256` can actually be verified;
- *  - media takes two calls (`GET /{media_id}` returns a short-lived URL, then the
- *    bytes are fetched from it with the same bearer token) instead of Dualhook's
- *    single `/{media_id}/content`;
- *  - the access token is a tenant credential, not a global one.
+ * The number is connected through Dualhook, a Meta Tech Partner for
+ * Coexistence. Its Webhook Override makes Meta deliver the message path
+ * (messages, statuses, errors) in Meta's own raw envelope to a self-hosted n8n,
+ * which forwards the identical body here. So these schemas describe Meta's
+ * payload, not Dualhook's — Dualhook never touches the inbound body.
  *
  * Everything below is deliberately permissive about fields we do not read:
  * Meta adds keys to these payloads without warning, and a strict object would
  * turn a new field into a rejected webhook and a message the customer never
  * gets an answer to.
  */
-
-export const META_GRAPH_VERSION = 'v23.0'
-export const META_GRAPH_URL = `https://graph.facebook.com/${META_GRAPH_VERSION}`
-
-/** The handshake Meta performs when the webhook URL is saved. */
-export const metaVerificationSchema = z.object({
-  'hub.mode': z.literal('subscribe'),
-  'hub.verify_token': z.string().min(1),
-  'hub.challenge': z.string().min(1),
-})
-
-export type MetaVerification = z.infer<typeof metaVerificationSchema>
 
 const metaTextSchema = z.object({ body: z.string() })
 

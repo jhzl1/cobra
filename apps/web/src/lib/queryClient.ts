@@ -16,6 +16,7 @@ export const queryKeys = {
   platformIdentity: ['platform', 'me'] as const,
   roleGrants: ['platform', 'roles'] as const,
   tenants: ['tenants'] as const,
+  tenant: (tenantId: string) => ['tenants', tenantId, 'detail'] as const,
   setup: (tenantId: string) => ['tenants', tenantId, 'setup'] as const,
   members: (tenantId: string) => ['tenants', tenantId, 'members'] as const,
   credentials: (tenantId: string) => ['tenants', tenantId, 'credentials'] as const,

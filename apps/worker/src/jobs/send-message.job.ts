@@ -38,6 +38,9 @@ export class SendMessageJobHandler {
     const message = data as Record<string, unknown>
 
     if (message['delivery_state'] === 'sent') return { sent: true }
+    // Held back once means held back for good: switching dry-run off later must
+    // not deliver a reply written for a conversation that has moved on.
+    if (message['delivery_state'] === 'dry_run') return { sent: false }
 
     /**
      * The status is checked here, immediately before sending, and not when the
@@ -70,8 +73,24 @@ export class SendMessageJobHandler {
       return { sent: false }
     }
 
+    // Same moment as the suspension check, for the same reason: the mode can
+    // change while the message waits, and what counts is the mode at send time.
+    if (runtime.runtimeConfig.dryRun) {
+      const { error: markError } = await this.supabase
+        .scope(tenantId)
+        .update('messages', { delivery_state: 'dry_run' })
+        .eq('id', messageId)
+
+      // Thrown so pg-boss retries: unmarked, the row would read `pending` forever.
+      if (markError) throw markError
+
+      this.logger.log(`Dry-run: message ${messageId} of tenant ${tenantId} stored and not sent`)
+
+      return { sent: false }
+    }
+
     try {
-      const wamid = await runtime.meta.sendText(
+      const wamid = await runtime.whatsapp.sendText(
         conversation.phone ?? conversation.personId,
         String(message['body'] ?? ''),
       )

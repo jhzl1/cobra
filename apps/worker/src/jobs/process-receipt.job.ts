@@ -38,7 +38,7 @@ export class ProcessReceiptJobHandler {
     if (await this.receipts.existsForMessage(tenantId, messageId)) return { receiptId: null }
 
     const runtime = await this.tenantRuntimes.load(tenantId)
-    const { bytes, mediaType } = await runtime.meta.downloadMedia(mediaId)
+    const { bytes, mediaType } = await runtime.whatsapp.downloadMedia(mediaId)
 
     const storagePath = `${tenantId}/${conversationId}/${messageId}.${extensionFor(mediaType)}`
 

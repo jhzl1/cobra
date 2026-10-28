@@ -106,16 +106,22 @@ en cada réplica de la API, multiplicas ese mantenimiento contra la misma base. 
 
 ### Versión visible
 
-Se copia el mecanismo de `midgard`, sin cambios. Un helper en
-`apps/api/src/config/app-version.ts` que lee `APP_VERSION` del entorno —estampado por el deploy— y
-cae al `version` del `package.json` cuando se corre local. De ahí salen los dos sitios donde la
-versión tiene que verse:
+Un helper en `apps/api/src/config/app-version.ts`, copiado de `midgard`, que lee `APP_VERSION` del
+entorno y cae al `version` del `package.json` cuando se corre local. De ahí salen los dos sitios donde
+la versión tiene que verse:
 
 - **La API**: `GET /api/health` devuelve `{ status: 'ok', version }`. Se resuelve una sola vez al
   construir el controlador, no en cada petición.
 - **La documentación**: `.setVersion(getAppVersion())` en el `DocumentBuilder` de
   `apps/api/src/docs/setup-docs.ts`, que Scalar muestra en `/docs`. Quien abra esa página lee el
   contrato de la API que está respondiendo en ese momento, no un número mantenido a mano.
+
+El panel la muestra en su encabezado desde `VITE_APP_VERSION`, con el mismo respaldo.
+
+**Qué número es:** `YYYY.MM.DD-HH:MM`, el minuto en que arrancó el deploy en hora de Bogotá, igual
+en los dos ambientes. Nadie lo configura: `.github/workflows/deploy.yml` lo calcula y escribe
+`APP_VERSION` y `VITE_APP_VERSION` antes de desplegar. Los detalles están en el README, sección
+"Desplegar".
 
 Archivos de referencia para copiar literal:
 `midgard/apps/api/src/config/app-version.ts`, `midgard/apps/api/src/docs/setup-docs.ts`,
@@ -159,7 +165,7 @@ tenant_members        (tenant_id, user_id)                -- user_id → auth.us
 tenant_credentials    (tenant_id, provider, ciphertext, last4, rotated_at)
                       -- provider: 'dualhook' | 'openrouter' | 'wisphub'
 whatsapp_numbers      (id, tenant_id, phone_number_id, display_number,
-                       verify_token, webhook_token, valid_from, valid_to)
+                       webhook_token, valid_from, valid_to)
 payment_methods       (tenant_id, zone, entity_name, payment_address, wisphub_id, description)
 ```
 
@@ -236,24 +242,22 @@ Réplica fiel del pipeline de n8n, con los bugs latentes corregidos.
 **Una ruta por cliente**, no un endpoint único:
 
 ```
-GET|POST /wh/wa/:tenantSlug/:webhookToken
+POST /wh/wa/:tenantSlug/:webhookToken
 ```
 
-Dos razones concretas, ambas descubiertas al revisar la documentación de Dualhook:
+El Webhook Override de Dualhook apunta a un n8n propio, que contesta el handshake `GET` de Meta y
+reenvía el cuerpo idéntico a esta ruta. Por eso Cobra solo recibe el `POST`.
 
-- El handshake `GET` de Meta manda `hub.mode`, `hub.verify_token` y `hub.challenge`, **sin
-  `phone_number_id`**. Con una URL única no hay forma de saber qué verify token validar, y el
-  verify token es por conexión.
-- Resolver el tenant leyendo `metadata.phone_number_id` de un cuerpo no autenticado significa que
-  cualquiera que adivine un `phone_number_id` inyecta mensajes en la conversación de cualquier
-  cliente, y el agente registra pagos contra Wisphub. La ruta con token opaco de alta entropía
-  cierra eso.
+Resolver el tenant leyendo `metadata.phone_number_id` de un cuerpo no autenticado significa que
+cualquiera que adivine un `phone_number_id` inyecta mensajes en la conversación de cualquier
+cliente, y el agente registra pagos contra Wisphub. La ruta con token opaco de alta entropía
+cierra eso, y es la única autenticación que hay: ver el riesgo aceptado en «Riesgos abiertos».
 
 Regla dura: el `phone_number_id` del cuerpo **se cruza** contra el tenant de la ruta. Si no
 coinciden, 403 y no se procesa.
 
-El controller: `rawBody: true` en `NestFactory.create`, un solo INSERT en `messages`, ack 200,
-encolar. Persistir y luego responder, no al revés.
+El controller: un solo INSERT en `messages`, ack 200, encolar. Persistir y luego responder, no al
+revés.
 
 Filtros heredados de n8n, que se mantienen:
 
@@ -443,7 +447,8 @@ una vista que el operador revisa.
 
 ## Credenciales por cliente
 
-Cifrado AES-256-GCM en la aplicación, llave maestra en variable de entorno de Railway.
+Cifrado AES-256-GCM en la aplicación, llave maestra en un secret del GitHub Environment, que el
+deploy copia a Railway.
 `tenant_credentials` no tiene política de `select` para clientes: el panel solo ve `last4`.
 
 **Advertencia que hay que tener presente durante toda la implementación:** el backend usa
@@ -552,13 +557,12 @@ de `RegisterPayment` son densas y cada una salió de un incidente real en produc
 
 ## Riesgos abiertos
 
-**Bloqueante, antes de escribir el controller:** preguntarle a Dualhook **si entregan el app secret
-de la aplicación de Meta que firma los webhooks**. Su documentación dice que manejan el app secret
-y el `appsecret_proof` internamente y no los exponen. Sin ese secreto no se puede validar
-`X-Hub-Signature-256` y la única autenticación del webhook es el token opaco de la ruta. Se puede
-vivir con eso, pero es una decisión consciente, no un descuido. Si sí lo entregan: la firma se
-calcula sobre los bytes exactos del cuerpo, con el unicode escapado — volver a serializar el objeto
-ya parseado rompe la firma en cualquier mensaje con tildes, que aquí es casi todo el tráfico.
+**Aceptado (2026-10-27): el webhook no tiene firma.** Dualhook no entrega el app secret de la
+aplicación de Meta que firma los webhooks, así que `X-Hub-Signature-256` no se puede validar, y
+entre n8n y Cobra no hay autenticación propia. La única es el token opaco de la ruta: quien conozca
+esa URL y el `phone_number_id` del cliente puede inyectar eventos. Se acepta mientras n8n esté en
+medio; la corrección es un encabezado con un secreto compartido entre quien reenvía y Cobra, cuando
+n8n se retire o antes de producción, lo que pase primero.
 
 Los demás, en orden de qué tan pronto muerden:
 
@@ -591,7 +595,8 @@ con un usuario de cada uno. Con las credenciales cargadas, comprobar desde el pa
 que no existe ninguna consulta que devuelva datos del B. Test de integración que lo intente contra
 la API con el token del A.
 
-**Fase 2** — apuntar el Webhook Override de un número de prueba a la ruta del cliente de prueba.
+**Fase 2** — apuntar el Webhook Override de un número de prueba al n8n, y su nodo de reenvío a la
+ruta del cliente de prueba.
 Mandar un mensaje desde un celular real: aparece en el panel sin recargar. Responder desde el panel
 con la conversación en `human`: llega al celular. Mandar tres mensajes seguidos: aparecen los tres.
 

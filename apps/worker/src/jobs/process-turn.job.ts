@@ -96,7 +96,7 @@ export class ProcessTurnJobHandler {
      * Suspension is checked here rather than when the job was queued, for the
      * same reason the handoff status is: the company can be suspended while this
      * turn sits in the queue, and nothing after this line is free — it reaches
-     * Meta, OpenRouter and Wisphub.
+     * Dualhook, OpenRouter and Wisphub.
      *
      * The messages are marked as read so the queue stops spinning on them. They
      * are not replayed on reactivation; the webhook is dropping anything new by
@@ -114,8 +114,12 @@ export class ProcessTurnJobHandler {
 
     // The read receipt and the typing indicator go out before anything slow
     // happens: it is what makes a 1,5-second window feel like no wait at all.
-    const wamid = await this.conversations.latestInboundWamid(tenantId, conversationId)
-    if (wamid) await runtime.meta.markAsRead(wamid)
+    // In dry-run the customer must not see them: the blue ticks and "escribiendo…"
+    // would promise an answer that never comes.
+    if (!runtime.runtimeConfig.dryRun) {
+      const wamid = await this.conversations.latestInboundWamid(tenantId, conversationId)
+      if (wamid) await runtime.whatsapp.markAsRead(wamid)
+    }
 
     const consumedMessageIds = unprocessedMessages.map((message) => message.id)
     const burst = consolidateBurst(unprocessedMessages)
@@ -201,7 +205,7 @@ export class ProcessTurnJobHandler {
         mediaId: burst.mediaIds.at(-1) ?? pendingReceiptLookup.receipt?.mediaId ?? null,
         deps: {
           wisphub: runtime.wisphub,
-          receipts: this.receiptPort(tenantId),
+          receipts: this.receiptPort(tenantId, runtime.runtimeConfig.dryRun),
           messaging: this.tenantAdminAlerts.forTenant(runtime),
           steps: run.recorder,
           steering,
@@ -267,11 +271,17 @@ export class ProcessTurnJobHandler {
     this.logger.warn(`Receipts of ${withMedia.length} image(s) were not ready in time`)
   }
 
-  private receiptPort(tenantId: string): ReceiptPort {
+  /**
+   * `dryRun` comes from the same runtime that built the Wisphub client, so an
+   * attempt is marked simulated exactly when its writes were. Reading the mode
+   * again here could disagree with it if the company switched mid-turn.
+   */
+  private receiptPort(tenantId: string, dryRun: boolean): ReceiptPort {
     return {
       checkPendingReceipt: (conversationId: string) =>
         this.receipts.findPending(tenantId, conversationId),
-      recordPaymentAttempt: (input: RecordPaymentAttempt) => this.receipts.recordAttempt(input),
+      recordPaymentAttempt: (input: RecordPaymentAttempt) =>
+        this.receipts.recordAttempt({ ...input, dryRun }),
       settlePaymentAttempt: (attemptId: string, input: SettlePaymentAttempt) =>
         this.receipts.settleAttempt(tenantId, attemptId, input),
     }

@@ -1,11 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
+import { isAxiosError } from 'axios'
 import { ArrowLeftIcon } from 'lucide-react'
 import { useState } from 'react'
 import type { AgentRun, ConversationSummary, JobRun } from '@cobra/contracts'
 import { ConversationList } from '~/components/ConversationList'
 import { ConversationPanel } from '~/components/ConversationPanel'
 import { JobRunTable } from '~/components/JobRunTable'
+import { TenantControls } from '~/components/TenantControls'
+import { TenantOverview } from '~/components/TenantOverview'
+import { TenantStateBadges } from '~/components/TenantStateBadges'
 import { Timeline } from '~/components/Timeline'
 import { Button } from '~/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
@@ -19,7 +23,7 @@ import type { TenantSummary } from '~/lib/tenants'
 import { cn } from '~/lib/utils'
 import { NotFoundPage } from '~/pages/ErrorPage'
 
-export type PlatformTenantTab = 'conversations' | 'executions'
+export type PlatformTenantTab = 'conversations' | 'executions' | 'settings'
 
 interface Props {
   tenantId: string
@@ -28,38 +32,46 @@ interface Props {
 }
 
 /**
- * A company from the platform: its conversations and what the worker ran for
- * it. Nothing here writes — the administrator audits, the company's own team
- * answers its customers.
+ * A company from the platform: who it is and the two switches only the
+ * platform holds, its conversations, and what the worker ran for it.
+ *
+ * The conversations stay read only — the administrator audits, the company's
+ * own team answers its customers.
  */
 export const PlatformTenantPage = ({ tenantId, tab, conversationId }: Props) => {
   const navigate = useNavigate()
 
-  const tenants = useQuery({
-    queryKey: queryKeys.tenants,
+  const tenant = useQuery({
+    queryKey: queryKeys.tenant(tenantId),
     queryFn: async () => {
-      const { data } = await api.get<TenantSummary[]>('/tenants')
+      const { data } = await api.get<TenantSummary>(`/tenants/${tenantId}`)
 
       return data
     },
   })
 
-  if (tenants.isLoading) return <PageCenter />
+  if (tenant.isLoading) return <PageCenter />
 
-  const tenant = tenants.data?.find((candidate) => candidate.id === tenantId)
+  if (!tenant.data) {
+    // A 404 is a company that does not exist; anything else is the API failing,
+    // and calling that "not found" would send the administrator looking elsewhere.
+    const isMissing = isAxiosError(tenant.error) && tenant.error.response?.status === 404
 
-  if (!tenant) return <NotFoundPage />
+    if (isMissing || !tenant.error) return <NotFoundPage />
+
+    return <p className="p-4 text-sm text-destructive md:p-6">{tenant.error.message}</p>
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex shrink-0 items-center gap-3 border-b px-4 py-3 md:px-6">
+      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-3 md:px-6">
         <Button asChild size="icon-sm" variant="ghost" className="-ml-2">
           <Link to="/platform" aria-label="Volver a la plataforma">
             <ArrowLeftIcon />
           </Link>
         </Button>
-        <h1 className="truncate font-display text-base font-semibold">{tenant.companyName}</h1>
-        <span className="text-xs text-muted-foreground">Solo lectura</span>
+        <h1 className="truncate font-display text-base font-semibold">{tenant.data.companyName}</h1>
+        <TenantStateBadges tenant={tenant.data} />
       </header>
 
       <Tabs
@@ -68,7 +80,7 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId }: Props) => 
           void navigate({
             to: '/platform/tenants/$companyId',
             params: { companyId: tenantId },
-            search: { tab: value === 'executions' ? 'executions' : undefined },
+            search: { tab: toTabSearch(value) },
           })
         }
         className="flex min-h-0 flex-1 flex-col gap-0"
@@ -76,6 +88,7 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId }: Props) => 
         <TabsList className="mx-4 mt-3 md:mx-6">
           <TabsTrigger value="conversations">Conversaciones</TabsTrigger>
           <TabsTrigger value="executions">Ejecuciones</TabsTrigger>
+          <TabsTrigger value="settings">Configuraciones</TabsTrigger>
         </TabsList>
 
         <TabsContent value="conversations" className="flex min-h-0 flex-1 flex-col">
@@ -85,9 +98,23 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId }: Props) => 
         <TabsContent value="executions" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
           <Executions tenantId={tenantId} />
         </TabsContent>
+
+        <TabsContent value="settings" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="flex flex-col gap-4">
+            <TenantControls tenant={tenant.data} />
+            <TenantOverview tenant={tenant.data} />
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   )
+}
+
+/** The conversations tab is the default, so it stays out of the URL. */
+const toTabSearch = (value: string): PlatformTenantTab | undefined => {
+  if (value === 'executions' || value === 'settings') return value
+
+  return undefined
 }
 
 /* Conversations --------------------------------------------------------------- */
@@ -153,7 +180,7 @@ const ReadOnlyConversations = ({
                 void navigate({
                   to: '/platform/tenants/$companyId',
                   params: { companyId: tenantId },
-                  search: { conversationId: id },
+                  search: { tab: 'conversations', conversationId: id },
                 })
               }
             />

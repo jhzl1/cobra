@@ -9,24 +9,34 @@ chat al bot.
 
 El plan completo, con la línea base medida contra n8n, está en [`PLAN.md`](./PLAN.md).
 
-## Diferencia frente al plan: WhatsApp es Meta directo
+## WhatsApp: Dualhook, con n8n en medio
 
-`PLAN.md` está escrito contra Dualhook, un revendedor que hace de proxy de Meta.
-Cobra habla con `graph.facebook.com` directamente. Cambian tres cosas:
+El número se conecta por Dualhook, un Meta Tech Partner para coexistencia (el
+mismo número sigue funcionando en el celular físico).
 
-- El app secret es nuestro, así que `X-Hub-Signature-256` **sí** se puede validar.
-  El riesgo bloqueante que abre la sección de riesgos del plan deja de existir.
-- La descarga de media son dos llamadas: `GET /{media_id}` devuelve una URL
-  efímera, y los bytes se piden a esa URL con el mismo bearer.
-- El token de acceso es una credencial del cliente (`provider = 'meta'`), no una
-  credencial global del n8n.
+- **Entrada.** El Webhook Override de Dualhook hace que Meta entregue mensajes,
+  statuses y errores a un n8n propio, que reenvía el cuerpo idéntico a la ruta del
+  cliente en Cobra. El sobre es el de Meta, sin tocar. El handshake `GET` de Meta
+  lo contesta n8n.
+- **Sin firma.** Meta firma `X-Hub-Signature-256` con el app secret de Dualhook,
+  que no tenemos, así que no se puede validar. Lo único que autentica la entrada
+  es el token opaco de la URL: quien conozca esa URL y el `phone_number_id` del
+  cliente puede inyectar eventos. Es un riesgo aceptado mientras n8n siga en
+  medio; la corrección es un encabezado con un secreto compartido, antes de
+  producción.
+- **Salida y media.** Por la Runtime API de Dualhook
+  (`https://api.dualhook.com/v25.0`), con las mismas rutas y cuerpos que la Graph
+  API de Meta y la llave `dh_live_` de cada cliente como bearer. Descargar media
+  es una sola llamada: `GET /{media_id}/content` devuelve los bytes.
+- **Credencial.** La llave de Dualhook es una credencial del cliente
+  (`provider = 'dualhook'`), no una global del n8n.
 
 ## Arquitectura
 
 ```
 cobra/
 ├── apps/
-│   ├── api/       @cobra/api     — NestJS 11 (HTTP + webhook de Meta)
+│   ├── api/       @cobra/api     — NestJS 11 (HTTP + webhook de WhatsApp)
 │   ├── worker/    @cobra/worker  — NestJS standalone, ESM, corre pg-boss
 │   └── web/       @cobra/web     — React 19 · Vite · Tailwind v4 · shadcn/ui · TanStack
 ├── packages/
@@ -88,7 +98,7 @@ uno documenta solo lo que esa aplicación necesita:
 
 `CREDENTIALS_MASTER_KEY` tiene que ser idéntica en `api` y en `worker`: el panel
 cifra las credenciales del cliente con ella y el worker las descifra. Si difieren,
-el agente no puede hablar con Meta ni con Wisphub.
+el agente no puede hablar con Dualhook ni con Wisphub.
 
 ## Comandos
 
@@ -110,35 +120,171 @@ Supabase:
 2. **`@cobra/web`** en Vercel — `apps/web/vercel.json`, con `apps/web` como Root
    Directory.
 
-`.railway/railway.ts` no lo lee Railway al desplegar: se aplica a mano contra el
-environment enlazado.
+**Todo deploy sale de `.github/workflows/deploy.yml`.** Ni Railway ni Vercel
+despliegan solos al recibir un push: `railway.ts` deja los servicios sin
+repositorio conectado y `vercel.json` apaga los deploys de git
+(`"git": { "deploymentEnabled": false }`). Así cada commit se despliega una sola
+vez, después de su migración y con una versión.
 
-```bash
-railway environment link development
-railway config plan     # muestra qué cambiaría, no toca nada
-railway config apply    # lo aplica después de confirmar
+### Cómo corre un deploy
+
+| Disparo                         | GitHub Environment | Railway       | Vercel        |
+| ------------------------------- | ------------------ | ------------- | ------------- |
+| push a `develop`                | `dev`              | `development` | preview       |
+| push a `main`                   | `production`       | `production`  | production    |
+| Actions → Deploy → Run workflow | según la rama      | según la rama | según la rama |
+
+El manual solo acepta `develop` y `main`; desde otra rama falla en el primer job.
+Sirve para redesplegar después de cambiar una variable.
+
+Los jobs van en este orden:
+
+```
+target → migrate → version → railway (api, worker) + vercel (web)
 ```
 
-Un cambio en ese archivo que nadie aplica no llega a Railway. Las variables
-también las gestiona el archivo: una que se agregue solo en el dashboard aparece
-como borrado en el siguiente `plan`.
+- **`migrate`** llama a `migrate.yml`. Si una migración falla, no se despliega
+  nada: el código nuevo nunca arranca contra el esquema viejo. Esto incluye
+  producción: un merge a `main` aplica sus migraciones.
+- **`version`** calcula la versión (ver abajo).
+- **`railway`** copia las variables a cada servicio sin desplegar, y después
+  sube el código con `railway up --ci`, que termina con el resultado del deploy:
+  falla si el build falla, si el healthcheck de `/api/health` nunca responde o si
+  el proceso se cae.
+- **`vercel`** hace `vercel pull`, `vercel build` con las variables del panel y
+  `vercel deploy --prebuilt`. En `dev` mueve además el alias fijo de la preview
+  (`VERCEL_ALIAS`) al deploy nuevo, porque el `CORS_ORIGINS` de la API apunta a
+  esa URL.
+
+Hay un solo deploy por ambiente a la vez y ninguno se cancela a la mitad. Si
+llegan varios pushes seguidos, se despliega el último y los intermedios se
+saltan.
+
+### La versión
+
+`YYYY.MM.DD-HH:MM`: el minuto en que arrancó el deploy, en hora de Bogotá. Por
+ejemplo, `2026.10.27-20:15`. Igual en los dos ambientes.
+
+Nadie la configura y no guarda estado: el job `version` lee la hora y ya. Dos
+deploys del mismo ambiente no pueden caer en el mismo minuto porque corren uno
+detrás del otro.
+
+La versión llega a la API como `APP_VERSION` (`GET /api/health` y `/docs`) y al
+panel como `VITE_APP_VERSION` (el encabezado). En local las dos caen al
+`version` del `package.json`.
+
+"Re-run failed jobs" reutiliza la versión que ya se calculó; "Run workflow"
+saca una nueva.
+
+### Dónde viven las variables
+
+**Los GitHub Environments `dev` y `production` son la única fuente** de las
+variables de las tres aplicaciones. Cada deploy las copia a Railway, servicio
+por servicio, y al build de Vercel. Un valor cambiado en el dashboard de Railway
+o de Vercel dura hasta el siguiente deploy. Para cambiar una: se edita en GitHub
+(Settings → Environments) y se relanza el deploy.
+
+Lo que hay que crear en **cada** Environment:
+
+| Nombre                     | Tipo     | Lo usa                                                   |
+| -------------------------- | -------- | -------------------------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN`    | secret   | migraciones                                              |
+| `SUPABASE_DB_PASSWORD`     | secret   | migraciones                                              |
+| `SUPABASE_SECRET_KEY`      | secret   | api, worker                                              |
+| `DATABASE_URL`             | secret   | api, worker                                              |
+| `CREDENTIALS_MASTER_KEY`   | secret   | api, worker                                              |
+| `RAILWAY_TOKEN`            | secret   | deploy a Railway                                         |
+| `VERCEL_ORG_ID`            | secret   | deploy a Vercel                                          |
+| `VERCEL_PROJECT_ID`        | secret   | deploy a Vercel                                          |
+| `SUPABASE_PROJECT_ID`      | variable | migraciones                                              |
+| `SUPABASE_URL`             | variable | api, worker, y el panel como `VITE_SUPABASE_URL`         |
+| `SUPABASE_PUBLISHABLE_KEY` | variable | api, y el panel como `VITE_SUPABASE_PUBLISHABLE_KEY`     |
+| `SUPABASE_JWKS_URL`        | variable | api                                                      |
+| `CORS_ORIGINS`             | variable | api — tiene que incluir la URL del panel de ese ambiente |
+| `VITE_API_URL`             | variable | panel, con el prefijo `/api`                             |
+| `VERCEL_ALIAS`             | variable | solo `dev`, obligatoria allí: la URL fija de la preview  |
+| `PUBLIC_URL`               | variable | api, opcional                                            |
+| `TURN_CONCURRENCY`         | variable | worker, opcional (sin ella, 4)                           |
+
+`VERCEL_TOKEN` es un secret **del repositorio**, no de un Environment: es el
+mismo para los dos, y un job con `environment:` lee primero el secret del
+Environment y, si no existe, el del repositorio. `VERCEL_ORG_ID` y
+`VERCEL_PROJECT_ID` también son iguales en los dos y pueden ir igual.
+
+No se crean: `NODE_ENV` (el workflow la fija en `production`), `APP_VERSION` y
+`VITE_APP_VERSION` (las pone el deploy) ni `PORT` (la asigna Railway).
+
+Una variable opcional que se vacía en GitHub **no** se borra de Railway: el
+deploy la salta, porque `railway variable delete` no tiene `--skip-deploys` y
+dispararía un deploy del build anterior. Se borra a mano en el dashboard.
+
+Agregar una variable nueva a la API o al worker toca cinco sitios: el
+`.env.example` y el `env.ts` de la aplicación, la lista de
+`.github/scripts/sync-railway-variables.sh`, el bloque `env:` del job `railway`
+en `deploy.yml`, y un `preserve()` en `.railway/railway.ts` — sin este último, el
+siguiente `railway config apply` la borra.
+
+### Pasos manuales, una sola vez
+
+Antes del primer push que traiga `deploy.yml`, en este orden:
+
+1. **GitHub** → Settings → Environments: crear `dev` y `production` y cargar la
+   tabla de arriba. En `production` conviene restringir la rama a `main`.
+2. **Railway**: un _Project Token_ por environment (Project Settings → Tokens),
+   uno para `development` y otro para `production`. Cada uno va como
+   `RAILWAY_TOKEN` del Environment de GitHub que le corresponde: el token solo
+   sirve para su environment.
+3. **Vercel**: un token (Account Settings → Tokens) y los dos identificadores,
+   que están en `apps/web/.vercel/project.json` después de un `vercel link` o en
+   Project Settings. Borrar del proyecto las variables `VITE_*`: el build las
+   toma de GitHub, y una que quede en Vercel puede competir con ella.
+4. **Aplicar `railway.ts`** en los dos environments. Es lo que desconecta el
+   repositorio; hasta entonces Railway sigue desplegando cada push por su
+   cuenta, además del workflow.
+
+   ```bash
+   railway environment link development
+   railway config plan     # muestra qué cambiaría, no toca nada
+   railway config apply    # lo aplica después de confirmar
+   railway environment link production
+   railway config plan
+   railway config apply
+   ```
+
+   El `plan` tiene que mostrar la fuente de GitHub quitada en `api` y `worker`,
+   y nada más que eso, los _watch patterns_ y las variables pasando a
+   `preserve`. **Si muestra un servicio borrado o recreado, no aplicar:** se
+   perderían su dominio y su historial. En ese caso se devuelve la fuente a
+   `github(...)` en `railway.ts` y se desconecta a mano con
+   `railway service source disconnect --service api` y lo mismo con
+   `--service worker`. También a mano si el `plan` no toca la fuente.
+
+   Después de aplicar, el `plan` sigue mostrando dos diferencias por servicio:
+   `source.type (null → "empty")` y los _watch patterns_ pasando a `null`.
+   Railway guarda una fuente desconectada como `null` y no borra los _watch
+   patterns_, así que esas dos líneas no convergen nunca. No cambian nada: sin
+   repositorio conectado no hay push que vigilar.
+
+5. **`VERCEL_ALIAS` de `dev`**: hoy es
+   `cobra-web-git-develop-jhzl1s-projects.vercel.app`, la URL que ya está en
+   `CORS_ORIGINS`. Si `vercel alias set` rechaza ese nombre, se elige otro (por
+   ejemplo `cobra-web-dev.vercel.app`) y se actualiza `CORS_ORIGINS` en el
+   Environment `dev`.
+
+Después del primer deploy verde de cada ambiente, borrar las _Shared Variables_
+de Railway (Project Settings → Shared Variables). Ya no las lee nadie: cada
+servicio guarda los valores que escribe el deploy.
+
+### Railway
+
+`.railway/railway.ts` no lo lee Railway al desplegar: se aplica a mano, como en
+el paso 4. Un cambio en ese archivo que nadie aplica no llega a Railway. Las
+variables las declara con `preserve()`: el archivo dice qué nombres existen y el
+deploy pone los valores.
 
 El build va por `turbo` y no por `pnpm --filter`: los paquetes de `packages/*`
 se importan desde su `dist/`, y solo `turbo` los compila antes
 (`dependsOn: ["^build"]`).
-
-El `rewrite` de `vercel.json` manda toda ruta a `index.html`. Sin él, recargar
-`/platform` o `/settings` da 404: esas rutas existen en el router del panel, no
-como archivos.
-
-Cada environment de Railway sigue una rama (`develop` → desarrollo, `main` →
-producción) con **Wait for CI** activo, para que el deploy espere a
-`migrate-dev.yml` y el código nuevo no arranque contra el esquema viejo.
-
-`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `DATABASE_URL` y `CREDENTIALS_MASTER_KEY`
-son _Shared Variables_ del environment (Project Settings → Shared Variables), y
-los dos servicios las referencian: `CREDENTIALS_MASTER_KEY` tiene que ser
-idéntica en `api` y en `worker`. Hay que crearlas antes del primer `apply`.
 
 Son dos servicios y no uno porque pg-boss corre mantenimiento por instancia
 (`supervise`, `schedule`, vacuum, reindex). En cada réplica de la API eso se
@@ -150,6 +296,12 @@ directa de Supabase es solo IPv6 y Railway lo trae apagado; `railway.ts` lo
 enciende en los dos servicios (`ipv6EgressEnabled`). El pooler no es
 alternativa — en modo transacción desactiva `LISTEN/NOTIFY`, que es de lo que
 vive pg-boss, y en modo sesión limita los clientes al tamaño del pool.
+
+### Vercel
+
+El `rewrite` de `vercel.json` manda toda ruta a `index.html`. Sin él, recargar
+`/platform` o `/settings` da 404: esas rutas existen en el router del panel, no
+como archivos.
 
 ### El primer administrador
 
@@ -180,14 +332,12 @@ tabla, nunca el token.
 
 ### Conectar un número de WhatsApp
 
-1. Cargar en el panel las tres credenciales del cliente: el access token
-   permanente de Meta con su app secret, la API key de OpenRouter y la de Wisphub.
+1. Cargar en el panel las tres credenciales del cliente: la llave de Dualhook
+   (`dh_live_…`), la API key de OpenRouter y la de Wisphub.
 2. Registrar el `phone_number_id` en Configuración → Números.
-3. Copiar la URL del webhook y el verify token que el panel genera, y pegarlos en
-   la configuración de webhooks de la app de Meta.
-4. Suscribir los campos `messages` y, si el cliente usa el celular físico,
-   `smb_message_echoes`.
+3. Copiar la URL del webhook que el panel genera y ponerla en el nodo de n8n que
+   reenvía a Cobra los eventos que llegan por el Webhook Override de Dualhook. El
+   cuerpo se reenvía tal cual llegó.
 
-Sin el app secret cargado el webhook queda autenticado solo por el token opaco de
-la URL. Funciona, y queda escrito en el log de la API cada vez que llega un
-evento, porque es una decisión consciente y no un descuido.
+Esa URL es la única autenticación de la entrada: no se comparte fuera de n8n, y
+si se filtra se da de baja el número y se vuelve a registrar para generar otra.

@@ -21,10 +21,15 @@ export type MessageAuthor = z.infer<typeof messageAuthorSchema>
 export const messageTypeSchema = z.enum(['text', 'image'])
 export type MessageType = z.infer<typeof messageTypeSchema>
 
-export const deliveryStateSchema = z.enum(['pending', 'sent', 'failed'])
+/** `dry_run`: the reply was stored and deliberately never sent, because the company is in dry-run. */
+export const deliveryStateSchema = z.enum(['pending', 'sent', 'failed', 'dry_run'])
 export type DeliveryState = z.infer<typeof deliveryStateSchema>
 
-export const credentialProviderSchema = z.enum(['meta', 'openrouter', 'wisphub'])
+/**
+ * `dualhook` is the WhatsApp channel: its API key sends messages and downloads
+ * media through Dualhook's Runtime API.
+ */
+export const credentialProviderSchema = z.enum(['dualhook', 'openrouter', 'wisphub'])
 export type CredentialProvider = z.infer<typeof credentialProviderSchema>
 
 export const agentRunTriggerSchema = z.enum(['inbound', 'manual_replay'])

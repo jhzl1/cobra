@@ -16,7 +16,9 @@ export default defineConfig(({ mode }) => {
     },
     server: { port: 4100 },
     define: {
-      __APP_VERSION__: JSON.stringify(env.VITE_APP_VERSION ?? version),
+      // `||` and not `??`: a .env copied from the example carries an empty
+      // VITE_APP_VERSION, and that has to fall back too.
+      __APP_VERSION__: JSON.stringify(env.VITE_APP_VERSION || version),
     },
   }
 })
