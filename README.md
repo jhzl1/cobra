@@ -71,6 +71,15 @@ estructurada y el parser del comprobante empiece a fallar de forma intermitente.
 El segundo evita que un reintento tras un 5xx corra el turno dos veces cuando las
 tools ya tocaron Wisphub.
 
+Los dos modelos de la tabla son los de n8n y el valor inicial, no una constante.
+Viven en la tabla `platform_settings` (claves `agent_model` y `vision_model`), iguales para todas las empresas, y se cambian
+desde la sección de plataforma del panel. El worker la lee en cada trabajo, así
+que el cambio aplica desde el siguiente mensaje sin desplegar. El selector solo
+ofrece modelos del catálogo de OpenRouter que soportan lo que cada llamada manda
+—por el `require_parameters` de arriba, uno que no lo soporte fallaría siempre—, y
+la API vuelve a validarlo al guardar. El filtro está en
+`apps/api/src/domains/platform/model-catalog.ts`.
+
 ## Arrancar
 
 ```bash

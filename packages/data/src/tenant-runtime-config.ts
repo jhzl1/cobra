@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { CredentialProvider, TenantStatus } from '@cobra/contracts'
+import {
+  type CredentialProvider,
+  MODEL_SETTING_KEYS,
+  type ModelRole,
+  type PlatformSettingKey,
+  type TenantStatus,
+  platformSettingSchemas,
+} from '@cobra/contracts'
 import { CredentialsCrypto, type DecryptedCredential } from './credentials-crypto'
 
 export interface TenantRuntimeConfig {
@@ -17,6 +24,12 @@ export interface TenantRuntimeConfig {
   credentials: Partial<Record<CredentialProvider, DecryptedCredential>>
   /** The number this tenant sends from. Null when none is active. */
   phoneNumberId: string | null
+  /**
+   * OpenRouter's model id per role, from `platform_settings`. Shared by every
+   * tenant, but read here so a change in the platform panel applies to the next
+   * job, like a rotated key.
+   */
+  models: Record<ModelRole, string>
 }
 
 /**
@@ -31,7 +44,7 @@ export const loadTenantRuntimeConfig = async (
   crypto: CredentialsCrypto,
   tenantId: string,
 ): Promise<TenantRuntimeConfig> => {
-  const [tenant, credentials, number] = await Promise.all([
+  const [tenant, credentials, number, settings] = await Promise.all([
     client
       .from('tenants')
       .select('id, slug, company_name, support_phone, admin_phone, status, dry_run')
@@ -44,10 +57,17 @@ export const loadTenantRuntimeConfig = async (
       .eq('tenant_id', tenantId)
       .is('valid_to', null)
       .maybeSingle(),
+    client
+      .from('platform_settings')
+      .select('key, value')
+      .in('key', Object.values(MODEL_SETTING_KEYS)),
   ])
 
   if (tenant.error) throw tenant.error
   if (credentials.error) throw credentials.error
+  if (settings.error) throw settings.error
+
+  const models = toModels(settings.data ?? [])
 
   const decrypted: Partial<Record<CredentialProvider, DecryptedCredential>> = {}
 
@@ -72,7 +92,33 @@ export const loadTenantRuntimeConfig = async (
     dryRun: tenant.data.dry_run as boolean,
     credentials: decrypted,
     phoneNumberId: (number.data?.phone_number_id as string | undefined) ?? null,
+    models,
   }
+}
+
+/**
+ * Fails rather than falling back to a hardcoded model: the migration seeds both
+ * keys, so a missing or malformed one means someone touched the table by hand,
+ * and silently running a model nobody chose is worse than a job that says why
+ * it stopped.
+ */
+const toModels = (rows: Record<string, unknown>[]): Record<ModelRole, string> => {
+  const byKey = new Map<PlatformSettingKey, unknown>()
+
+  for (const row of rows) byKey.set(row['key'] as PlatformSettingKey, row['value'])
+
+  const readModel = (role: ModelRole): string => {
+    const key = MODEL_SETTING_KEYS[role]
+    const parsed = platformSettingSchemas[key].safeParse(byKey.get(key))
+
+    if (!parsed.success) {
+      throw new Error(`El ajuste ${key} de platform_settings falta o no es un modelo válido`)
+    }
+
+    return parsed.data
+  }
+
+  return { agent: readModel('agent'), vision: readModel('vision') }
 }
 
 export class MissingCredentialError extends Error {

@@ -15,6 +15,8 @@ export const queryClient = new QueryClient({
 export const queryKeys = {
   platformIdentity: ['platform', 'me'] as const,
   roleGrants: ['platform', 'roles'] as const,
+  platformSettings: ['platform', 'settings'] as const,
+  modelCatalog: ['platform', 'models'] as const,
   tenants: ['tenants'] as const,
   tenant: (tenantId: string) => ['tenants', tenantId, 'detail'] as const,
   setup: (tenantId: string) => ['tenants', tenantId, 'setup'] as const,

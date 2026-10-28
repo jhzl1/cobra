@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ZodType } from 'zod'
 import { sendMessageSchema } from './conversations'
+import { updatePlatformSettingSchema } from './platform-settings'
 import { grantRoleSchema } from './roles'
 import {
   createTenantSchema,
@@ -50,6 +51,8 @@ describe('validation messages', () => {
     ],
     ['empty message', sendMessageSchema, { body: '' }],
     ['dry-run as text', updateTenantDryRunSchema, { dryRun: 'true' }],
+    ['no model', updatePlatformSettingSchema('agent_model'), { value: '  ' }],
+    ['model as a number', updatePlatformSettingSchema('vision_model'), { value: 4000 }],
   ]
 
   it.each(cases)('answers in Spanish: %s', (_name, schema, input) => {

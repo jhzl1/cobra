@@ -7,7 +7,6 @@ import {
   runTurn,
 } from '@cobra/agent'
 import {
-  AGENT_MODEL,
   type PendingReceiptResult,
   type ReceiptPort,
   type RecordPaymentAttempt,
@@ -135,7 +134,7 @@ export class ProcessTurnJobHandler {
       tenantId,
       conversationId,
       payload.trigger,
-      rejectedReceipt ? 'rules-only' : AGENT_MODEL,
+      rejectedReceipt ? 'rules-only' : runtime.runtimeConfig.models.agent,
     )
 
     try {

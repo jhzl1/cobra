@@ -10,6 +10,7 @@ import {
   grantRoleSchema,
 } from '@cobra/contracts'
 import { JobRunTable } from '~/components/JobRunTable'
+import { ModelSettingsCard } from '~/components/ModelSettingsCard'
 import { TenantStateBadges } from '~/components/TenantStateBadges'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -48,6 +49,7 @@ export const PlatformPage = () => (
   <div className="flex flex-col gap-4 p-4">
     <ErrorsCard />
     <TenantsCard />
+    <ModelSettingsCard />
     <GrantsCard />
   </div>
 )
