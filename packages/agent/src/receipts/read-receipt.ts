@@ -5,7 +5,7 @@ import {
   receiptExtractionWireSchema,
   toReceiptExtraction,
 } from '@cobra/contracts'
-import { RECEIPT_EXTRACTOR_PROMPT } from './prompts/receipt-extractor-prompt'
+import { RECEIPT_EXTRACTOR_PROMPT } from '../prompts/receipt-extractor-prompt'
 
 /** Default ceiling for one vision call over a receipt image. */
 const RECEIPT_READ_TIMEOUT_MS = 45_000

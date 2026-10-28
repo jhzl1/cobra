@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { WisphubCustomer, WisphubPort } from '../types'
 import { planPayment, registerPayment } from './register-payment'
-import type { WisphubCustomer, WisphubPort } from './types'
 
 const customer = (over: Partial<WisphubCustomer> = {}): WisphubCustomer => ({
   found: true,
@@ -17,28 +17,28 @@ const customer = (over: Partial<WisphubCustomer> = {}): WisphubCustomer => ({
 })
 
 const input = {
-  documentos: '111',
-  monto: 50000,
+  documents: '111',
+  amount: 50000,
   reference: 'M123456',
-  forma_pago: '7',
+  paymentMethodId: '7',
 }
 
 describe('planPayment', () => {
   it('refuses to register anything when one account could not be read', () => {
-    const plan = planPayment({ ...input, documentos: '111,222' }, [customer()])
+    const plan = planPayment({ ...input, documents: '111,222' }, [customer()])
 
     expect(plan.decision).toBe('reject')
     expect(plan.decision === 'reject' && plan.message).toContain('222')
   })
 
   it('refuses when the amount is below the total owed', () => {
-    const plan = planPayment({ ...input, monto: 30000 }, [customer()])
+    const plan = planPayment({ ...input, amount: 30000 }, [customer()])
 
     expect(plan.decision).toBe('reject')
   })
 
   it('refuses several accounts unless the amount is the exact sum', () => {
-    const plan = planPayment({ ...input, documentos: '111,222', monto: 90000 }, [
+    const plan = planPayment({ ...input, documents: '111,222', amount: 90000 }, [
       customer(),
       customer({ documentNumber: '222', serviceId: 20, invoices: [{ id: 2, total: 50000 }] }),
     ])
@@ -47,7 +47,7 @@ describe('planPayment', () => {
   })
 
   it('refuses several accounts when one of them owes nothing', () => {
-    const plan = planPayment({ ...input, documentos: '111,222', monto: 50000 }, [
+    const plan = planPayment({ ...input, documents: '111,222', amount: 50000 }, [
       customer(),
       customer({
         documentNumber: '222',
@@ -71,7 +71,7 @@ describe('planPayment', () => {
   })
 
   it('counts a document repeated in the input only once', () => {
-    const plan = planPayment({ ...input, documentos: '111,111' }, [customer(), customer()])
+    const plan = planPayment({ ...input, documents: '111,111' }, [customer(), customer()])
 
     expect(plan.decision).toBe('pay')
     expect(plan.decision === 'pay' && plan.invoices).toHaveLength(1)
@@ -118,7 +118,7 @@ describe('registerPayment', () => {
   it('credits the excess through the profile, never inside the last invoice', async () => {
     const wisphub = buildWisphub()
 
-    const result = await registerPayment({ ...input, monto: 70000 }, { wisphub })
+    const result = await registerPayment({ ...input, amount: 70000 }, { wisphub })
 
     // The invoice is still charged for 50.000 and not for 70.000: Wisphub only
     // turns an overpayment into credit with a single invoice, and with several
@@ -128,7 +128,7 @@ describe('registerPayment', () => {
       expect.objectContaining({ total_cobrado: 50000 }),
     )
     expect(wisphub.updateBalance).toHaveBeenCalledWith(10, '-20000.00')
-    expect(result.excedente_a_saldo).toBe(20000)
+    expect(result.creditedExcess).toBe(20000)
     expect(result.success).toBe(true)
   })
 
@@ -151,7 +151,7 @@ describe('registerPayment', () => {
     const result = await registerPayment(input, { wisphub })
 
     expect(result.success).toBe(false)
-    expect(result.estado).toBe('parcial')
+    expect(result.status).toBe('partial')
     expect(result.failedInvoiceIds).toEqual([2])
     expect(result.adminMessage).toContain('PAGO PARCIAL')
   })
@@ -163,10 +163,10 @@ describe('registerPayment', () => {
       }),
     })
 
-    const result = await registerPayment({ ...input, monto: 70000 }, { wisphub })
+    const result = await registerPayment({ ...input, amount: 70000 }, { wisphub })
 
     expect(result.success).toBe(false)
-    expect(result.excedente_a_saldo).toBe(0)
+    expect(result.creditedExcess).toBe(0)
     expect(result.adminMessage).toContain('EXCEDENTE NO ABONADO')
   })
 

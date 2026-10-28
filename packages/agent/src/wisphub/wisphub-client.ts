@@ -1,6 +1,6 @@
 import { WISPHUB_BASE_URL, wisphubAuthHeader } from '@cobra/contracts'
-import { formatCop } from './normalize'
-import type { WisphubCustomer, WisphubInvoice, WisphubPort } from './types'
+import { formatCop } from '../shared/normalize'
+import type { WisphubCustomer, WisphubInvoice, WisphubPort } from '../types'
 
 /** Default ceiling for one Wisphub call. */
 const WISPHUB_TIMEOUT_MS = 20_000

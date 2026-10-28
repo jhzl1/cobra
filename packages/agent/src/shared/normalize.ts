@@ -1,4 +1,4 @@
-import type { ConversationMessage } from './types'
+import type { ConversationMessage } from '../types'
 
 /**
  * A reference, reduced to what two receipts can actually be compared on.

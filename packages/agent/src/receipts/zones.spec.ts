@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import type { PaymentMethod } from '../types'
 import { isOfferedInZone } from './payment-methods'
-import type { PaymentMethod } from './types'
 
 const method = (zone: string | null): PaymentMethod => ({
   id: 'm',

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { ConversationMessage } from '../types'
 import {
   bogotaTimestamp,
   consolidateBurst,
@@ -6,7 +7,6 @@ import {
   normalizeReference,
   normalizeReferences,
 } from './normalize'
-import type { ConversationMessage } from './types'
 
 const message = (over: Partial<ConversationMessage>): ConversationMessage => ({
   id: 'm1',

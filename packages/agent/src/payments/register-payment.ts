@@ -1,26 +1,27 @@
-import { bogotaTimestamp } from './normalize'
-import type { WisphubCustomer, WisphubInvoice, WisphubPort } from './types'
+import { bogotaTimestamp } from '../shared/normalize'
+import type { WisphubCustomer, WisphubInvoice, WisphubPort } from '../types'
 
 /** How much of a Wisphub error is kept for the administrator's alert. */
 const MAX_ERROR_LENGTH_CHARS = 200
 
 export interface RegisterPaymentInput {
   /** One or several documents, comma-separated, exactly as the model passes them. */
-  documentos: string
-  monto: number
+  documents: string
+  amount: number
   /** Every reference of the receipt, comma-separated. Stored as sent. */
   reference: string
-  forma_pago: string
+  /** The Wisphub payment method id, sent to Wisphub as `forma_pago`. */
+  paymentMethodId: string
 }
 
 export interface RegisterPaymentResult {
   success: boolean
   message: string
-  estado?: 'completo' | 'parcial'
-  facturas_pagadas?: number
-  excedente_a_saldo?: number
-  total_adeudado?: number
-  monto_recibido?: number
+  status?: 'complete' | 'partial'
+  paidInvoices?: number
+  creditedExcess?: number
+  totalDebt?: number
+  amountReceived?: number
   /** Not shown to the model; the caller sends it to the administrator. */
   adminMessage?: string
   invoiceIds?: number[]
@@ -56,8 +57,8 @@ export const planPayment = (
   input: RegisterPaymentInput,
   customers: readonly WisphubCustomer[],
 ): PaymentPlan => {
-  const requested = splitDocuments(input.documentos)
-  const amount = Number(input.monto) || 0
+  const requested = splitDocuments(input.documents)
+  const amount = Number(input.amount) || 0
 
   // Completeness: if any account could not be read, nothing is registered. A
   // partial view of the debt turns into a payment against the wrong total.
@@ -150,7 +151,7 @@ export const registerPayment = async (
   input: RegisterPaymentInput,
   deps: { wisphub: WisphubPort; now?: Date },
 ): Promise<RegisterPaymentResult> => {
-  const documents = splitDocuments(input.documentos)
+  const documents = splitDocuments(input.documents)
 
   const customers = await Promise.all(
     documents.map((document) => deps.wisphub.lookupCustomer(document)),
@@ -162,14 +163,14 @@ export const registerPayment = async (
     return {
       success: false,
       message: plan.message,
-      total_adeudado: plan.totalDebt,
-      monto_recibido: Number(input.monto) || 0,
+      totalDebt: plan.totalDebt,
+      amountReceived: Number(input.amount) || 0,
     }
   }
 
   // Wisphub is told when the payment is being registered, not when the receipt
   // says it was paid. The receipt's own date lives in `receipts.paid_at`.
-  const fechaPago = bogotaTimestamp(deps.now)
+  const paymentDate = bogotaTimestamp(deps.now)
 
   const paid: PlannedInvoice[] = []
   const failed: Array<PlannedInvoice & { error: string }> = []
@@ -178,10 +179,10 @@ export const registerPayment = async (
     try {
       await deps.wisphub.registerInvoicePayment(invoice.invoiceId, {
         referencia: input.reference,
-        fecha_pago: fechaPago,
+        fecha_pago: paymentDate,
         total_cobrado: invoice.amount,
         accion: 1,
-        forma_pago: input.forma_pago,
+        forma_pago: input.paymentMethodId,
       })
       paid.push(invoice)
     } catch (error) {
@@ -211,9 +212,9 @@ export const registerPayment = async (
 
   return {
     success: !partial,
-    estado: partial ? 'parcial' : 'completo',
-    facturas_pagadas: paid.length,
-    excedente_a_saldo: creditedExcess,
+    status: partial ? 'partial' : 'complete',
+    paidInvoices: paid.length,
+    creditedExcess,
     invoiceIds: paid.map((invoice) => invoice.invoiceId),
     failedInvoiceIds: failed.map((invoice) => invoice.invoiceId),
     message: !allPaid
@@ -271,7 +272,7 @@ const buildAdminMessage = ({
       header,
       `Registradas OK (${paid.length}):\n${okDetail || '  (ninguna)'}`,
       `FALLARON (${failed.length}):\n${failDetail}`,
-      `Total facturas: $${plan.totalDebt} | Pago recibido: $${input.monto}`,
+      `Total facturas: $${plan.totalDebt} | Pago recibido: $${input.amount}`,
       `Ref: ${input.reference}`,
       'El comprobante quedó guardado como parcial; el cliente ya recibió mensaje de verificación.',
     ].join('\n')
@@ -292,7 +293,7 @@ const buildAdminMessage = ({
     'Pago registrado',
     header,
     `Facturas pagadas (${paid.length}):\n${okDetail}`,
-    `Total facturas: $${plan.totalDebt} | Pago: $${input.monto}`,
+    `Total facturas: $${plan.totalDebt} | Pago: $${input.amount}`,
     creditedExcess > 0 ? `Saldo a favor abonado: $${creditedExcess}` : '',
     `Ref: ${input.reference}`,
   ]

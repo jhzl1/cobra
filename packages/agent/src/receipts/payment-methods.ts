@@ -1,5 +1,5 @@
-import { digitsOnly } from './normalize'
-import type { PaymentMethod } from './types'
+import { digitsOnly } from '../shared/normalize'
+import type { PaymentMethod } from '../types'
 
 /** The digits a masked Nequi screenshot leaves visible. */
 const MIN_MATCHING_DIGITS = 4
