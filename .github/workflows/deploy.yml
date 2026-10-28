@@ -139,9 +139,11 @@ jobs:
           --environment "$RAILWAY_TARGET_ENVIRONMENT"
           --message "$APP_VERSION"
 
+  # Last, after both Railway services: a panel built for the new api must not go
+  # live while the old api is still the one answering.
   vercel:
     name: Vercel · web
-    needs: [target, version]
+    needs: [target, version, railway]
     runs-on: ubuntu-latest
     environment: ${{ needs.target.outputs.environment }}
     env:
@@ -212,7 +214,10 @@ jobs:
             url="$(vercel deploy --prebuilt --prod --meta "version=$VITE_APP_VERSION" --token="$VERCEL_TOKEN")"
           else
             url="$(vercel deploy --prebuilt --meta "version=$VITE_APP_VERSION" --token="$VERCEL_TOKEN")"
-            vercel alias set "$url" "$VERCEL_ALIAS" --token="$VERCEL_TOKEN"
+            # `alias` does not read the project link the way `deploy` does: without
+            # an explicit scope it asks for the token's own user and fails with
+            # "User not found", because the project lives under a team.
+            vercel alias set "$url" "$VERCEL_ALIAS" --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
           fi
           echo "Deployed $url"
           echo "web: $url" >> "$GITHUB_STEP_SUMMARY"

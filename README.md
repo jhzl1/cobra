@@ -140,7 +140,7 @@ Sirve para redesplegar después de cambiar una variable.
 Los jobs van en este orden:
 
 ```
-target → migrate → version → railway (api, worker) + vercel (web)
+target → migrate → version → railway (api, worker) → vercel (web)
 ```
 
 - **`migrate`** llama a `migrate.yml`. Si una migración falla, no se despliega
@@ -151,8 +151,9 @@ target → migrate → version → railway (api, worker) + vercel (web)
   sube el código con `railway up --ci`, que termina con el resultado del deploy:
   falla si el build falla, si el healthcheck de `/api/health` nunca responde o si
   el proceso se cae.
-- **`vercel`** hace `vercel pull`, `vercel build` con las variables del panel y
-  `vercel deploy --prebuilt`. En `dev` mueve además el alias fijo de la preview
+- **`vercel`** arranca solo cuando los dos servicios de Railway terminaron bien:
+  un panel nuevo no sale mientras responde la API vieja. Hace `vercel pull`,
+  `vercel build` con las variables del panel y `vercel deploy --prebuilt`. En `dev` mueve además el alias fijo de la preview
   (`VERCEL_ALIAS`) al deploy nuevo, porque el `CORS_ORIGINS` de la API apunta a
   esa URL.
 
