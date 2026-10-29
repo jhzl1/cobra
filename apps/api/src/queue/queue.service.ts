@@ -1,4 +1,4 @@
-import { Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common'
+import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import PgBoss from 'pg-boss'
 import {
@@ -16,14 +16,21 @@ import {
  * them on in every replica of the API multiplies that work against one database.
  * The worker is the single instance that owns it, and it is also the one that
  * creates the queues.
+ *
+ * `max` caps the connections this process holds. Left at pg's default of 10,
+ * the API and the worker could ask for 20 between them, and on 2026-10-28 the
+ * dev pooler, which allows 15, refused one. Enqueueing holds a connection
+ * for milliseconds, so three is plenty: a burst waits its turn in the pool.
  */
 @Injectable()
 export class QueueService implements OnModuleInit, OnApplicationShutdown {
+  private readonly logger = new Logger(QueueService.name)
   private readonly boss: PgBoss
 
   constructor(config: ConfigService) {
     this.boss = new PgBoss({
       connectionString: config.getOrThrow<string>('DATABASE_URL'),
+      max: 3,
       supervise: false,
       schedule: false,
       migrate: false,
@@ -31,6 +38,12 @@ export class QueueService implements OnModuleInit, OnApplicationShutdown {
   }
 
   async onModuleInit(): Promise<void> {
+    // pg-boss reports background failures as an `error` event, and Node kills a
+    // process whose emitter has no listener for it. That is how one refused
+    // connection took the dev API down on 2026-10-28: the queue cache refresh
+    // failed and nothing was listening.
+    this.boss.on('error', (error) => this.logger.error(`pg-boss: ${error.message}`))
+
     await this.boss.start()
   }
 
