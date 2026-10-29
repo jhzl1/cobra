@@ -44,6 +44,12 @@ const TENANT_ADMIN_ALERT_QUEUE_OPTIONS = {
  * The worker owns pg-boss: it migrates the schema, supervises, and works the
  * four queues. The API only enqueues — maintenance runs per instance, and having
  * it in every API replica multiplies that work against one database.
+ *
+ * `max` caps the connections this process holds: one per queue, since each
+ * polls every two seconds and keeps its connection warm, plus two for the
+ * follow-up sends and maintenance. Left at pg's default of 10, the worker and
+ * the API could ask for 20 between them, and on 2026-10-28 the dev pooler,
+ * which allows 15, refused one and took the API down.
  */
 @Injectable()
 export class BossService implements OnModuleInit, OnApplicationShutdown {
@@ -60,6 +66,7 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
   ) {
     this.boss = new PgBoss({
       connectionString: config.getOrThrow<string>('DATABASE_URL'),
+      max: 6,
       migrate: true,
     })
   }
