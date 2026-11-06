@@ -53,6 +53,7 @@ describe('validation messages', () => {
     ['dry-run as text', updateTenantDryRunSchema, { dryRun: 'true' }],
     ['no model', updatePlatformSettingSchema('agent_model'), { value: '  ' }],
     ['model as a number', updatePlatformSettingSchema('vision_model'), { value: 4000 }],
+    ['blank fallback', updatePlatformSettingSchema('agent_fallback_model'), { value: ' ' }],
   ]
 
   it.each(cases)('answers in Spanish: %s', (_name, schema, input) => {
