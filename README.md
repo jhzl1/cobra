@@ -65,11 +65,21 @@ OpenRouter por cliente cubre los dos modelos:
 | Agente                  | `anthropic/claude-haiku-4.5`, `temperature: 0`         |
 | Lectura de comprobantes | `google/gemini-3.5-flash`, salida estructurada con zod |
 
-El enrutamiento va con `require_parameters: true` y `allow_fallbacks: false`. El
+El enrutamiento va con `require_parameters: true` y `allow_fallbacks: true`. El
 primero evita que OpenRouter mande la petición a un proveedor sin salida
 estructurada y el parser del comprobante empiece a fallar de forma intermitente.
-El segundo evita que un reintento tras un 5xx corra el turno dos veces cuando las
-tools ya tocaron Wisphub.
+El segundo deja que OpenRouter pruebe otro proveedor del mismo modelo cuando el
+primero responde 429 o 5xx. No puede correr una tool dos veces: el cambio de
+proveedor pasa dentro de una sola petición, y las tools corren en el worker
+después de que una llamada al modelo las devolvió.
+
+La conversación puede tener además un modelo de respaldo (clave
+`agent_fallback_model`), que OpenRouter prueba cuando ningún proveedor del modelo
+principal responde. Sin fila, o con `null`, no hay respaldo.
+
+`agent_runs.model` es el modelo configurado. El que de verdad respondió cada
+llamada del turno, y el proveedor que lo sirvió, quedan en `answered_models` y
+`answered_providers`, alineados por posición.
 
 Los dos modelos de la tabla son los de n8n y el valor inicial, no una constante.
 Viven en la tabla `platform_settings` (claves `agent_model` y `vision_model`), iguales para todas las empresas, y se cambian
