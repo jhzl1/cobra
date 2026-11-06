@@ -22,3 +22,31 @@ export const paginationSchema = z.object({
 })
 
 export type Pagination = z.infer<typeof paginationSchema>
+
+/**
+ * Lists that grow without bound (companies, errors) go by numbered pages, so a
+ * page number can live in the panel's URL and be shared or reloaded.
+ */
+export const PAGE_SIZE = 20
+
+export const pageQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+})
+
+export type PageQuery = z.infer<typeof pageQuerySchema>
+
+export interface Page<T> {
+  items: T[]
+  /** Every row the list has, not only this page's: the panel derives the page count from it. */
+  total: number
+}
+
+/**
+ * The page as the panel's URL carries it: page 1 is the default and never
+ * written, so it and anything unreadable (0, negative, text) come back absent.
+ */
+export const pageSearchOf = (value: unknown): number | undefined => {
+  const parsed = pageQuerySchema.shape.page.safeParse(value)
+
+  return parsed.success && parsed.data > 1 ? parsed.data : undefined
+}

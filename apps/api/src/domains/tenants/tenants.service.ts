@@ -12,6 +12,7 @@ import type {
   CreateTenantInput,
   CredentialProvider,
   CredentialSummary,
+  Page,
   PaymentMethodInput,
   RegisterWhatsappNumberInput,
   SaveCredentialInput,
@@ -27,6 +28,7 @@ import {
   wisphubAuthHeader,
   wisphubNamedEntityPageSchema,
 } from '@cobra/contracts'
+import { selectPage } from '~/common/pagination'
 import { CredentialsCryptoService } from '~/crypto/credentials-crypto.service'
 import { SupabaseService } from '~/supabase/supabase.service'
 
@@ -88,6 +90,24 @@ export class TenantsService {
     if (error) throw this.toHttpError(error)
 
     return data.map(toTenant)
+  }
+
+  /** The same list as `listMine`, a page at a time, for the platform's table. */
+  async listPage(client: SupabaseClient, page: number): Promise<Page<Tenant>> {
+    const { data, error } = await selectPage(
+      page,
+      ({ from, to }) =>
+        client
+          .from('tenants')
+          .select(TENANT_COLUMNS, { count: 'exact' })
+          .order('company_name')
+          .range(from, to),
+      toTenant,
+    )
+
+    if (error) throw this.toHttpError(error)
+
+    return data
   }
 
   /**

@@ -15,9 +15,11 @@ import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
 import {
   type GrantRoleInput,
   type JobRunStatus,
+  type PageQuery,
   type PlatformSettingKey,
   grantRoleSchema,
   jobRunStatusSchema,
+  pageQuerySchema,
   platformSettingKeySchema,
   updatePlatformSettingSchema,
 } from '@cobra/contracts'
@@ -25,6 +27,7 @@ import { readCallerId } from '~/auth/caller'
 import { RequirePlatformAdmin } from '~/auth/require-platform-admin.decorator'
 import { RequireSession } from '~/auth/require-session.decorator'
 import { ZodValidationPipe } from '~/common/pipes/zod-validation.pipe'
+import { TenantsService } from '~/domains/tenants/tenants.service'
 import { PlatformSettingsService } from './platform-settings.service'
 import { PlatformService } from './platform.service'
 
@@ -34,6 +37,7 @@ export class PlatformController {
   constructor(
     private readonly platform: PlatformService,
     private readonly settings: PlatformSettingsService,
+    private readonly tenants: TenantsService,
   ) {}
 
   /**
@@ -67,6 +71,20 @@ export class PlatformController {
     return this.platform.grant(readCallerId(ctx.userClaims), body)
   }
 
+  /**
+   * The platform's own list of companies, a page at a time. `GET /tenants`
+   * stays whole because the company switcher needs every one.
+   */
+  @Get('tenants')
+  @RequirePlatformAdmin()
+  @ApiOperation({ summary: 'Empresas de la plataforma, por páginas' })
+  listTenants(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Query(new ZodValidationPipe(pageQuerySchema)) query: PageQuery,
+  ) {
+    return this.tenants.listPage(ctx.supabase, query.page)
+  }
+
   @Get('tenants/:tenantId/job-runs')
   @RequirePlatformAdmin()
   @ApiOperation({ summary: 'Ejecuciones del worker para una empresa, por intento' })
@@ -81,8 +99,11 @@ export class PlatformController {
   @Get('errors')
   @RequirePlatformAdmin()
   @ApiOperation({ summary: 'Intentos fallidos de todas las empresas' })
-  listErrors(@SupabaseCtx() ctx: SupabaseContext) {
-    return this.platform.listErrors(ctx.supabase)
+  listErrors(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Query(new ZodValidationPipe(pageQuerySchema)) query: PageQuery,
+  ) {
+    return this.platform.listErrors(ctx.supabase, query.page)
   }
 
   @Get('settings')

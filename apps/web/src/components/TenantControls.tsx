@@ -16,7 +16,7 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Spinner } from '~/components/ui/spinner'
 import { api } from '~/lib/api'
-import { queryKeys } from '~/lib/queryClient'
+import { invalidateTenantLists, queryKeys } from '~/lib/queryClient'
 import type { TenantSummary } from '~/lib/tenants'
 
 type Change = 'agent-off' | 'agent-on' | 'dry-run-on' | 'dry-run-off'
@@ -117,9 +117,8 @@ export const TenantControls = ({ tenant }: { tenant: TenantSummary }) => {
     },
     onSuccess: () => {
       setChange(null)
-      // The list feeds the platform table and every company panel's composer;
-      // the detail and the setup carry the same two fields.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.tenants, exact: true })
+      // The detail and the setup carry the same two fields as the lists.
+      void invalidateTenantLists(queryClient)
       void queryClient.invalidateQueries({ queryKey: queryKeys.tenant(tenant.id) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.setup(tenant.id) })
     },
