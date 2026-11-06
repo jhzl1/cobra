@@ -10,15 +10,17 @@ import type {
   GrantRoleInput,
   JobRun,
   JobRunStatus,
+  Page,
   PlatformError,
   PlatformIdentity,
   PlatformRoleGrant,
 } from '@cobra/contracts'
+import { selectPage } from '~/common/pagination'
 import { SupabaseService } from '~/supabase/supabase.service'
 
 const UNIQUE_VIOLATION = '23505'
 
-/** A page of the list, newest first. Older history is not what the screen is for. */
+/** One company's runs, newest first. Older history is not what that screen is for. */
 const JOB_RUNS_LIMIT = 200
 
 const JOB_RUN_COLUMNS =
@@ -149,18 +151,26 @@ export class PlatformService {
     return (data ?? []).map(toJobRun)
   }
 
-  /** The error tray: failed attempts across every company, newest first. */
-  async listErrors(client: SupabaseClient): Promise<PlatformError[]> {
-    const { data, error } = await client
-      .from('job_runs')
-      .select(`${JOB_RUN_COLUMNS}, tenants (company_name)`)
-      .eq('status', 'error')
-      .order('started_at', { ascending: false })
-      .limit(JOB_RUNS_LIMIT)
+  /**
+   * The error tray: failed attempts across every company, newest first, a page
+   * at a time so the oldest stay reachable.
+   */
+  async listErrors(client: SupabaseClient, page: number): Promise<Page<PlatformError>> {
+    const { data, error } = await selectPage(
+      page,
+      ({ from, to }) =>
+        client
+          .from('job_runs')
+          .select(`${JOB_RUN_COLUMNS}, tenants (company_name)`, { count: 'exact' })
+          .eq('status', 'error')
+          .order('started_at', { ascending: false })
+          .range(from, to),
+      toPlatformError,
+    )
 
     if (error) throw this.toHttpError(error)
 
-    return (data ?? []).map(toPlatformError)
+    return data
   }
 
   private async linkExistingUser(email: string): Promise<void> {
