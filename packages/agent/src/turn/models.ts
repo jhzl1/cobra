@@ -13,28 +13,45 @@ import type { ModelRole } from '@cobra/contracts'
  *
  * `require_parameters: true` keeps OpenRouter from silently routing to a
  * provider that does not support structured output — the receipt parser then
- * starts failing intermittently with no error to point at.
+ * starts failing intermittently with no error to point at. It applies to the
+ * fallback providers and the fallback model too.
  *
- * `allow_fallbacks: false` is about money, not quality: a retry after a 5xx can
- * run the turn a second time, and by then the tools may already have charged
- * the customer in Wisphub.
+ * `allow_fallbacks: true` lets OpenRouter try another provider of the same
+ * model when the first one fails. Between 2026-11-02 and 2026-11-04 every
+ * failed turn was the only provider of the chosen model answering 429 three
+ * times. A fallback cannot run a tool twice: it happens inside one HTTP request
+ * that the failed provider answered with nothing, and tools run here, between
+ * model calls, only after a call has returned them.
+ *
+ * A role's fallback model goes in `models`, after its own: OpenRouter tries the
+ * list in order once every provider of the one before has failed.
  */
 export const createModels = (
   apiKey: string,
   modelIds: Record<ModelRole, string>,
+  fallbackModelIds: Partial<Record<ModelRole, string>>,
 ): Record<ModelRole, LanguageModel> => {
   const openrouter = createOpenRouter({
     apiKey,
     extraBody: {
       provider: {
         require_parameters: true,
-        allow_fallbacks: false,
+        allow_fallbacks: true,
       },
     },
   })
 
+  const chatModel = (role: ModelRole): LanguageModel => {
+    const modelId = modelIds[role]
+    const fallbackModelId = fallbackModelIds[role]
+
+    if (!fallbackModelId) return openrouter.chat(modelId)
+
+    return openrouter.chat(modelId, { models: [modelId, fallbackModelId] })
+  }
+
   return {
-    agent: openrouter.chat(modelIds.agent),
-    vision: openrouter.chat(modelIds.vision),
+    agent: chatModel('agent'),
+    vision: chatModel('vision'),
   }
 }

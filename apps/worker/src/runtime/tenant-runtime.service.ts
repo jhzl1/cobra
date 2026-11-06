@@ -68,7 +68,7 @@ export class TenantRuntimeService {
         phoneNumberId: runtimeConfig.phoneNumberId,
       }),
       wisphub: new WisphubClient({ apiKey: wisphub.secret, dryRun: runtimeConfig.dryRun }),
-      models: createModels(openrouter.secret, runtimeConfig.models),
+      models: createModels(openrouter.secret, runtimeConfig.models, runtimeConfig.fallbackModels),
     }
   }
 }

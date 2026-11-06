@@ -573,8 +573,10 @@ Los demás, en orden de qué tan pronto muerden:
    entre pg-boss y la API eso se agota rápido.
 2. **OpenRouter puede degradar la salida estructurada sin avisar** si enruta a un proveedor que no
    la soporta, y el parser de zod del comprobante empieza a fallar de forma intermitente. Va
-   `provider: { require_parameters: true }` y `allow_fallbacks: false` — este último además evita
-   que un reintento tras un 5xx ejecute el turno dos veces cuando las tools ya tocaron Wisphub.
+   `provider: { require_parameters: true }`. `allow_fallbacks` empezó en `false` para que un
+   reintento no ejecutara el turno dos veces, pero esa premisa no se sostiene: el respaldo de
+   proveedor ocurre dentro de una sola petición, antes de que vuelva ninguna tool. Desde el
+   2026-11-05 va en `true`, después de varios días de turnos caídos por un 429 del único proveedor.
 3. **El AI SDK va en v7, no v5**, y la API cambió entre medio (`system` → `instructions`,
    `stepCountIs` → `isStepCount`, `onStepFinish` → `onStepEnd`). Arrancar directo en v7.
 4. **`smb_message_echoes` de la coexistencia.** Si el operador contesta desde el celular físico y
