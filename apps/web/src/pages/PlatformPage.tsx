@@ -1,16 +1,25 @@
 import { useForm } from '@tanstack/react-form'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { PlusIcon } from 'lucide-react'
-import { useState } from 'react'
 import {
+  type QueryKey,
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { PlusIcon } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  type Page,
   type PlatformError,
   type PlatformRoleGrant,
   createTenantSchema,
   grantRoleSchema,
+  pageSearchOf,
 } from '@cobra/contracts'
 import { JobRunTable } from '~/components/JobRunTable'
 import { ModelSettingsCard } from '~/components/ModelSettingsCard'
+import { Pager, pageCountOf } from '~/components/Pager'
 import { TenantStateBadges } from '~/components/TenantStateBadges'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -33,41 +42,126 @@ import {
   TableHeader,
   TableRow,
 } from '~/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { api } from '~/lib/api'
 import { applyServerErrors, fieldError } from '~/lib/form'
-import { queryKeys } from '~/lib/queryClient'
+import { invalidateTenantLists, queryKeys } from '~/lib/queryClient'
 import type { TenantSummary } from '~/lib/tenants'
 
+const PLATFORM_TABS = ['companies', 'errors', 'models', 'admins'] as const
+
+export type PlatformTab = (typeof PLATFORM_TABS)[number]
+
+interface Props {
+  tab: PlatformTab
+  /** The page of the companies or the errors, whichever tab is open. */
+  page: number
+}
+
 /**
- * The platform section: the companies on this installation, isCreateDialogOpen one, and
- * handing out the role that lets someone else do it.
+ * The platform section: the companies on this installation, creating one, the
+ * failed runs of all of them, the models, and handing out the role that lets
+ * someone else do it. One tab each, so a burst of errors does not push the
+ * companies a long scroll away.
  *
  * Only an administrator reaches it, and the check that matters is the API's —
  * this only decides what is drawn.
  */
-export const PlatformPage = () => (
-  <div className="flex flex-col gap-4 p-4">
-    <ErrorsCard />
-    <TenantsCard />
-    <ModelSettingsCard />
-    <GrantsCard />
-  </div>
-)
+export const PlatformPage = ({ tab, page }: Props) => {
+  const navigate = useNavigate()
 
-/* Errors --------------------------------------------------------------------- */
+  return (
+    <Tabs
+      value={tab}
+      // A new tab starts on its first page: the page belongs to the list left behind.
+      onValueChange={(value) =>
+        void navigate({ to: '/platform', search: { tab: tabSearchOf(value) } })
+      }
+      className="gap-4 p-4"
+    >
+      <TabsList>
+        <TabsTrigger value="companies">Empresas</TabsTrigger>
+        <TabsTrigger value="errors">Errores</TabsTrigger>
+        <TabsTrigger value="models">Modelos</TabsTrigger>
+        <TabsTrigger value="admins">Administradores</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="companies">
+        <TenantsCard page={page} />
+      </TabsContent>
+      <TabsContent value="errors">
+        <ErrorsCard page={page} />
+      </TabsContent>
+      <TabsContent value="models">
+        <ModelSettingsCard />
+      </TabsContent>
+      <TabsContent value="admins">
+        <GrantsCard />
+      </TabsContent>
+    </Tabs>
+  )
+}
+
+/** The companies tab is the default, so the URL only names the other three. */
+export const tabSearchOf = (value: unknown): Exclude<PlatformTab, 'companies'> | undefined =>
+  isPlatformTab(value) && value !== 'companies' ? value : undefined
+
+const isPlatformTab = (value: unknown): value is PlatformTab =>
+  PLATFORM_TABS.includes(value as PlatformTab)
 
 /**
- * Every failed attempt of every company, newest first. It sits above the
- * companies because it is the part of this screen that asks for something.
+ * One page of a platform list, and the move to another. Each move is a history
+ * entry, so the browser's back button returns to the previous page.
+ *
+ * A page past the end — a shared link to a list that has since shrunk, or a
+ * hand-typed `?page=99` — is replaced by the last page, without a new entry.
  */
-const ErrorsCard = () => {
-  const errors = useQuery({
-    queryKey: queryKeys.platformErrors,
+const usePlatformPage = <T,>({
+  queryKey,
+  path,
+  page,
+}: {
+  queryKey: QueryKey
+  path: string
+  page: number
+}) => {
+  const navigate = useNavigate({ from: '/platform' })
+
+  const list = useQuery({
+    queryKey,
     queryFn: async () => {
-      const { data } = await api.get<PlatformError[]>('/platform/errors')
+      const { data } = await api.get<Page<T>>(path, { params: { page } })
 
       return data
     },
+    // The rows on screen stay while the next page loads, instead of a spinner.
+    placeholderData: keepPreviousData,
+  })
+
+  const goToPage = useCallback(
+    (next: number, replace = false) =>
+      void navigate({ search: (previous) => ({ ...previous, page: pageSearchOf(next) }), replace }),
+    [navigate],
+  )
+
+  // The placeholder is the previous page's answer; only a fresh one says where the end is.
+  const lastPage = list.data && !list.isPlaceholderData ? pageCountOf(list.data.total) : null
+
+  useEffect(() => {
+    if (lastPage !== null && page > lastPage) goToPage(lastPage, true)
+  }, [page, lastPage, goToPage])
+
+  return { list, goToPage }
+}
+
+/* Errors --------------------------------------------------------------------- */
+
+/** Every failed attempt of every company, newest first. */
+const ErrorsCard = ({ page }: { page: number }) => {
+  const { list: errors, goToPage } = usePlatformPage<PlatformError>({
+    queryKey: queryKeys.platformErrorPage(page),
+    path: '/platform/errors',
+    page,
   })
 
   return (
@@ -95,11 +189,14 @@ const ErrorsCard = () => {
         ) : errors.error ? (
           <p className="text-sm text-destructive">{errors.error.message}</p>
         ) : (
-          <JobRunTable
-            runs={errors.data ?? []}
-            showCompany
-            emptyText="Ninguna ejecución ha fallado"
-          />
+          <>
+            <JobRunTable
+              runs={errors.data?.items ?? []}
+              showCompany
+              emptyText="Ninguna ejecución ha fallado"
+            />
+            <Pager page={page} total={errors.data?.total ?? 0} onPageChange={goToPage} />
+          </>
         )}
       </CardContent>
     </Card>
@@ -108,16 +205,14 @@ const ErrorsCard = () => {
 
 /* Companies ------------------------------------------------------------------ */
 
-const TenantsCard = () => {
+const TenantsCard = ({ page }: { page: number }) => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
-  const tenants = useQuery({
-    queryKey: queryKeys.tenants,
-    queryFn: async () => {
-      const { data } = await api.get<TenantSummary[]>('/tenants')
-
-      return data
-    },
+  // Its own paginated endpoint: `GET /tenants` stays whole for the company switcher.
+  const { list: tenants, goToPage } = usePlatformPage<TenantSummary>({
+    queryKey: queryKeys.platformTenantPage(page),
+    path: '/platform/tenants',
+    page,
   })
 
   return (
@@ -153,8 +248,8 @@ const TenantsCard = () => {
                   <Spinner className="mx-auto" />
                 </TableCell>
               </TableRow>
-            ) : tenants.data?.length ? (
-              tenants.data.map((tenant) => (
+            ) : tenants.data?.items.length ? (
+              tenants.data.items.map((tenant) => (
                 <TableRow key={tenant.id}>
                   <TableCell className="font-medium">{tenant.companyName}</TableCell>
                   <TableCell>
@@ -181,6 +276,8 @@ const TenantsCard = () => {
             )}
           </TableBody>
         </Table>
+
+        <Pager page={page} total={tenants.data?.total ?? 0} onPageChange={goToPage} />
       </CardContent>
 
       {isCreateDialogOpen && <CreateTenantDialog onClose={() => setIsCreateDialogOpen(false)} />}
@@ -209,7 +306,7 @@ const CreateTenantDialog = ({ onClose }: { onClose: () => void }) => {
         throw error
       }
 
-      await queryClient.invalidateQueries({ queryKey: queryKeys.tenants })
+      await invalidateTenantLists(queryClient)
       onClose()
     },
   })
