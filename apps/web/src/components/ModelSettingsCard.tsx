@@ -1,12 +1,14 @@
 import { useForm } from '@tanstack/react-form'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import {
+  FALLBACK_MODEL_SETTING_KEYS,
   MODEL_SETTING_KEYS,
   type ModelCatalog,
   type ModelOption,
   type ModelRole,
   type PlatformSetting,
+  type PlatformSettingKey,
   modelRoleSchema,
   updatePlatformSettingSchema,
 } from '@cobra/contracts'
@@ -39,25 +41,60 @@ const ROLE_COPY: Record<ModelRole, { label: string; requirement: string }> = {
   },
 }
 
-/** One task and the model it runs, read off its key in `platform_settings`. */
+/**
+ * One model a task runs, read off its key in `platform_settings`: the task's
+ * own model, or the fallback OpenRouter tries when that one fails.
+ */
 interface ModelRow {
+  key: PlatformSettingKey
   role: ModelRole
-  modelId: string
-  updatedAt: string
+  isFallback: boolean
+  /** Null only for a fallback nobody has chosen. */
+  modelId: string | null
+  updatedAt: string | null
 }
 
 const toModelRows = (settings: PlatformSetting[]): ModelRow[] => {
   const rows: ModelRow[] = []
 
   for (const role of modelRoleSchema.options) {
-    const setting = settings.find((candidate) => candidate.key === MODEL_SETTING_KEYS[role])
+    const key = MODEL_SETTING_KEYS[role]
+    const setting = settings.find((candidate) => candidate.key === key)
 
     if (!setting) continue
 
-    rows.push({ role, modelId: String(setting.value), updatedAt: setting.updatedAt })
+    rows.push({
+      key,
+      role,
+      isFallback: false,
+      modelId: String(setting.value),
+      updatedAt: setting.updatedAt,
+    })
+
+    const fallbackKey = FALLBACK_MODEL_SETTING_KEYS[role]
+
+    if (!fallbackKey) continue
+
+    // No row yet is the same as a removed fallback: the migration seeds none.
+    const fallback = settings.find((candidate) => candidate.key === fallbackKey)
+    const fallbackModelId = typeof fallback?.value === 'string' ? fallback.value : null
+
+    rows.push({
+      key: fallbackKey,
+      role,
+      isFallback: true,
+      modelId: fallbackModelId,
+      updatedAt: fallback?.updatedAt ?? null,
+    })
   }
 
   return rows
+}
+
+const labelOf = (row: ModelRow): string => {
+  const label = ROLE_COPY[row.role].label
+
+  return row.isFallback ? `Respaldo de la ${label.toLowerCase()}` : label
 }
 
 /**
@@ -65,7 +102,8 @@ const toModelRows = (settings: PlatformSetting[]): ModelRow[] => {
  * on each message, so a change here needs no deploy.
  */
 export const ModelSettingsCard = () => {
-  const [editingRole, setEditingRole] = useState<ModelRole | null>(null)
+  const queryClient = useQueryClient()
+  const [editingKey, setEditingKey] = useState<PlatformSettingKey | null>(null)
 
   const settings = useQuery({
     queryKey: queryKeys.platformSettings,
@@ -76,8 +114,16 @@ export const ModelSettingsCard = () => {
     },
   })
 
+  const removeFallback = useMutation({
+    mutationFn: async (key: PlatformSettingKey) => {
+      await api.put(`/platform/settings/${key}`, { value: null })
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.platformSettings }),
+  })
+
   const rows = toModelRows(settings.data ?? [])
-  const editing = rows.find((row) => row.role === editingRole)
+  const editing = rows.find((row) => row.key === editingKey)
+  const failure = settings.error ?? removeFallback.error
 
   return (
     <Card>
@@ -109,18 +155,30 @@ export const ModelSettingsCard = () => {
               </TableRow>
             ) : (
               rows.map((row) => (
-                <TableRow key={row.role}>
-                  <TableCell className="font-medium">{ROLE_COPY[row.role].label}</TableCell>
-                  <TableCell className="font-mono text-xs">{row.modelId}</TableCell>
-                  <TableCell>{new Date(row.updatedAt).toLocaleString('es-CO')}</TableCell>
+                <TableRow key={row.key}>
+                  <TableCell className="font-medium">{labelOf(row)}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {row.modelId ?? (
+                      <span className="font-sans text-muted-foreground">Sin respaldo</span>
+                    )}
+                  </TableCell>
                   <TableCell>
-                    <div className="flex justify-end">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setEditingRole(row.role)}
-                      >
-                        Cambiar
+                    {row.updatedAt ? new Date(row.updatedAt).toLocaleString('es-CO') : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-2">
+                      {row.isFallback && row.modelId && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={removeFallback.isPending}
+                          onClick={() => removeFallback.mutate(row.key)}
+                        >
+                          Quitar
+                        </Button>
+                      )}
+                      <Button size="sm" variant="secondary" onClick={() => setEditingKey(row.key)}>
+                        {row.modelId ? 'Cambiar' : 'Elegir'}
                       </Button>
                     </div>
                   </TableCell>
@@ -130,12 +188,10 @@ export const ModelSettingsCard = () => {
           </TableBody>
         </Table>
 
-        {settings.error && (
-          <p className="mt-2 text-sm text-destructive">{settings.error.message}</p>
-        )}
+        {failure && <p className="mt-2 text-sm text-destructive">{failure.message}</p>}
       </CardContent>
 
-      {editing && <ChangeModelDialog row={editing} onClose={() => setEditingRole(null)} />}
+      {editing && <ChangeModelDialog row={editing} onClose={() => setEditingKey(null)} />}
     </Card>
   )
 }
@@ -162,13 +218,15 @@ const ChangeModelDialog = ({ row, onClose }: { row: ModelRow; onClose: () => voi
   })
 
   const form = useForm({
-    defaultValues: { value: row.modelId },
+    defaultValues: { value: row.modelId ?? '' },
+    // The role's own key, not `row.key`: this dialog always saves a model, and
+    // the fallback's schema also takes the null that only "Quitar" sends.
     validators: { onChange: updatePlatformSettingSchema(MODEL_SETTING_KEYS[row.role]) },
     onSubmit: async ({ value }) => {
       setFailure(null)
 
       try {
-        await api.put(`/platform/settings/${MODEL_SETTING_KEYS[row.role]}`, value)
+        await api.put(`/platform/settings/${row.key}`, value)
       } catch (error) {
         const [unmatched] = applyServerErrors(form, error)
 
@@ -188,12 +246,19 @@ const ChangeModelDialog = ({ row, onClose }: { row: ModelRow; onClose: () => voi
     detail: formatPrice(option),
   }))
 
+  const title = row.isFallback
+    ? `Modelo de respaldo para la ${copy.label.toLowerCase()}`
+    : `Modelo para ${copy.label.toLowerCase()}`
+  const purpose = row.isFallback
+    ? 'Se usa solo cuando ningún proveedor del modelo principal responde, en todas las empresas.'
+    : 'Cambia el modelo en todas las empresas desde el siguiente mensaje.'
+
   return (
     <FormDialog
       open
       onClose={onClose}
-      title={`Modelo para ${copy.label.toLowerCase()}`}
-      description={`Cambia el modelo en todas las empresas desde el siguiente mensaje. ${copy.requirement}`}
+      title={title}
+      description={`${purpose} ${copy.requirement}`}
       submitLabel="Guardar"
       form={form}
       error={failure ?? (catalog.error ? catalog.error.message : null)}
