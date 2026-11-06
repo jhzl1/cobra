@@ -18,9 +18,10 @@ interface RoleRequirements {
 
 /**
  * What each call in `packages/agent` sends, and therefore what a model must
- * support. `createModels` asks OpenRouter for `require_parameters: true` and
- * `allow_fallbacks: false`, so a model missing any of these does not degrade:
- * every request to it fails. Change a call there and this list changes with it.
+ * support. `createModels` asks OpenRouter for `require_parameters: true`, so a
+ * model missing any of these does not degrade: every request to it fails. A
+ * fallback model is checked against its role's list too. Change a call there
+ * and this list changes with it.
  *
  *   agent  — `generateText` in run-turn.ts: tools (with `tool_choice: auto`)
  *            and `temperature: 0`.

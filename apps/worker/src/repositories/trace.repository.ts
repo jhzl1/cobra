@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import type { StepRecorder } from '@cobra/agent'
+import type { AnsweredCall, StepRecorder } from '@cobra/agent'
 import { SupabaseService } from '../runtime/supabase.service.js'
 
 export interface RunHandle {
@@ -49,8 +49,12 @@ export class TraceRepository {
       error?: string | null
       inputTokens?: number | null
       outputTokens?: number | null
+      /** Absent for a run that never reached the model, which stores null. */
+      answeredCalls?: AnsweredCall[]
     },
   ): Promise<void> {
+    const answered = toAnsweredColumns(result.answeredCalls)
+
     const { error } = await this.supabase
       .scope(tenantId)
       .update('agent_runs', {
@@ -58,6 +62,8 @@ export class TraceRepository {
         error: result.error ?? null,
         input_tokens: result.inputTokens ?? null,
         output_tokens: result.outputTokens ?? null,
+        answered_models: answered.models,
+        answered_providers: answered.providers,
         finished_at: new Date().toISOString(),
       })
       .eq('id', runId)
@@ -123,4 +129,25 @@ export class TraceRepository {
       },
     }
   }
+}
+
+/**
+ * Two arrays aligned by position, one element per model call. Null for a run
+ * that never reached the model, so it reads apart from a turn whose every call
+ * failed before answering, which stores empty arrays.
+ */
+const toAnsweredColumns = (
+  calls: AnsweredCall[] | undefined,
+): { models: string[] | null; providers: Array<string | null> | null } => {
+  if (!calls) return { models: null, providers: null }
+
+  const models: string[] = []
+  const providers: Array<string | null> = []
+
+  for (const call of calls) {
+    models.push(call.model)
+    providers.push(call.provider)
+  }
+
+  return { models, providers }
 }

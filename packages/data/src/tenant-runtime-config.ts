@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   type CredentialProvider,
+  FALLBACK_MODEL_SETTING_KEYS,
   MODEL_SETTING_KEYS,
   type ModelRole,
   type PlatformSettingKey,
@@ -30,6 +31,11 @@ export interface TenantRuntimeConfig {
    * job, like a rotated key.
    */
   models: Record<ModelRole, string>
+  /**
+   * The model OpenRouter tries when every provider of `models[role]` fails.
+   * Absent for a role with no fallback chosen.
+   */
+  fallbackModels: Partial<Record<ModelRole, string>>
 }
 
 /**
@@ -60,14 +66,19 @@ export const loadTenantRuntimeConfig = async (
     client
       .from('platform_settings')
       .select('key, value')
-      .in('key', Object.values(MODEL_SETTING_KEYS)),
+      .in('key', [
+        ...Object.values(MODEL_SETTING_KEYS),
+        ...Object.values(FALLBACK_MODEL_SETTING_KEYS),
+      ]),
   ])
 
   if (tenant.error) throw tenant.error
   if (credentials.error) throw credentials.error
   if (settings.error) throw settings.error
 
-  const models = toModels(settings.data ?? [])
+  const settingsByKey = toSettingsByKey(settings.data ?? [])
+  const models = toModels(settingsByKey)
+  const fallbackModels = toFallbackModels(settingsByKey)
 
   const decrypted: Partial<Record<CredentialProvider, DecryptedCredential>> = {}
 
@@ -93,7 +104,16 @@ export const loadTenantRuntimeConfig = async (
     credentials: decrypted,
     phoneNumberId: (number.data?.phone_number_id as string | undefined) ?? null,
     models,
+    fallbackModels,
   }
+}
+
+const toSettingsByKey = (rows: Record<string, unknown>[]): Map<PlatformSettingKey, unknown> => {
+  const byKey = new Map<PlatformSettingKey, unknown>()
+
+  for (const row of rows) byKey.set(row['key'] as PlatformSettingKey, row['value'])
+
+  return byKey
 }
 
 /**
@@ -102,11 +122,7 @@ export const loadTenantRuntimeConfig = async (
  * and silently running a model nobody chose is worse than a job that says why
  * it stopped.
  */
-const toModels = (rows: Record<string, unknown>[]): Record<ModelRole, string> => {
-  const byKey = new Map<PlatformSettingKey, unknown>()
-
-  for (const row of rows) byKey.set(row['key'] as PlatformSettingKey, row['value'])
-
+const toModels = (byKey: Map<PlatformSettingKey, unknown>): Record<ModelRole, string> => {
   const readModel = (role: ModelRole): string => {
     const key = MODEL_SETTING_KEYS[role]
     const parsed = platformSettingSchemas[key].safeParse(byKey.get(key))
@@ -119,6 +135,30 @@ const toModels = (rows: Record<string, unknown>[]): Record<ModelRole, string> =>
   }
 
   return { agent: readModel('agent'), vision: readModel('vision') }
+}
+
+/**
+ * A missing row or a null value is "no fallback": the migration seeds none.
+ * A malformed value still fails the job, for the same reason as `toModels`.
+ */
+const toFallbackModels = (
+  byKey: Map<PlatformSettingKey, unknown>,
+): Partial<Record<ModelRole, string>> => {
+  const fallbackModels: Partial<Record<ModelRole, string>> = {}
+
+  for (const [role, key] of Object.entries(FALLBACK_MODEL_SETTING_KEYS)) {
+    if (!key) continue
+
+    const parsed = platformSettingSchemas[key].safeParse(byKey.get(key) ?? null)
+
+    if (!parsed.success) {
+      throw new Error(`El ajuste ${key} de platform_settings no es un modelo válido`)
+    }
+
+    if (typeof parsed.data === 'string') fallbackModels[role as ModelRole] = parsed.data
+  }
+
+  return fallbackModels
 }
 
 export class MissingCredentialError extends Error {

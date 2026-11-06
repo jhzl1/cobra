@@ -224,6 +224,7 @@ export class ProcessTurnJobHandler {
         error: turnResult.error,
         inputTokens: turnResult.inputTokens,
         outputTokens: turnResult.outputTokens,
+        answeredCalls: turnResult.answeredCalls,
       })
 
       /**

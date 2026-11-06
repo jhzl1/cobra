@@ -13,6 +13,7 @@ import type {
   TenantConfig,
   WisphubPort,
 } from '../types'
+import { type AnsweredCall, toAnsweredCall } from './answered-call'
 import type { Steering } from './steering'
 
 /**
@@ -66,6 +67,8 @@ export interface TurnResult {
   inputTokens: number | null
   outputTokens: number | null
   error: string | null
+  /** One per model call that returned, in order, including those of a failed turn. */
+  answeredCalls: AnsweredCall[]
 }
 
 export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
@@ -112,6 +115,7 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
   ]
 
   const llmStep = await deps.steps.start({ kind: 'llm', name: 'agent', input: { maxSteps } })
+  const answeredCalls: AnsweredCall[] = []
 
   try {
     const result = await generateText({
@@ -124,6 +128,9 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
       // Declared, not inherited. A model call with no ceiling is a conversation
       // that stops answering with nothing in the log to show why.
       timeout: timeoutMs,
+      onStepEnd: (step) => {
+        answeredCalls.push(toAnsweredCall(step))
+      },
       /**
        * Where a message that arrived mid-turn joins the conversation: right
        * before the next model call, after the tools of the previous step have
@@ -153,6 +160,7 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
       inputTokens: result.usage.inputTokens ?? null,
       outputTokens: result.usage.outputTokens ?? null,
       error: null,
+      answeredCalls,
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -165,6 +173,7 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
       inputTokens: null,
       outputTokens: null,
       error: message,
+      answeredCalls,
     }
   }
 }

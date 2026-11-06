@@ -7,12 +7,14 @@ import {
 } from '@nestjs/common'
 import type { PostgrestError } from '@supabase/supabase-js'
 import {
+  FALLBACK_MODEL_SETTING_KEYS,
   MODEL_SETTING_KEYS,
   type ModelCatalog,
   type ModelRole,
   type PlatformSetting,
   type PlatformSettingKey,
   type PlatformSettingValues,
+  modelRoleSchema,
 } from '@cobra/contracts'
 import { SupabaseService } from '~/supabase/supabase.service'
 import { type OpenRouterModel, toModelCatalog } from './model-catalog'
@@ -29,10 +31,14 @@ const CATALOG_TTL_MS = 10 * 60_000
 
 const SETTING_COLUMNS = 'key, value, updated_at'
 
-/** The role whose model a key holds, or null for a setting that is not a model. */
+/**
+ * The role whose model, or fallback model, a key holds. Null for a setting
+ * that is not a model.
+ */
 const modelRoleOf = (key: PlatformSettingKey): ModelRole | null => {
-  for (const [role, modelKey] of Object.entries(MODEL_SETTING_KEYS)) {
-    if (modelKey === key) return role as ModelRole
+  for (const role of modelRoleSchema.options) {
+    if (MODEL_SETTING_KEYS[role] === key) return role
+    if (FALLBACK_MODEL_SETTING_KEYS[role] === key) return role
   }
 
   return null
@@ -86,7 +92,8 @@ export class PlatformSettingsService {
   }): Promise<PlatformSetting> {
     const role = modelRoleOf(key)
 
-    if (role) await this.assertModelAvailable(role, value)
+    // A null fallback is a removal, and there is no model to check.
+    if (role && typeof value === 'string') await this.assertModelAvailable(role, value)
 
     // Upsert rather than update: the migration seeds every key, but a key with
     // no row would otherwise answer "saved" and change nothing.
