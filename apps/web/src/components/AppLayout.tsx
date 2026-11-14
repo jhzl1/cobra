@@ -40,12 +40,12 @@ export const AppLayout = () => {
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex h-13 shrink-0 items-center gap-2 border-b px-4">
-        <h1 className="text-[15px] font-semibold tracking-tight">
+        <h1 className="flex">
           <Link
             to="/"
-            className="outline-none focus-visible:underline focus-visible:underline-offset-4"
+            className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
           >
-            Cobra
+            <img src="/logo.svg" alt="Wispay" className="h-6 w-auto" />
           </Link>
         </h1>
 

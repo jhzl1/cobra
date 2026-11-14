@@ -14,7 +14,7 @@ export const OPENAPI_JSON_PATH = '/openapi.json'
  */
 export const setupDocs = (app: INestApplication): void => {
   const config = new DocumentBuilder()
-    .setTitle('Cobra API')
+    .setTitle('Wispay API')
     .setDescription('Agente de cobros por WhatsApp para ISP que facturan en Wisphub')
     // The deployed build, not a hand-maintained number.
     .setVersion(getAppVersion())
@@ -35,6 +35,6 @@ export const setupDocs = (app: INestApplication): void => {
 
   app.use(
     DOCS_PATH,
-    apiReference({ url: OPENAPI_JSON_PATH, title: 'Cobra API', persistAuth: true }),
+    apiReference({ url: OPENAPI_JSON_PATH, title: 'Wispay API', persistAuth: true }),
   )
 }
