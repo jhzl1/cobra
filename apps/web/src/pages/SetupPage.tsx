@@ -119,7 +119,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
             <CardTitle>Lo que va en n8n</CardTitle>
             <CardDescription>
               Dualhook le entrega los mensajes de este número a n8n. En ese flujo, el nodo que los
-              reenvía a Cobra tiene que apuntar a esta URL, con el cuerpo tal cual llegó.
+              reenvía a Wispay tiene que apuntar a esta URL, con el cuerpo tal cual llegó.
             </CardDescription>
           </CardHeader>
 

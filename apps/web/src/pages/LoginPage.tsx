@@ -2,7 +2,7 @@ import { useForm } from '@tanstack/react-form'
 import { useState } from 'react'
 import { z } from 'zod'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Field } from '~/components/ui/field'
 import { fieldError } from '~/lib/form'
 import { supabase } from '~/lib/supabase'
@@ -33,8 +33,9 @@ export const LoginPage = () => {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Cobra</CardTitle>
-          <CardDescription>Panel de cobros por WhatsApp</CardDescription>
+          <CardTitle>
+            <img src="/logo.svg" alt="Wispay" className="mx-auto h-8 w-auto" />
+          </CardTitle>
         </CardHeader>
 
         <CardContent>

@@ -25,7 +25,7 @@ const InboxContext = createContext<InboxContextValue>({
   setOpenConversationId: () => {},
 })
 
-const BASE_TITLE = 'Cobra'
+const BASE_TITLE = 'Wispay'
 
 /**
  * The inbox: the company's conversations, live, and what has not been looked at.
