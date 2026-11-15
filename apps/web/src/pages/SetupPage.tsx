@@ -9,6 +9,7 @@ import { CopyField } from '~/components/ui/copy-field'
 import { Spinner } from '~/components/ui/spinner'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
+import { verifyTokenOf } from '~/lib/tenants'
 import { cn } from '~/lib/utils'
 
 interface StepCopy {
@@ -148,13 +149,6 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
     </div>
   )
 }
-
-/**
- * The API checks Meta's verify token against the last segment of the webhook
- * URL, so the token is read off the URL instead of being a second secret.
- */
-const verifyTokenOf = (webhookUrl: string): string =>
-  new URL(webhookUrl).pathname.split('/').pop() ?? ''
 
 const SetupStepItem = ({
   tenantId,
