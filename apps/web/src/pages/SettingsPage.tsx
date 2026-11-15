@@ -310,8 +310,8 @@ const WhatsappNumbersCard = ({ tenantId }: { tenantId: string }) => {
       <CardHeader>
         <CardTitle>Números de WhatsApp</CardTitle>
         <CardDescription>
-          Al conectar un número se genera su URL de webhook. El flujo de n8n que recibe los mensajes
-          de Dualhook los reenvía a esa URL.
+          Al conectar un número se genera su URL de webhook, que va en el Webhook Override de
+          Dualhook. Su Verify Token es el último tramo de esa URL.
         </CardDescription>
         <CardAction>
           <Button size="sm" onClick={() => setIsConnectDialogOpen(true)}>
@@ -376,8 +376,8 @@ const WhatsappNumbersCard = ({ tenantId }: { tenantId: string }) => {
             <AlertDialogTitle>Dar de baja {numberToRetire?.displayNumber}</AlertDialogTitle>
             <AlertDialogDescription>
               Deja de recibir mensajes y su URL de webhook deja de servir, así que hay que quitarla
-              del flujo de n8n que la reenvía. Las conversaciones que entraron por él se conservan, y
-              su identificador queda libre para volver a registrarlo.
+              del Webhook Override de Dualhook. Las conversaciones que entraron por él se conservan,
+              y su identificador queda libre para volver a registrarlo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -426,7 +426,7 @@ const WhatsappNumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose
       open
       onClose={onClose}
       title="Conectar un número"
-      description="Los dos datos salen del panel de Dualhook. Al guardarlos, el panel genera la URL a la que n8n reenvía los mensajes."
+      description="Los dos datos salen del panel de Dualhook. Al guardarlos, el panel genera la URL que va en su Webhook Override."
       submitLabel="Conectar"
       form={form}
       error={failure}
