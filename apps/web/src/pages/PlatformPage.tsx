@@ -259,7 +259,12 @@ const TenantsCard = ({ page }: { page: number }) => {
                   <TableCell>
                     <div className="flex justify-end">
                       <Button asChild size="sm" variant="ghost">
-                        <Link to="/platform/tenants/$companyId" params={{ companyId: tenant.id }}>
+                        <Link
+                          to="/platform/tenants/$companyId"
+                          params={{ companyId: tenant.id }}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           Abrir
                         </Link>
                       </Button>
