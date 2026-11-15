@@ -4,7 +4,7 @@ import { z } from 'zod'
 import './locale'
 
 /**
- * The four queues, named once. `apps/api` only ever enqueues; `apps/worker`
+ * Every queue, named once. `apps/api` only ever enqueues; `apps/worker`
  * creates them and works them.
  */
 export const QUEUES = {
@@ -32,6 +32,13 @@ export const QUEUES = {
   sendMessage: 'send-message',
   /** Alerts to the administrator. Best-effort by contract, never in a turn's path. */
   notifyTenantAdmin: 'notify-admin',
+  /**
+   * Fired by the worker's nightly schedule. It belongs to no tenant, so all it
+   * does is queue one `resetStaleContexts` per tenant.
+   */
+  dispatchContextResets: 'dispatch-context-resets',
+  /** Starts the agent's memory over in one tenant's conversations that went silent. */
+  resetStaleContexts: 'reset-stale-contexts',
 } as const
 
 export const processTurnPayloadSchema = z.object({
