@@ -7,6 +7,7 @@ const QUEUE_LABEL: Record<string, string> = {
   [QUEUES.processReceipt]: 'Lectura de comprobante',
   [QUEUES.sendMessage]: 'Envío por WhatsApp',
   [QUEUES.notifyTenantAdmin]: 'Alerta al administrador',
+  [QUEUES.resetStaleContexts]: 'Reinicio de memoria por inactividad',
 }
 
 export const queueLabel = (queue: string): string => QUEUE_LABEL[queue] ?? queue
