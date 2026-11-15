@@ -20,16 +20,21 @@ metadata:
 Cargar esta skill antes de tocar `apps/api/src/webhooks/` o
 `apps/worker/src/whatsapp/`.
 
-## El canal es Dualhook, con n8n en medio
+## El canal es Dualhook
 
 Dualhook es un Meta Tech Partner para coexistencia. Cobra no habla con
 `graph.facebook.com`.
 
 - **Entrada.** El Webhook Override de Dualhook hace que Meta entregue mensajes,
-  statuses y errores a un n8n propio, que reenvía el **cuerpo idéntico** a la ruta
-  del cliente. El sobre es el de Meta (`object`, `entry[].changes[].value`), así
-  que `metaWebhookSchema` de `@cobra/contracts` sigue siendo el que manda. El
-  handshake `GET` de Meta lo contesta n8n: Cobra solo recibe el `POST`.
+  statuses y errores a la ruta del cliente, directo o a través de un n8n que
+  reenvía el **cuerpo idéntico**. El sobre es el de Meta (`object`,
+  `entry[].changes[].value`), así que `metaWebhookSchema` de `@cobra/contracts`
+  sigue siendo el que manda.
+- **Verificación.** Directo, Meta comprueba la URL con un `GET` (`hub.mode`,
+  `hub.verify_token`, `hub.challenge`) y Cobra le devuelve el `hub.challenge`
+  pelado, fuera del sobre `{ success, data }`. El Verify Token es el
+  `webhookToken` de la ruta: ya es el secreto de esa URL, y uno aparte sería otro
+  valor que guardar y mostrar. A través de n8n, el `GET` lo contesta n8n.
 - **Salida y media.** Runtime API de Dualhook, `https://api.dualhook.com/v25.0`,
   mismas rutas y cuerpos que la Graph API (`POST /{phone_number_id}/messages`
   para texto, imagen y `status: 'read'`). El bearer es la llave `dh_live_` del
@@ -45,21 +50,21 @@ El cliente es `DualhookClient`; sus tests inyectan `fetchImpl` y no tocan la red
 
 Meta firma `X-Hub-Signature-256` con el app secret **de Dualhook**, que no
 tenemos, así que la firma no se valida y no existe app secret por cliente.
-Entre n8n y Cobra tampoco hay autenticación propia. Decisión del usuario
-(2026-10-27), escrita en el controller:
+Decisión del usuario (2026-10-27), escrita en el controller:
 
 - Lo único que autentica es el token opaco de la ruta. Quien conozca la URL de un
   cliente y su `phone_number_id` puede inyectar eventos, y el agente registra
   pagos con ellos.
-- La corrección es un encabezado con un secreto compartido entre quien reenvía y
-  Cobra, cuando n8n se retire o antes de producción.
+- Antes de producción la ruta necesita algo que solo el remitente real pueda
+  producir.
 
 No agregues una verificación de firma "por si acaso": falla para todo el tráfico.
 
 ## Una ruta por cliente
 
 ```
-POST /wh/wa/:tenantSlug/:webhookToken
+GET  /wh/wa/:tenantSlug/:webhookToken   verificación de Meta
+POST /wh/wa/:tenantSlug/:webhookToken   eventos
 ```
 
 Resolver el tenant leyendo `metadata.phone_number_id` de un cuerpo no
@@ -73,7 +78,8 @@ ruta. Si no coinciden, 403 y no se procesa.
 Un token equivocado y un slug equivocado responden lo mismo: 404 sin detalle.
 Cualquier otra cosa convierte la ruta en un oráculo para adivinar tokens.
 
-La URL se muestra en el panel para pegarla en el nodo de reenvío de n8n. Si se
+La URL y su Verify Token se muestran en el panel para pegarlos en el Webhook
+Override de Dualhook. Si se
 filtra, se da de baja el número y se registra otra vez: eso genera otro token.
 
 ## Filtros heredados de n8n, que se mantienen
@@ -94,7 +100,7 @@ filtra, se da de baja el número y se registra otra vez: eso genera otro token.
 ## Persistir y después responder
 
 Meta entrega _at-least-once_ y reintenta con backoff hasta 7 días si no recibe
-200, y n8n le devuelve lo que Cobra contestó. De ahí:
+200, y cuando hay un n8n en medio le devuelve lo que Cobra contestó. De ahí:
 
 - El 200 significa "guardado", no "recibido".
 - `unique(wamid)` es la defensa contra la re-entrega, y una colisión ahí **no es
