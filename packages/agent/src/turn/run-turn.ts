@@ -123,7 +123,9 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
       instructions: buildSystemPrompt(tenant),
       messages,
       tools,
-      temperature: 0,
+      // No `temperature`. Claude Haiku 5.5 rejects anything but its default, and
+      // `temperature: 0` never kept the agent from inventing: what does is that
+      // amounts come from Wisphub tools and payments are checked in code.
       stopWhen: stepCountIs(maxSteps),
       // Declared, not inherited. A model call with no ceiling is a conversation
       // that stops answering with nothing in the log to show why.

@@ -28,12 +28,12 @@ const SETUP_STEP_COPY: Record<SetupStep['id'], StepCopy> = {
   },
   number: {
     title: 'Conectar el número de WhatsApp',
-    why: 'Al registrarlo, el panel genera la URL a la que n8n reenvía sus mensajes.',
+    why: 'Al registrarlo, el panel genera la URL a la que llegan sus mensajes.',
     action: 'Conectar número',
     to: '/$tenantId/settings',
   },
   webhook: {
-    title: 'Apuntar el reenvío de n8n a la URL',
+    title: 'Poner la URL en Dualhook',
     why: 'Este es el único paso que no se hace desde aquí. Se da por hecho cuando llega el primer mensaje.',
     action: 'Ver la URL',
     to: '/$tenantId/settings',
@@ -51,7 +51,7 @@ const SETUP_STEP_COPY: Record<SetupStep['id'], StepCopy> = {
  *
  * It exists because the alternative is an empty conversation list that explains
  * nothing: four things have to be true for a message to get a reply, three of
- * them live on another screen, and one is done in n8n.
+ * them live on another screen, and one is done in Dualhook.
  */
 export const SetupPage = ({ tenantId }: { tenantId: string }) => {
   const setup = useQuery({
@@ -116,24 +116,29 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
       {webhookUrl && (
         <Card>
           <CardHeader>
-            <CardTitle>Lo que va en n8n</CardTitle>
+            <CardTitle>Lo que va en Dualhook</CardTitle>
             <CardDescription>
-              Dualhook le entrega los mensajes de este número a n8n. En ese flujo, el nodo que los
-              reenvía a Wispay tiene que apuntar a esta URL, con el cuerpo tal cual llegó.
+              En la conexión de este número, en Webhook Override, pega estos dos valores y pulsa
+              Test endpoint. Desde ese momento los mensajes llegan directo a Wispay.
             </CardDescription>
           </CardHeader>
 
           <CardContent className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <p className="text-xs text-muted-foreground">URL del webhook de esta empresa</p>
+              <p className="text-xs text-muted-foreground">Webhook URL</p>
               <CopyField value={webhookUrl} />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <p className="text-xs text-muted-foreground">Verify Token</p>
+              <CopyField value={verifyTokenOf(webhookUrl)} />
             </div>
 
             {/* The URL is built from the request the API answered, so a tunnel
                 needs no configuration — and it changes when the tunnel does. */}
             {webhookUrl.includes('localhost') && (
               <p className="text-xs text-muted-foreground">
-                Esta URL es local: n8n no la alcanza. Expón la API con un túnel y vuelve a abrir
+                Esta URL es local: Meta no la alcanza. Expón la API con un túnel y vuelve a abrir
                 esta página desde esa dirección para verla ya armada.
               </p>
             )}
@@ -143,6 +148,13 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
     </div>
   )
 }
+
+/**
+ * The API checks Meta's verify token against the last segment of the webhook
+ * URL, so the token is read off the URL instead of being a second secret.
+ */
+const verifyTokenOf = (webhookUrl: string): string =>
+  new URL(webhookUrl).pathname.split('/').pop() ?? ''
 
 const SetupStepItem = ({
   tenantId,

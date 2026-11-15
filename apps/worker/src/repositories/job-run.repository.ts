@@ -91,8 +91,24 @@ export class JobRunRepository {
   }
 }
 
+/**
+ * Supabase answers a failed query with a plain `{ message, code, … }` object,
+ * not an `Error`, and the repositories throw it as is. `String()` on that object
+ * put "[object Object]" on the platform for every nightly reset that failed
+ * before its SQL function existed.
+ */
 const describe = (error: unknown): string => {
-  const message = error instanceof Error ? error.message : String(error)
+  const message = error instanceof Error ? error.message : messageOf(error)
 
   return message.slice(0, ERROR_MAX_LENGTH)
+}
+
+const messageOf = (error: unknown): string => {
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const { message } = error
+
+    if (typeof message === 'string') return message
+  }
+
+  return String(error)
 }

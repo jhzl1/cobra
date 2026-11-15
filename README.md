@@ -62,7 +62,7 @@ OpenRouter por cliente cubre los dos modelos:
 
 | Uso                     | Modelo                                                 |
 | ----------------------- | ------------------------------------------------------ |
-| Agente                  | `anthropic/claude-haiku-4.5`, `temperature: 0`         |
+| Agente                  | `anthropic/claude-haiku-5.5`, sin `temperature`        |
 | Lectura de comprobantes | `google/gemini-3.5-flash`, salida estructurada con zod |
 
 El enrutamiento va con `require_parameters: true` y `allow_fallbacks: true`. El

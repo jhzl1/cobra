@@ -318,7 +318,8 @@ export class TenantsService {
   /**
    * Registers a number and mints its webhook token.
    *
-   * `webhook_token` is the opaque segment of the URL n8n forwards to, and the
+   * `webhook_token` is the opaque last segment of the webhook URL, doubles as
+   * Meta's verify token when Dualhook points straight at it, and is the
    * only thing that authenticates an inbound POST: through Dualhook, Meta signs
    * with an app secret we do not have. It is generated here — never chosen by
    * the client — because its entropy is the whole protection.
@@ -384,7 +385,7 @@ export class TenantsService {
    * nothing from doing it here — the caller's access is checked before this.
    *
    * The webhook step is the only one nobody can complete from the panel: it is
-   * done in n8n, whose forward node has to point at this company's URL, so the
+   * done in Dualhook, whose Webhook Override has to point at this company's URL, so the
    * signal is the only honest one there is, that something actually arrived
    * through it.
    */
