@@ -41,6 +41,18 @@ describe('toModelCatalog', () => {
     expect(catalog.agent).toEqual([])
   })
 
+  it('offers the agent a model that rejects temperature, and keeps it out of the receipt reader', () => {
+    const catalog = toModelCatalog([
+      model({
+        id: 'anthropic/claude-haiku-5.5',
+        supported_parameters: ['response_format', 'structured_outputs', 'tool_choice', 'tools'],
+      }),
+    ])
+
+    expect(ids(catalog.agent)).toEqual(['anthropic/claude-haiku-5.5'])
+    expect(catalog.vision).toEqual([])
+  })
+
   it('keeps a text-only model out of the receipt reader', () => {
     const catalog = toModelCatalog([
       model({ id: 'x/text-only', architecture: { input_modalities: ['text'] } }),

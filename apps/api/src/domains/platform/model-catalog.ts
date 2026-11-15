@@ -24,14 +24,14 @@ interface RoleRequirements {
  * and this list changes with it.
  *
  *   agent  — `generateText` in run-turn.ts: tools (with `tool_choice: auto`)
- *            and `temperature: 0`.
+ *            and no `temperature`, so a model that rejects it still qualifies.
  *   vision — `generateObject` in read-receipt.ts: an image, a JSON schema as
  *            `response_format`, and `temperature: 0`.
  */
 export const ROLE_REQUIREMENTS: Record<ModelRole, RoleRequirements> = {
   agent: {
     inputModalities: ['text'],
-    parameters: ['tools', 'tool_choice', 'temperature'],
+    parameters: ['tools', 'tool_choice'],
   },
   vision: {
     inputModalities: ['text', 'image'],
