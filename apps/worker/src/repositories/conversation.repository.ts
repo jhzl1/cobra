@@ -163,6 +163,22 @@ export class ConversationRepository {
     if (error) throw error
   }
 
+  /**
+   * Starts the memory over in every conversation of the tenant silent for
+   * `idle` (a Postgres interval, `'48 hours'`). Returns how many it reset. See
+   * `reset_stale_contexts` in @cobra/db for why it is one statement.
+   */
+  async resetStaleContexts(tenantId: string, idle: string): Promise<number> {
+    const { data, error } = await this.supabase.unscoped.rpc('reset_stale_contexts', {
+      p_tenant_id: tenantId,
+      p_idle: idle,
+    })
+
+    if (error) throw error
+
+    return (data as number | null) ?? 0
+  }
+
   /** The last message the customer sent, so the read receipt can be sent back. */
   async latestInboundWamid(tenantId: string, conversationId: string): Promise<string | null> {
     const { data } = await this.supabase
