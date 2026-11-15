@@ -7,8 +7,8 @@ import type { ModelRole } from '@cobra/contracts'
  *
  * The model ids come in from the caller: the platform chooses them in the panel
  * (`platform_settings`), and n8n's `Claude Haiku` and `Gemini 3.5 Flash` are only
- * the seed. Whatever is chosen has to support what these calls send — tools and
- * `temperature` for the agent, an image and structured output for the receipt —
+ * the seed. Whatever is chosen has to support what these calls send — tools for
+ * the agent; an image, structured output and `temperature` for the receipt —
  * and the API's catalog filter is what keeps an incompatible one out.
  *
  * `require_parameters: true` keeps OpenRouter from silently routing to a
