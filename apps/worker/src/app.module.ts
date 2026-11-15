@@ -7,11 +7,13 @@ import { loadEnv } from './config/env.js'
 import { NotifyTenantAdminJobHandler } from './jobs/notify-tenant-admin.job.js'
 import { ProcessReceiptJobHandler } from './jobs/process-receipt.job.js'
 import { ProcessTurnJobHandler } from './jobs/process-turn.job.js'
+import { ResetStaleContextsJobHandler } from './jobs/reset-stale-contexts.job.js'
 import { SendMessageJobHandler } from './jobs/send-message.job.js'
 import { ConversationRepository } from './repositories/conversation.repository.js'
 import { JobRunRepository } from './repositories/job-run.repository.js'
 import { PaymentMethodRepository } from './repositories/payment-method.repository.js'
 import { ReceiptRepository } from './repositories/receipt.repository.js'
+import { TenantRepository } from './repositories/tenant.repository.js'
 import { TraceRepository } from './repositories/trace.repository.js'
 import { SupabaseService } from './runtime/supabase.service.js'
 import { TenantAdminAlertService } from './runtime/tenant-admin-alert.service.js'
@@ -38,10 +40,12 @@ const here = dirname(fileURLToPath(import.meta.url))
     PaymentMethodRepository,
     TraceRepository,
     JobRunRepository,
+    TenantRepository,
     ProcessTurnJobHandler,
     ProcessReceiptJobHandler,
     SendMessageJobHandler,
     NotifyTenantAdminJobHandler,
+    ResetStaleContextsJobHandler,
     BossService,
   ],
 })
