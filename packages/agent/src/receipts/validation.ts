@@ -17,7 +17,7 @@ export interface ValidateReceiptInput {
 }
 
 /**
- * The five rules, in this order, and the order is the rule.
+ * The rules, in this order, and the order is the rule.
  *
  * They are mutually exclusive and the first one that matches wins. A receipt
  * that is both stale and paid into someone else's account is reported as stale,
@@ -45,6 +45,8 @@ export const validateReceipt = ({
     extraction.destinationMethod,
   )
   const isDestinationOurs = paymentMethod !== null
+  // Only meaningful once the account is ours: an unknown account is rule 3, not this.
+  const isDestinationActive = paymentMethod?.isActive ?? true
   const isReferenceUnused = !isReferenceUsed
 
   return {
@@ -53,6 +55,7 @@ export const validateReceipt = ({
     isPaymentDateReadable,
     isPaymentDateRecent,
     isDestinationOurs,
+    isDestinationActive,
     isReferenceUnused,
     paymentMethod,
     alertReason: firstFailingRule({
@@ -60,6 +63,7 @@ export const validateReceipt = ({
       isPaymentDateReadable,
       isPaymentDateRecent,
       isDestinationOurs,
+      isDestinationActive,
       isReferenceUnused,
     }),
   }
@@ -70,6 +74,7 @@ interface RuleInput {
   isPaymentDateReadable: boolean
   isPaymentDateRecent: boolean
   isDestinationOurs: boolean
+  isDestinationActive: boolean
   isReferenceUnused: boolean
 }
 
@@ -80,6 +85,9 @@ const firstFailingRule = (input: RuleInput): AlertReason | null => {
   // photograph we could not read.
   if (input.isPaymentDateReadable && !input.isPaymentDateRecent) return 'older_than_7_days'
   if (!input.isDestinationOurs) return 'destination_not_ours'
+  // Same slot as rule 3, split in two: the account is the company's, but the
+  // company switched it off, and the operator has to know which of the two it was.
+  if (!input.isDestinationActive) return 'destination_inactive'
   if (!input.isReferenceUnused) return 'reference_already_used'
   if (!input.isPaymentDateReadable) return 'unreadable_date'
 

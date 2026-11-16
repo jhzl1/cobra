@@ -9,126 +9,142 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as TenantIdRouteImport } from './routes/$tenantId'
-import { Route as PlatformRouteImport } from './routes/_platform'
-import { Route as TenantIdIndexRouteImport } from './routes/$tenantId.index'
-import { Route as TenantIdPaymentsRouteImport } from './routes/$tenantId.payments'
-import { Route as TenantIdPendingRouteImport } from './routes/$tenantId.pending'
-import { Route as TenantIdSettingsRouteImport } from './routes/$tenantId.settings'
-import { Route as TenantIdSetupRouteImport } from './routes/$tenantId.setup'
-import { Route as PlatformPlatformRouteImport } from './routes/_platform.platform'
-import { Route as TenantIdConversationsIndexRouteImport } from './routes/$tenantId.conversations.index'
-import { Route as TenantIdConversationsConversationIdRouteImport } from './routes/$tenantId.conversations.$conversationId'
-import { Route as PlatformPlatformTenantsCompanyIdRouteImport } from './routes/_platform.platform_.tenants.$companyId'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppTenantIdRouteImport } from './routes/_app.$tenantId'
+import { Route as AppPlatformRouteImport } from './routes/_app._platform'
+import { Route as AppTenantIdIndexRouteImport } from './routes/_app.$tenantId.index'
+import { Route as AppTenantIdPaymentsRouteImport } from './routes/_app.$tenantId.payments'
+import { Route as AppTenantIdPendingRouteImport } from './routes/_app.$tenantId.pending'
+import { Route as AppTenantIdSettingsRouteImport } from './routes/_app.$tenantId.settings'
+import { Route as AppTenantIdSetupRouteImport } from './routes/_app.$tenantId.setup'
+import { Route as AppPlatformPlatformRouteImport } from './routes/_app._platform.platform'
+import { Route as AppTenantIdConversationsIndexRouteImport } from './routes/_app.$tenantId.conversations.index'
+import { Route as AppTenantIdConversationsConversationIdRouteImport } from './routes/_app.$tenantId.conversations.$conversationId'
+import { Route as AppPlatformPlatformTenantsCompanyIdRouteImport } from './routes/_app._platform.platform_.tenants.$companyId'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TenantIdRoute = TenantIdRouteImport.update({
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTenantIdRoute = AppTenantIdRouteImport.update({
   id: '/$tenantId',
   path: '/$tenantId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const PlatformRoute = PlatformRouteImport.update({
+const AppPlatformRoute = AppPlatformRouteImport.update({
   id: '/_platform',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const TenantIdIndexRoute = TenantIdIndexRouteImport.update({
+const AppTenantIdIndexRoute = AppTenantIdIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => TenantIdRoute,
+  getParentRoute: () => AppTenantIdRoute,
 } as any)
-const TenantIdPaymentsRoute = TenantIdPaymentsRouteImport.update({
+const AppTenantIdPaymentsRoute = AppTenantIdPaymentsRouteImport.update({
   id: '/payments',
   path: '/payments',
-  getParentRoute: () => TenantIdRoute,
+  getParentRoute: () => AppTenantIdRoute,
 } as any)
-const TenantIdPendingRoute = TenantIdPendingRouteImport.update({
+const AppTenantIdPendingRoute = AppTenantIdPendingRouteImport.update({
   id: '/pending',
   path: '/pending',
-  getParentRoute: () => TenantIdRoute,
+  getParentRoute: () => AppTenantIdRoute,
 } as any)
-const TenantIdSettingsRoute = TenantIdSettingsRouteImport.update({
+const AppTenantIdSettingsRoute = AppTenantIdSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => TenantIdRoute,
+  getParentRoute: () => AppTenantIdRoute,
 } as any)
-const TenantIdSetupRoute = TenantIdSetupRouteImport.update({
+const AppTenantIdSetupRoute = AppTenantIdSetupRouteImport.update({
   id: '/setup',
   path: '/setup',
-  getParentRoute: () => TenantIdRoute,
+  getParentRoute: () => AppTenantIdRoute,
 } as any)
-const PlatformPlatformRoute = PlatformPlatformRouteImport.update({
+const AppPlatformPlatformRoute = AppPlatformPlatformRouteImport.update({
   id: '/platform',
   path: '/platform',
-  getParentRoute: () => PlatformRoute,
+  getParentRoute: () => AppPlatformRoute,
 } as any)
-const TenantIdConversationsIndexRoute =
-  TenantIdConversationsIndexRouteImport.update({
+const AppTenantIdConversationsIndexRoute =
+  AppTenantIdConversationsIndexRouteImport.update({
     id: '/conversations/',
     path: '/conversations/',
-    getParentRoute: () => TenantIdRoute,
+    getParentRoute: () => AppTenantIdRoute,
   } as any)
-const TenantIdConversationsConversationIdRoute =
-  TenantIdConversationsConversationIdRouteImport.update({
+const AppTenantIdConversationsConversationIdRoute =
+  AppTenantIdConversationsConversationIdRouteImport.update({
     id: '/conversations/$conversationId',
     path: '/conversations/$conversationId',
-    getParentRoute: () => TenantIdRoute,
+    getParentRoute: () => AppTenantIdRoute,
   } as any)
-const PlatformPlatformTenantsCompanyIdRoute =
-  PlatformPlatformTenantsCompanyIdRouteImport.update({
+const AppPlatformPlatformTenantsCompanyIdRoute =
+  AppPlatformPlatformTenantsCompanyIdRouteImport.update({
     id: '/platform_/tenants/$companyId',
     path: '/platform/tenants/$companyId',
-    getParentRoute: () => PlatformRoute,
+    getParentRoute: () => AppPlatformRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/$tenantId': typeof TenantIdRouteWithChildren
-  '/$tenantId/payments': typeof TenantIdPaymentsRoute
-  '/$tenantId/pending': typeof TenantIdPendingRoute
-  '/$tenantId/settings': typeof TenantIdSettingsRoute
-  '/$tenantId/setup': typeof TenantIdSetupRoute
-  '/platform': typeof PlatformPlatformRoute
-  '/$tenantId/': typeof TenantIdIndexRoute
-  '/$tenantId/conversations/$conversationId': typeof TenantIdConversationsConversationIdRoute
-  '/$tenantId/conversations/': typeof TenantIdConversationsIndexRoute
-  '/platform/tenants/$companyId': typeof PlatformPlatformTenantsCompanyIdRoute
+  '/': typeof AppIndexRoute
+  '/login': typeof LoginRoute
+  '/$tenantId': typeof AppTenantIdRouteWithChildren
+  '/$tenantId/payments': typeof AppTenantIdPaymentsRoute
+  '/$tenantId/pending': typeof AppTenantIdPendingRoute
+  '/$tenantId/settings': typeof AppTenantIdSettingsRoute
+  '/$tenantId/setup': typeof AppTenantIdSetupRoute
+  '/platform': typeof AppPlatformPlatformRoute
+  '/$tenantId/': typeof AppTenantIdIndexRoute
+  '/$tenantId/conversations/$conversationId': typeof AppTenantIdConversationsConversationIdRoute
+  '/$tenantId/conversations/': typeof AppTenantIdConversationsIndexRoute
+  '/platform/tenants/$companyId': typeof AppPlatformPlatformTenantsCompanyIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/$tenantId/payments': typeof TenantIdPaymentsRoute
-  '/$tenantId/pending': typeof TenantIdPendingRoute
-  '/$tenantId/settings': typeof TenantIdSettingsRoute
-  '/$tenantId/setup': typeof TenantIdSetupRoute
-  '/platform': typeof PlatformPlatformRoute
-  '/$tenantId': typeof TenantIdIndexRoute
-  '/$tenantId/conversations/$conversationId': typeof TenantIdConversationsConversationIdRoute
-  '/$tenantId/conversations': typeof TenantIdConversationsIndexRoute
-  '/platform/tenants/$companyId': typeof PlatformPlatformTenantsCompanyIdRoute
+  '/login': typeof LoginRoute
+  '/': typeof AppIndexRoute
+  '/$tenantId/payments': typeof AppTenantIdPaymentsRoute
+  '/$tenantId/pending': typeof AppTenantIdPendingRoute
+  '/$tenantId/settings': typeof AppTenantIdSettingsRoute
+  '/$tenantId/setup': typeof AppTenantIdSetupRoute
+  '/platform': typeof AppPlatformPlatformRoute
+  '/$tenantId': typeof AppTenantIdIndexRoute
+  '/$tenantId/conversations/$conversationId': typeof AppTenantIdConversationsConversationIdRoute
+  '/$tenantId/conversations': typeof AppTenantIdConversationsIndexRoute
+  '/platform/tenants/$companyId': typeof AppPlatformPlatformTenantsCompanyIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/$tenantId': typeof TenantIdRouteWithChildren
-  '/_platform': typeof PlatformRouteWithChildren
-  '/$tenantId/payments': typeof TenantIdPaymentsRoute
-  '/$tenantId/pending': typeof TenantIdPendingRoute
-  '/$tenantId/settings': typeof TenantIdSettingsRoute
-  '/$tenantId/setup': typeof TenantIdSetupRoute
-  '/_platform/platform': typeof PlatformPlatformRoute
-  '/$tenantId/': typeof TenantIdIndexRoute
-  '/$tenantId/conversations/$conversationId': typeof TenantIdConversationsConversationIdRoute
-  '/$tenantId/conversations/': typeof TenantIdConversationsIndexRoute
-  '/_platform/platform_/tenants/$companyId': typeof PlatformPlatformTenantsCompanyIdRoute
+  '/_app': typeof AppRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_app/$tenantId': typeof AppTenantIdRouteWithChildren
+  '/_app/_platform': typeof AppPlatformRouteWithChildren
+  '/_app/': typeof AppIndexRoute
+  '/_app/$tenantId/payments': typeof AppTenantIdPaymentsRoute
+  '/_app/$tenantId/pending': typeof AppTenantIdPendingRoute
+  '/_app/$tenantId/settings': typeof AppTenantIdSettingsRoute
+  '/_app/$tenantId/setup': typeof AppTenantIdSetupRoute
+  '/_app/_platform/platform': typeof AppPlatformPlatformRoute
+  '/_app/$tenantId/': typeof AppTenantIdIndexRoute
+  '/_app/$tenantId/conversations/$conversationId': typeof AppTenantIdConversationsConversationIdRoute
+  '/_app/$tenantId/conversations/': typeof AppTenantIdConversationsIndexRoute
+  '/_app/_platform/platform_/tenants/$companyId': typeof AppPlatformPlatformTenantsCompanyIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/$tenantId'
     | '/$tenantId/payments'
     | '/$tenantId/pending'
@@ -141,6 +157,7 @@ export interface FileRouteTypes {
     | '/platform/tenants/$companyId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/login'
     | '/'
     | '/$tenantId/payments'
     | '/$tenantId/pending'
@@ -153,158 +170,187 @@ export interface FileRouteTypes {
     | '/platform/tenants/$companyId'
   id:
     | '__root__'
-    | '/'
-    | '/$tenantId'
-    | '/_platform'
-    | '/$tenantId/payments'
-    | '/$tenantId/pending'
-    | '/$tenantId/settings'
-    | '/$tenantId/setup'
-    | '/_platform/platform'
-    | '/$tenantId/'
-    | '/$tenantId/conversations/$conversationId'
-    | '/$tenantId/conversations/'
-    | '/_platform/platform_/tenants/$companyId'
+    | '/_app'
+    | '/login'
+    | '/_app/$tenantId'
+    | '/_app/_platform'
+    | '/_app/'
+    | '/_app/$tenantId/payments'
+    | '/_app/$tenantId/pending'
+    | '/_app/$tenantId/settings'
+    | '/_app/$tenantId/setup'
+    | '/_app/_platform/platform'
+    | '/_app/$tenantId/'
+    | '/_app/$tenantId/conversations/$conversationId'
+    | '/_app/$tenantId/conversations/'
+    | '/_app/_platform/platform_/tenants/$companyId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  TenantIdRoute: typeof TenantIdRouteWithChildren
-  PlatformRoute: typeof PlatformRouteWithChildren
+  AppRoute: typeof AppRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/$tenantId': {
-      id: '/$tenantId'
-      path: '/$tenantId'
-      fullPath: '/$tenantId'
-      preLoaderRoute: typeof TenantIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_platform': {
-      id: '/_platform'
+    '/_app': {
+      id: '/_app'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof PlatformRouteImport
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/$tenantId/': {
-      id: '/$tenantId/'
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/$tenantId': {
+      id: '/_app/$tenantId'
+      path: '/$tenantId'
+      fullPath: '/$tenantId'
+      preLoaderRoute: typeof AppTenantIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/_platform': {
+      id: '/_app/_platform'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppPlatformRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/$tenantId/': {
+      id: '/_app/$tenantId/'
       path: '/'
       fullPath: '/$tenantId/'
-      preLoaderRoute: typeof TenantIdIndexRouteImport
-      parentRoute: typeof TenantIdRoute
+      preLoaderRoute: typeof AppTenantIdIndexRouteImport
+      parentRoute: typeof AppTenantIdRoute
     }
-    '/$tenantId/payments': {
-      id: '/$tenantId/payments'
+    '/_app/$tenantId/payments': {
+      id: '/_app/$tenantId/payments'
       path: '/payments'
       fullPath: '/$tenantId/payments'
-      preLoaderRoute: typeof TenantIdPaymentsRouteImport
-      parentRoute: typeof TenantIdRoute
+      preLoaderRoute: typeof AppTenantIdPaymentsRouteImport
+      parentRoute: typeof AppTenantIdRoute
     }
-    '/$tenantId/pending': {
-      id: '/$tenantId/pending'
+    '/_app/$tenantId/pending': {
+      id: '/_app/$tenantId/pending'
       path: '/pending'
       fullPath: '/$tenantId/pending'
-      preLoaderRoute: typeof TenantIdPendingRouteImport
-      parentRoute: typeof TenantIdRoute
+      preLoaderRoute: typeof AppTenantIdPendingRouteImport
+      parentRoute: typeof AppTenantIdRoute
     }
-    '/$tenantId/settings': {
-      id: '/$tenantId/settings'
+    '/_app/$tenantId/settings': {
+      id: '/_app/$tenantId/settings'
       path: '/settings'
       fullPath: '/$tenantId/settings'
-      preLoaderRoute: typeof TenantIdSettingsRouteImport
-      parentRoute: typeof TenantIdRoute
+      preLoaderRoute: typeof AppTenantIdSettingsRouteImport
+      parentRoute: typeof AppTenantIdRoute
     }
-    '/$tenantId/setup': {
-      id: '/$tenantId/setup'
+    '/_app/$tenantId/setup': {
+      id: '/_app/$tenantId/setup'
       path: '/setup'
       fullPath: '/$tenantId/setup'
-      preLoaderRoute: typeof TenantIdSetupRouteImport
-      parentRoute: typeof TenantIdRoute
+      preLoaderRoute: typeof AppTenantIdSetupRouteImport
+      parentRoute: typeof AppTenantIdRoute
     }
-    '/_platform/platform': {
-      id: '/_platform/platform'
+    '/_app/_platform/platform': {
+      id: '/_app/_platform/platform'
       path: '/platform'
       fullPath: '/platform'
-      preLoaderRoute: typeof PlatformPlatformRouteImport
-      parentRoute: typeof PlatformRoute
+      preLoaderRoute: typeof AppPlatformPlatformRouteImport
+      parentRoute: typeof AppPlatformRoute
     }
-    '/$tenantId/conversations/': {
-      id: '/$tenantId/conversations/'
+    '/_app/$tenantId/conversations/': {
+      id: '/_app/$tenantId/conversations/'
       path: '/conversations'
       fullPath: '/$tenantId/conversations/'
-      preLoaderRoute: typeof TenantIdConversationsIndexRouteImport
-      parentRoute: typeof TenantIdRoute
+      preLoaderRoute: typeof AppTenantIdConversationsIndexRouteImport
+      parentRoute: typeof AppTenantIdRoute
     }
-    '/$tenantId/conversations/$conversationId': {
-      id: '/$tenantId/conversations/$conversationId'
+    '/_app/$tenantId/conversations/$conversationId': {
+      id: '/_app/$tenantId/conversations/$conversationId'
       path: '/conversations/$conversationId'
       fullPath: '/$tenantId/conversations/$conversationId'
-      preLoaderRoute: typeof TenantIdConversationsConversationIdRouteImport
-      parentRoute: typeof TenantIdRoute
+      preLoaderRoute: typeof AppTenantIdConversationsConversationIdRouteImport
+      parentRoute: typeof AppTenantIdRoute
     }
-    '/_platform/platform_/tenants/$companyId': {
-      id: '/_platform/platform_/tenants/$companyId'
+    '/_app/_platform/platform_/tenants/$companyId': {
+      id: '/_app/_platform/platform_/tenants/$companyId'
       path: '/platform/tenants/$companyId'
       fullPath: '/platform/tenants/$companyId'
-      preLoaderRoute: typeof PlatformPlatformTenantsCompanyIdRouteImport
-      parentRoute: typeof PlatformRoute
+      preLoaderRoute: typeof AppPlatformPlatformTenantsCompanyIdRouteImport
+      parentRoute: typeof AppPlatformRoute
     }
   }
 }
 
-interface TenantIdRouteChildren {
-  TenantIdPaymentsRoute: typeof TenantIdPaymentsRoute
-  TenantIdPendingRoute: typeof TenantIdPendingRoute
-  TenantIdSettingsRoute: typeof TenantIdSettingsRoute
-  TenantIdSetupRoute: typeof TenantIdSetupRoute
-  TenantIdIndexRoute: typeof TenantIdIndexRoute
-  TenantIdConversationsConversationIdRoute: typeof TenantIdConversationsConversationIdRoute
-  TenantIdConversationsIndexRoute: typeof TenantIdConversationsIndexRoute
+interface AppTenantIdRouteChildren {
+  AppTenantIdPaymentsRoute: typeof AppTenantIdPaymentsRoute
+  AppTenantIdPendingRoute: typeof AppTenantIdPendingRoute
+  AppTenantIdSettingsRoute: typeof AppTenantIdSettingsRoute
+  AppTenantIdSetupRoute: typeof AppTenantIdSetupRoute
+  AppTenantIdIndexRoute: typeof AppTenantIdIndexRoute
+  AppTenantIdConversationsConversationIdRoute: typeof AppTenantIdConversationsConversationIdRoute
+  AppTenantIdConversationsIndexRoute: typeof AppTenantIdConversationsIndexRoute
 }
 
-const TenantIdRouteChildren: TenantIdRouteChildren = {
-  TenantIdPaymentsRoute: TenantIdPaymentsRoute,
-  TenantIdPendingRoute: TenantIdPendingRoute,
-  TenantIdSettingsRoute: TenantIdSettingsRoute,
-  TenantIdSetupRoute: TenantIdSetupRoute,
-  TenantIdIndexRoute: TenantIdIndexRoute,
-  TenantIdConversationsConversationIdRoute:
-    TenantIdConversationsConversationIdRoute,
-  TenantIdConversationsIndexRoute: TenantIdConversationsIndexRoute,
+const AppTenantIdRouteChildren: AppTenantIdRouteChildren = {
+  AppTenantIdPaymentsRoute: AppTenantIdPaymentsRoute,
+  AppTenantIdPendingRoute: AppTenantIdPendingRoute,
+  AppTenantIdSettingsRoute: AppTenantIdSettingsRoute,
+  AppTenantIdSetupRoute: AppTenantIdSetupRoute,
+  AppTenantIdIndexRoute: AppTenantIdIndexRoute,
+  AppTenantIdConversationsConversationIdRoute:
+    AppTenantIdConversationsConversationIdRoute,
+  AppTenantIdConversationsIndexRoute: AppTenantIdConversationsIndexRoute,
 }
 
-const TenantIdRouteWithChildren = TenantIdRoute._addFileChildren(
-  TenantIdRouteChildren,
+const AppTenantIdRouteWithChildren = AppTenantIdRoute._addFileChildren(
+  AppTenantIdRouteChildren,
 )
 
-interface PlatformRouteChildren {
-  PlatformPlatformRoute: typeof PlatformPlatformRoute
-  PlatformPlatformTenantsCompanyIdRoute: typeof PlatformPlatformTenantsCompanyIdRoute
+interface AppPlatformRouteChildren {
+  AppPlatformPlatformRoute: typeof AppPlatformPlatformRoute
+  AppPlatformPlatformTenantsCompanyIdRoute: typeof AppPlatformPlatformTenantsCompanyIdRoute
 }
 
-const PlatformRouteChildren: PlatformRouteChildren = {
-  PlatformPlatformRoute: PlatformPlatformRoute,
-  PlatformPlatformTenantsCompanyIdRoute: PlatformPlatformTenantsCompanyIdRoute,
+const AppPlatformRouteChildren: AppPlatformRouteChildren = {
+  AppPlatformPlatformRoute: AppPlatformPlatformRoute,
+  AppPlatformPlatformTenantsCompanyIdRoute:
+    AppPlatformPlatformTenantsCompanyIdRoute,
 }
 
-const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
-  PlatformRouteChildren,
+const AppPlatformRouteWithChildren = AppPlatformRoute._addFileChildren(
+  AppPlatformRouteChildren,
 )
+
+interface AppRouteChildren {
+  AppTenantIdRoute: typeof AppTenantIdRouteWithChildren
+  AppPlatformRoute: typeof AppPlatformRouteWithChildren
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppTenantIdRoute: AppTenantIdRouteWithChildren,
+  AppPlatformRoute: AppPlatformRouteWithChildren,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  TenantIdRoute: TenantIdRouteWithChildren,
-  PlatformRoute: PlatformRouteWithChildren,
+  AppRoute: AppRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

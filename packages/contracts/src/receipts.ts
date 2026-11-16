@@ -71,6 +71,7 @@ export const alertReasonSchema = z.enum([
   'not_a_voucher',
   'older_than_7_days',
   'destination_not_ours',
+  'destination_inactive',
   'reference_already_used',
   'unreadable_date',
 ])
@@ -81,6 +82,7 @@ export const ALERT_REASON_TEXT: Record<AlertReason, string> = {
   not_a_voucher: 'La imagen no es un comprobante de pago',
   older_than_7_days: 'Comprobante con más de 7 días de antigüedad',
   destination_not_ours: 'La cuenta de destino no pertenece a la empresa',
+  destination_inactive: 'El pago se hizo a una cuenta de recaudo que no está activa',
   reference_already_used: 'Comprobante registrado previamente',
   unreadable_date: 'No fue posible leer la fecha del comprobante',
 }
@@ -95,6 +97,7 @@ export const ALERT_REASON_TEXT: Record<AlertReason, string> = {
 export const APPLICABLE_ALERT_REASONS: readonly AlertReason[] = [
   'older_than_7_days',
   'destination_not_ours',
+  'destination_inactive',
   'reference_already_used',
   'unreadable_date',
 ]
@@ -158,9 +161,9 @@ export const applyHeldReceiptSchema = z.object({
 export type ApplyHeldReceiptInput = z.infer<typeof applyHeldReceiptSchema>
 
 /**
- * Dismissing tells the customer why: they sent a payment and were promised a
- * person would write. The note is optional here only because WhatsApp refuses
- * free text after 24 hours; inside the window the API requires it.
+ * Without a note the receipt is dismissed and the customer hears nothing. The
+ * panel sends one by default, because the customer was promised a person would
+ * write; WhatsApp refuses one anyway after 24 hours.
  */
 export const dismissHeldReceiptSchema = z.object({
   note: z.string().trim().max(1000, 'La nota no puede superar los 1000 caracteres').optional(),

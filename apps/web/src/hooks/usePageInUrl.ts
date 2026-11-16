@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect } from 'react'
 import { pageSearchOf } from '@cobra/contracts'
-import { pageCountOf } from '~/components/Pager'
+import { pageCountOf } from '~/utils/pagination'
 
 /**
  * The page of a list kept in the URL's `?page=`, so a reload or a shared link

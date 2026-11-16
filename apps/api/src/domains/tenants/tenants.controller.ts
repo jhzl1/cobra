@@ -16,9 +16,12 @@ import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
 import type { Request } from 'express'
 import {
+  type PaymentMethodInput,
+  type PaymentMethodStatusInput,
   type UpdateTenantDryRunInput,
   createTenantSchema,
   paymentMethodSchema,
+  paymentMethodStatusSchema,
   registerWhatsappNumberSchema,
   saveCredentialSchema,
   updateTenantDryRunSchema,
@@ -239,6 +242,36 @@ export class TenantsController {
     )
   }
 
+  @Put(':tenantId/payment-methods/:methodId')
+  @ApiOperation({ summary: 'Editar una cuenta de recaudo' })
+  updatePaymentMethod(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('methodId', ParseUUIDPipe) methodId: string,
+    @Body(new ZodValidationPipe(paymentMethodSchema)) body: unknown,
+  ) {
+    return this.tenants.updatePaymentMethod(ctx.supabase, {
+      tenantId,
+      methodId,
+      input: body as PaymentMethodInput,
+    })
+  }
+
+  @Patch(':tenantId/payment-methods/:methodId/status')
+  @ApiOperation({
+    summary: 'Activar o desactivar una cuenta de recaudo: desactivada, el agente deja de ofrecerla',
+  })
+  setPaymentMethodStatus(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('methodId', ParseUUIDPipe) methodId: string,
+    @Body(new ZodValidationPipe(paymentMethodStatusSchema)) body: unknown,
+  ) {
+    const { isActive } = body as PaymentMethodStatusInput
+
+    return this.tenants.setPaymentMethodActive(ctx.supabase, { tenantId, methodId, isActive })
+  }
+
   @Delete(':tenantId/whatsapp-numbers/:numberId')
   @ApiOperation({ summary: 'Dar de baja un número: deja de recibir, y su historia queda' })
   retireWhatsappNumber(
@@ -250,7 +283,9 @@ export class TenantsController {
   }
 
   @Delete(':tenantId/payment-methods/:methodId')
-  @ApiOperation({ summary: 'Quitar una cuenta de recaudo' })
+  @ApiOperation({
+    summary: 'Eliminar una cuenta de recaudo: sale del panel y del agente, y su historia queda',
+  })
   removePaymentMethod(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('tenantId', ParseUUIDPipe) tenantId: string,

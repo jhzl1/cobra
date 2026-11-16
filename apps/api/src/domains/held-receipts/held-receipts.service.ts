@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -158,11 +157,13 @@ export class HeldReceiptsService {
    * why, and gives the conversation back to the agent: the case the hold
    * paused is settled.
    *
-   * The customer sent a payment and was promised that a person would write.
-   * Dismissing in silence left them waiting for that person, so inside
-   * WhatsApp's 24-hour window the note is required and goes out as the
-   * operator's message. Outside it WhatsApp refuses free text, and the receipt
-   * is dismissed without one rather than staying in "Pendientes" for good.
+   * The customer sent a payment and was promised that a person would write,
+   * so the panel sends a note by default and it goes out as the operator's
+   * message. The operator may leave it out — when they already answered by
+   * hand from the conversation, or the receipt was a repeat — and that is
+   * their call, made with the note in front of them. Outside WhatsApp's 24-hour
+   * window free text is refused, and the receipt is dismissed without one
+   * rather than staying in "Pendientes" for good.
    */
   async dismiss({
     client,
@@ -181,12 +182,6 @@ export class HeldReceiptsService {
 
     const receipt = await this.findHeldOrThrow(tenantId, receiptId)
     const isWindowOpen = await this.isServiceWindowOpen(tenantId, receipt.conversationId)
-
-    if (isWindowOpen && !note) {
-      throw new BadRequestException(
-        'Escribe la nota para el cliente explicando por qué no se registró su pago.',
-      )
-    }
 
     const { data, error } = await this.supabase.unscoped
       .from('receipts')
@@ -298,6 +293,9 @@ export class HeldReceiptsService {
       .select('wisphub_id')
       .eq('tenant_id', tenantId)
       .eq('id', paymentMethodId)
+      // A removed account is out of the list the operator picks from; a stale
+      // form must not register a payment against it.
+      .is('archived_at', null)
       .maybeSingle()
 
     if (error) throw this.toHttpError(error)

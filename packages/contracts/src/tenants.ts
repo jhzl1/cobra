@@ -140,14 +140,24 @@ export const paymentMethodSchema = z.object({
 
 export type PaymentMethodInput = z.infer<typeof paymentMethodSchema>
 
-/** A collection account as `GET /tenants/:tenantId/payment-methods` lists it. */
+/**
+ * A collection account as `GET /tenants/:tenantId/payment-methods` lists it.
+ * Removed accounts are not listed; switched-off ones are, so they can be
+ * switched back on.
+ */
 export interface PaymentMethodSummary {
   id: string
   zone: string | null
   entityName: string
   paymentAddress: string
   wisphubId: string | null
+  /** False once switched off: the agent stops offering it and holds receipts paid into it. */
+  isActive: boolean
 }
+
+export const paymentMethodStatusSchema = z.object({ isActive: z.boolean() })
+
+export type PaymentMethodStatusInput = z.infer<typeof paymentMethodStatusSchema>
 
 /**
  * What a company still needs before its bot answers anyone.

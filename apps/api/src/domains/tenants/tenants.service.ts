@@ -412,7 +412,11 @@ export class TenantsService {
       this.supabase.unscoped
         .from('payment_methods')
         .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId),
+        .eq('tenant_id', tenantId)
+        // A switched-off account holds every receipt paid into it, so it does
+        // not count towards the step either.
+        .eq('is_active', true)
+        .is('archived_at', null),
       this.supabase.unscoped
         .from('messages')
         .select('id', { count: 'exact', head: true })
@@ -542,8 +546,9 @@ export class TenantsService {
   async listPaymentMethods(client: SupabaseClient, tenantId: string) {
     const { data, error } = await client
       .from('payment_methods')
-      .select('id, zone, entity_name, payment_address, wisphub_id, description')
+      .select('id, zone, entity_name, payment_address, wisphub_id, description, is_active')
       .eq('tenant_id', tenantId)
+      .is('archived_at', null)
       .order('entity_name')
 
     if (error) throw this.toHttpError(error)
@@ -611,14 +616,81 @@ export class TenantsService {
     }
   }
 
-  async removePaymentMethod(client: SupabaseClient, tenantId: string, methodId: string) {
-    const { error } = await client
+  async updatePaymentMethod(
+    client: SupabaseClient,
+    {
+      tenantId,
+      methodId,
+      input,
+    }: { tenantId: string; methodId: string; input: PaymentMethodInput },
+  ) {
+    const { data, error } = await client
       .from('payment_methods')
-      .delete()
+      .update({
+        zone: input.zone ?? null,
+        entity_name: input.entityName,
+        payment_address: input.paymentAddress,
+        wisphub_id: input.wisphubId ?? null,
+        // The panel's form has no description field; leaving it out must not
+        // erase the one an account was loaded with.
+        ...(input.description !== undefined && { description: input.description }),
+      })
       .eq('tenant_id', tenantId)
       .eq('id', methodId)
+      .is('archived_at', null)
+      .select('id')
+
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) {
+        throw new ConflictException('Esta cuenta ya está registrada para esta empresa')
+      }
+      throw this.toHttpError(error)
+    }
+
+    this.assertPaymentMethodMatched(data)
+  }
+
+  async setPaymentMethodActive(
+    client: SupabaseClient,
+    { tenantId, methodId, isActive }: { tenantId: string; methodId: string; isActive: boolean },
+  ) {
+    const { data, error } = await client
+      .from('payment_methods')
+      .update({ is_active: isActive })
+      .eq('tenant_id', tenantId)
+      .eq('id', methodId)
+      .is('archived_at', null)
+      .select('id')
 
     if (error) throw this.toHttpError(error)
+
+    this.assertPaymentMethodMatched(data)
+  }
+
+  /**
+   * Removes the account from the panel and from the agent. The row stays:
+   * receipts paid into it point at it, and a delete would empty that link on
+   * every one of them.
+   */
+  async removePaymentMethod(client: SupabaseClient, tenantId: string, methodId: string) {
+    const { data, error } = await client
+      .from('payment_methods')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId)
+      .eq('id', methodId)
+      .is('archived_at', null)
+      .select('id')
+
+    if (error) throw this.toHttpError(error)
+
+    this.assertPaymentMethodMatched(data)
+  }
+
+  /** An update that matched no row reports no error; say so instead of answering as if it worked. */
+  private assertPaymentMethodMatched(rows: unknown[] | null): void {
+    if (!rows?.length) {
+      throw new NotFoundException('La cuenta de recaudo no existe o ya fue eliminada')
+    }
   }
 
   /**
@@ -738,6 +810,7 @@ const toPaymentMethod = (row: Record<string, unknown>) => ({
   paymentAddress: row['payment_address'] as string,
   wisphubId: (row['wisphub_id'] as string | null) ?? null,
   description: (row['description'] as string | null) ?? null,
+  isActive: row['is_active'] as boolean,
 })
 
 const toTenant = (row: Record<string, unknown>): Tenant => ({
