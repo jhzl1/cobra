@@ -1,6 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2Icon, CircleDashedIcon, PlusIcon } from 'lucide-react'
+import { CheckCircle2Icon, CircleDashedIcon, PencilIcon, PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { z } from 'zod'
 import {
@@ -8,6 +8,7 @@ import {
   type CredentialSummary,
   type WhatsappNumber,
   type WisphubNamedEntity,
+  createTenantSchema,
   paymentMethodSchema,
   registerWhatsappNumberSchema,
   saveCredentialSchema,
@@ -53,7 +54,8 @@ import {
 } from '~/components/ui/table'
 import { api } from '~/lib/api'
 import { applyServerErrors, fieldError } from '~/lib/form'
-import { queryKeys } from '~/lib/queryClient'
+import { invalidateTenantLists, queryKeys } from '~/lib/queryClient'
+import type { TenantSummary } from '~/lib/tenants'
 
 interface PaymentMethodRow {
   id: string
@@ -65,11 +67,186 @@ interface PaymentMethodRow {
 
 export const SettingsPage = ({ tenantId }: { tenantId: string }) => (
   <div className="flex flex-col gap-4 p-4">
+    <CompanyDetailsCard tenantId={tenantId} />
     <CredentialsCard tenantId={tenantId} />
     <WhatsappNumbersCard tenantId={tenantId} />
     <PaymentMethodsCard tenantId={tenantId} />
   </div>
 )
+
+/* Company details ------------------------------------------------------------ */
+
+/**
+ * The name and the two phones the agent works with.
+ *
+ * They used to be typed once, when the platform created the company, and never
+ * again: when the company's WhatsApp number changed, the administrator's phone
+ * still pointed at the retired one and every alert landed on the bot itself.
+ */
+const CompanyDetailsCard = ({ tenantId }: { tenantId: string }) => {
+  const [isEditing, setIsEditing] = useState(false)
+
+  const tenant = useQuery({
+    queryKey: queryKeys.tenant(tenantId),
+    queryFn: async () => {
+      const { data } = await api.get<TenantSummary>(`/tenants/${tenantId}`)
+
+      return data
+    },
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Datos de la empresa</CardTitle>
+        <CardDescription>
+          El agente usa el nombre al presentarse, da el teléfono de soporte a quien pregunta por el
+          servicio y avisa al administrador cuando alguien tiene que intervenir.
+        </CardDescription>
+        <CardAction>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!tenant.data}
+            onClick={() => setIsEditing(true)}
+          >
+            <PencilIcon />
+            Editar
+          </Button>
+        </CardAction>
+      </CardHeader>
+
+      <CardContent>
+        {tenant.error ? (
+          <p className="text-sm text-destructive">{tenant.error.message}</p>
+        ) : (
+          <dl className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border">
+            <DetailRow label="Nombre" value={tenant.data?.companyName} />
+            <DetailRow label="Teléfono de soporte" value={tenant.data?.supportPhone} isNumber />
+            <DetailRow
+              label="Teléfono del administrador"
+              value={tenant.data?.adminPhone}
+              isNumber
+            />
+          </dl>
+        )}
+      </CardContent>
+
+      {isEditing && tenant.data && (
+        <CompanyDetailsDialog tenant={tenant.data} onClose={() => setIsEditing(false)} />
+      )}
+    </Card>
+  )
+}
+
+const DetailRow = ({
+  label,
+  value,
+  isNumber = false,
+}: {
+  label: string
+  value: string | undefined
+  isNumber?: boolean
+}) => (
+  <div className="flex items-baseline justify-between gap-4 p-4">
+    <dt className="text-sm text-muted-foreground">{label}</dt>
+    <dd className={isNumber ? 'font-mono text-sm' : 'text-sm font-medium'}>{value ?? '—'}</dd>
+  </div>
+)
+
+const CompanyDetailsDialog = ({
+  tenant,
+  onClose,
+}: {
+  tenant: TenantSummary
+  onClose: () => void
+}) => {
+  const queryClient = useQueryClient()
+  const [failure, setFailure] = useState<string | null>(null)
+
+  const form = useForm({
+    defaultValues: {
+      companyName: tenant.companyName,
+      supportPhone: tenant.supportPhone,
+      adminPhone: tenant.adminPhone,
+    },
+    // The create schema and not the update one: every field stays required here,
+    // and the update schema's optional fields would let one be cleared.
+    validators: { onChange: createTenantSchema },
+    onSubmit: async ({ value }) => {
+      setFailure(null)
+
+      try {
+        await api.patch(`/tenants/${tenant.id}`, value)
+      } catch (error) {
+        const [unmatched] = applyServerErrors(form, error)
+
+        setFailure(unmatched ?? (error as Error).message)
+        throw error
+      }
+
+      // The name also shows in the company list and the platform's table.
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tenant(tenant.id) })
+      await invalidateTenantLists(queryClient)
+      onClose()
+    },
+  })
+
+  return (
+    <FormDialog
+      open
+      onClose={onClose}
+      title="Editar datos de la empresa"
+      description="El agente usa los datos nuevos desde el siguiente mensaje."
+      submitLabel="Guardar"
+      form={form}
+      error={failure}
+    >
+      <form.Field name="companyName">
+        {(field) => (
+          <Field
+            label="Nombre de la empresa"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="supportPhone">
+        {(field) => (
+          <Field
+            label="Teléfono de soporte"
+            hint="El número que el agente le da a quien pregunta por el servicio. Con indicativo de país y sin signos."
+            placeholder="573001234567"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="adminPhone">
+        {(field) => (
+          <Field
+            label="Teléfono del administrador"
+            hint="A dónde llegan los avisos cuando el agente necesita que alguien intervenga. No uses el número de WhatsApp de la empresa: el aviso le llegaría al propio agente."
+            placeholder="573001234568"
+            required
+            value={field.state.value}
+            error={fieldError(field)}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+    </FormDialog>
+  )
+}
 
 /* Credentials ---------------------------------------------------------------- */
 
