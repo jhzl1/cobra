@@ -161,9 +161,9 @@ export const applyHeldReceiptSchema = z.object({
 export type ApplyHeldReceiptInput = z.infer<typeof applyHeldReceiptSchema>
 
 /**
- * Dismissing tells the customer why: they sent a payment and were promised a
- * person would write. The note is optional here only because WhatsApp refuses
- * free text after 24 hours; inside the window the API requires it.
+ * Without a note the receipt is dismissed and the customer hears nothing. The
+ * panel sends one by default, because the customer was promised a person would
+ * write; WhatsApp refuses one anyway after 24 hours.
  */
 export const dismissHeldReceiptSchema = z.object({
   note: z.string().trim().max(1000, 'La nota no puede superar los 1000 caracteres').optional(),
