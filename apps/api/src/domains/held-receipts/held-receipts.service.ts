@@ -298,6 +298,9 @@ export class HeldReceiptsService {
       .select('wisphub_id')
       .eq('tenant_id', tenantId)
       .eq('id', paymentMethodId)
+      // A removed account is out of the list the operator picks from; a stale
+      // form must not register a payment against it.
+      .is('archived_at', null)
       .maybeSingle()
 
     if (error) throw this.toHttpError(error)
