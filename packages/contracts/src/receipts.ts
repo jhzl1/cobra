@@ -79,10 +79,10 @@ export type AlertReason = z.infer<typeof alertReasonSchema>
 
 export const ALERT_REASON_TEXT: Record<AlertReason, string> = {
   not_a_voucher: 'La imagen no es un comprobante de pago',
-  older_than_7_days: 'Comprobante con más de 7 días',
-  destination_not_ours: 'Cuenta destino no es de la empresa',
-  reference_already_used: 'Comprobante ya registrado antes',
-  unreadable_date: 'No se pudo leer la fecha del comprobante',
+  older_than_7_days: 'Comprobante con más de 7 días de antigüedad',
+  destination_not_ours: 'La cuenta de destino no pertenece a la empresa',
+  reference_already_used: 'Comprobante registrado previamente',
+  unreadable_date: 'No fue posible leer la fecha del comprobante',
 }
 
 /**
@@ -147,12 +147,12 @@ export const applyHeldReceiptSchema = z.object({
     .trim()
     .regex(
       /^\d{3,15}(\s*,\s*\d{3,15})*$/,
-      'Escribe el número de documento del cliente, o varios separados por coma',
+      'Ingresa el número de documento del cliente o varios separados por comas',
     ),
   amount: z
-    .number({ error: 'Escribe el monto del pago' })
-    .positive('El monto tiene que ser mayor a cero'),
-  paymentMethodId: z.uuid('Elige la cuenta de recaudo a la que llegó el pago'),
+    .number({ error: 'Ingresa el monto del pago' })
+    .positive('El monto debe ser mayor a cero'),
+  paymentMethodId: z.uuid('Selecciona la cuenta de recaudo que recibió el pago'),
 })
 
 export type ApplyHeldReceiptInput = z.infer<typeof applyHeldReceiptSchema>
@@ -163,7 +163,7 @@ export type ApplyHeldReceiptInput = z.infer<typeof applyHeldReceiptSchema>
  * free text after 24 hours; inside the window the API requires it.
  */
 export const dismissHeldReceiptSchema = z.object({
-  note: z.string().trim().max(1000, 'La nota no puede pasar de 1000 caracteres').optional(),
+  note: z.string().trim().max(1000, 'La nota no puede superar los 1000 caracteres').optional(),
 })
 
 export type DismissHeldReceiptInput = z.infer<typeof dismissHeldReceiptSchema>

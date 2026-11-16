@@ -8,7 +8,7 @@ const phoneSchema = z
   .string()
   .regex(
     /^\d{10,15}$/,
-    'El teléfono va en formato internacional sin signos, por ejemplo 573001234567',
+    'El teléfono debe estar en formato internacional, sin espacios ni signos. Por ejemplo: 573001234567',
   )
 
 /**
@@ -20,8 +20,8 @@ const phoneSchema = z
 export const createTenantSchema = z.object({
   companyName: z
     .string()
-    .min(2, 'Escribe el nombre de la empresa')
-    .max(120, 'El nombre de la empresa no puede pasar de 120 caracteres'),
+    .min(2, 'Ingresa el nombre de la empresa')
+    .max(120, 'El nombre de la empresa no puede superar los 120 caracteres'),
   supportPhone: phoneSchema,
   adminPhone: phoneSchema,
 })
@@ -49,7 +49,7 @@ export type UpdateTenantStatusInput = z.infer<typeof updateTenantStatusSchema>
  * customers and registering payments in Wisphub.
  */
 export const updateTenantDryRunSchema = z.object({
-  dryRun: z.boolean({ error: 'Indica si la empresa queda en modo de prueba' }),
+  dryRun: z.boolean({ error: 'Indica si la empresa estará en modo de prueba' }),
 })
 
 export type UpdateTenantDryRunInput = z.infer<typeof updateTenantDryRunSchema>
@@ -75,7 +75,9 @@ export type UpdateTenantInput = z.infer<typeof updateTenantSchema>
  */
 export const saveCredentialSchema = z.object({
   provider: credentialProviderSchema,
-  secret: z.string().min(8, 'La credencial es muy corta. Revisa que la hayas copiado completa'),
+  secret: z
+    .string()
+    .min(8, 'La credencial es demasiado corta. Verifica que la hayas copiado completa'),
 })
 
 export type SaveCredentialInput = z.infer<typeof saveCredentialSchema>
@@ -91,7 +93,7 @@ export type CredentialSummary = z.infer<typeof credentialSummarySchema>
 export const registerWhatsappNumberSchema = z.object({
   phoneNumberId: z
     .string()
-    .min(5, 'El identificador del número es muy corto. Cópialo del panel de Dualhook'),
+    .min(5, 'El identificador del número es demasiado corto. Cópialo desde el panel de Dualhook'),
   displayNumber: phoneSchema,
 })
 
@@ -115,23 +117,23 @@ export const whatsappNumberSchema = z.object({
 export type WhatsappNumber = z.infer<typeof whatsappNumberSchema>
 
 export const paymentMethodSchema = z.object({
-  zone: z.string().max(80, 'La zona no puede pasar de 80 caracteres').nullable().optional(),
+  zone: z.string().max(80, 'La zona no puede superar los 80 caracteres').nullable().optional(),
   entityName: z
     .string()
-    .min(2, 'Escribe el nombre de la entidad')
-    .max(80, 'El nombre de la entidad no puede pasar de 80 caracteres'),
+    .min(2, 'Ingresa el nombre de la entidad')
+    .max(80, 'El nombre de la entidad no puede superar los 80 caracteres'),
   paymentAddress: z
     .string()
-    .min(3, 'Escribe el número de cuenta o la llave')
-    .max(60, 'La cuenta o llave no puede pasar de 60 caracteres'),
+    .min(3, 'Ingresa el número de cuenta o la llave')
+    .max(60, 'El número de cuenta o la llave no puede superar los 60 caracteres'),
   wisphubId: z
     .string()
-    .max(40, 'La forma de pago no puede pasar de 40 caracteres')
+    .max(40, 'La forma de pago no puede superar los 40 caracteres')
     .nullable()
     .optional(),
   description: z
     .string()
-    .max(200, 'La descripción no puede pasar de 200 caracteres')
+    .max(200, 'La descripción no puede superar los 200 caracteres')
     .nullable()
     .optional(),
 })
