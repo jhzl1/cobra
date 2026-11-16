@@ -47,6 +47,9 @@ export const queryKeys = {
   heldReceiptPage: (tenantId: string, page: number) =>
     ['tenants', tenantId, 'held-receipts', page] as const,
   conversations: (tenantId: string) => ['conversations', tenantId] as const,
+  // Under the inbox's prefix, so the live updates that refresh it refresh this too.
+  conversationSearch: (tenantId: string, search: string) =>
+    ['conversations', tenantId, 'search', search] as const,
   messages: (conversationId: string) => ['conversations', conversationId, 'messages'] as const,
   runs: (conversationId: string) => ['conversations', conversationId, 'runs'] as const,
   jobRuns: (tenantId: string, onlyErrors: boolean) =>

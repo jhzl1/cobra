@@ -1,6 +1,18 @@
 export const formatPesos = (amount: number): string =>
   amount.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 
+/**
+ * A phone as WhatsApp shows it: `+57 300 1234567` for a Colombian mobile, and
+ * the digits behind a plus for anything else, which is still the full number.
+ */
+export const formatPhone = (digits: string): string => {
+  if (digits.length === 12 && digits.startsWith('57')) {
+    return `+57 ${digits.slice(2, 5)} ${digits.slice(5)}`
+  }
+
+  return `+${digits}`
+}
+
 /** `16 nov 2026`. */
 export const formatShortDate = (date: Date): string =>
   date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })

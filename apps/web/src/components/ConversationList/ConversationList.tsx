@@ -1,7 +1,7 @@
 import type { ConversationSummary } from '@cobra/contracts'
 import { cn } from '~/lib/utils'
 import { formatTimeOrDay } from '~/utils/formatters'
-import { stateOf } from './helpers'
+import { contactNamesOf, previewOf, stateOf } from './helpers'
 
 interface ConversationListProps {
   conversations: ConversationSummary[]
@@ -29,7 +29,8 @@ export const ConversationList = ({
     {conversations.map((conversation) => {
       const isSelected = conversation.id === selectedId
       const hasUnread = isUnread(conversation)
-      const state = stateOf(conversation)
+      const state = stateOf(conversation, hasUnread)
+      const names = contactNamesOf(conversation)
 
       return (
         <li key={conversation.id} className="border-b">
@@ -44,21 +45,26 @@ export const ConversationList = ({
               isSelected ? 'bg-secondary' : 'hover:bg-accent/60',
             )}
           >
+            {/* The column stays when there is no dot, so the names keep their line. */}
             <span
               aria-hidden
-              className={cn('size-2 self-center rounded-full bg-current', state.tone)}
+              className={cn(
+                'size-2 self-center rounded-full',
+                state.dotTone && cn('bg-current', state.dotTone),
+              )}
             />
 
-            <span
-              className={cn(
-                'truncate font-display text-sm',
-                hasUnread ? 'font-semibold text-foreground' : 'font-medium',
-              )}
-            >
-              {conversation.contact.displayName ?? (
-                <span className="font-mono">
-                  {conversation.contact.phone ?? conversation.contact.personId}
-                </span>
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              <span
+                className={cn(
+                  'shrink-0 font-display text-sm',
+                  hasUnread ? 'font-semibold text-foreground' : 'font-medium',
+                )}
+              >
+                {names.primary}
+              </span>
+              {names.secondary && (
+                <span className="truncate text-xs text-muted-foreground">{names.secondary}</span>
               )}
             </span>
 
@@ -77,10 +83,10 @@ export const ConversationList = ({
                 hasUnread ? 'text-foreground' : 'text-muted-foreground',
               )}
             >
-              {conversation.lastMessagePreview ?? 'Sin mensajes'}
+              {previewOf(conversation)}
             </span>
 
-            <span className={cn('text-right text-xs', state.tone)}>{state.label}</span>
+            <span className={cn('text-right text-xs', state.labelTone)}>{state.label}</span>
           </button>
         </li>
       )

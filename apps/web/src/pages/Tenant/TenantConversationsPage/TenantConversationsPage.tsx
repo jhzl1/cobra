@@ -1,4 +1,4 @@
-import { Link, getRouteApi, useNavigate, useParams } from '@tanstack/react-router'
+import { Link, getRouteApi, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { ArrowLeftIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Timeline } from '~/components/Timeline'
@@ -8,10 +8,12 @@ import { useConversationRunsQuery } from '~/hooks/queries/useConversationRunsQue
 import { useCurrentTenantQuery } from '~/hooks/queries/useCurrentTenantQuery'
 import { useConversationStream } from '~/hooks/useConversationStream'
 import { cn } from '~/lib/utils'
+import { ConversationSearch } from './components/ConversationSearch'
 import { InboxList } from './components/InboxList'
 import { OpenConversation } from './components/OpenConversation'
 import { PaneHeader } from './components/PaneHeader'
 import { sendBlockedReason } from './helpers'
+import { useConversationSearchQuery } from './hooks/queries/useConversationSearchQuery'
 
 const tenantRoute = getRouteApi('/_app/$tenantId')
 
@@ -23,6 +25,7 @@ const tenantRoute = getRouteApi('/_app/$tenantId')
 export const TenantConversationsPage = () => {
   const { tenantId } = tenantRoute.useParams()
   const conversationId = useParams({ strict: false }).conversationId ?? null
+  const search = useSearch({ strict: false }).q
   const navigate = useNavigate()
   const inbox = useInbox()
   const currentTenantQuery = useCurrentTenantQuery()
@@ -48,7 +51,9 @@ export const TenantConversationsPage = () => {
    */
   useConversationStream(conversationId)
 
-  const selectedConversation = inbox.conversations.find(
+  // A conversation found by searching can be older than the inbox's latest hundred.
+  const searchResults = useConversationSearchQuery(tenantId, search)
+  const selectedConversation = [...inbox.conversations, ...(searchResults.data ?? [])].find(
     (conversation) => conversation.id === conversationId,
   )
 
@@ -72,14 +77,18 @@ export const TenantConversationsPage = () => {
           )}
         </PaneHeader>
 
+        <ConversationSearch search={search} />
+
         <div className="min-h-0 flex-1 overflow-y-auto">
           <InboxList
             tenantId={tenantId}
+            search={search}
             selectedId={conversationId}
             onSelect={(id) =>
               void navigate({
                 to: '/$tenantId/conversations/$conversationId',
                 params: { tenantId, conversationId: id },
+                search: { q: search },
               })
             }
           />
@@ -101,6 +110,7 @@ export const TenantConversationsPage = () => {
               <Link
                 to="/$tenantId/conversations"
                 params={{ tenantId }}
+                search={{ q: search }}
                 aria-label="Volver a las conversaciones"
               >
                 <ArrowLeftIcon />
