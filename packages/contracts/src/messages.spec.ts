@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ZodType } from 'zod'
 import { sendMessageSchema } from './conversations'
 import { updatePlatformSettingSchema } from './platform-settings'
-import { applyHeldReceiptSchema } from './receipts'
+import { applyHeldReceiptSchema, dismissHeldReceiptSchema } from './receipts'
 import { grantRoleSchema } from './roles'
 import {
   createTenantSchema,
@@ -57,6 +57,7 @@ describe('validation messages', () => {
       { documents: 'abc', amount: 0, paymentMethodId: '' },
     ],
     ['held receipt amount as text', applyHeldReceiptSchema, { amount: '50000' }],
+    ['dismissal note too long', dismissHeldReceiptSchema, { note: 'n'.repeat(1001) }],
     ['dry-run as text', updateTenantDryRunSchema, { dryRun: 'true' }],
     ['no model', updatePlatformSettingSchema('agent_model'), { value: '  ' }],
     ['model as a number', updatePlatformSettingSchema('vision_model'), { value: 4000 }],

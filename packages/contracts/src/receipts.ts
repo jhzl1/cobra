@@ -127,6 +127,11 @@ export interface HeldReceipt {
   description: string | null
   imageUrl: string | null
   receivedAt: string
+  /**
+   * The customer's last message in that conversation. A note on dismissal can
+   * only reach them inside WhatsApp's 24-hour window after it.
+   */
+  lastInboundAt: string | null
   resolution: HeldReceiptResolution | null
   resolutionError: string | null
 }
@@ -151,3 +156,18 @@ export const applyHeldReceiptSchema = z.object({
 })
 
 export type ApplyHeldReceiptInput = z.infer<typeof applyHeldReceiptSchema>
+
+/**
+ * Dismissing tells the customer why: they sent a payment and were promised a
+ * person would write. The note is optional here only because WhatsApp refuses
+ * free text after 24 hours; inside the window the API requires it.
+ */
+export const dismissHeldReceiptSchema = z.object({
+  note: z
+    .string()
+    .trim()
+    .max(1000, 'La nota no puede pasar de 1000 caracteres')
+    .optional(),
+})
+
+export type DismissHeldReceiptInput = z.infer<typeof dismissHeldReceiptSchema>
