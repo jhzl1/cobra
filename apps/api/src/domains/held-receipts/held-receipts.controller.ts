@@ -4,8 +4,10 @@ import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
 import {
   type ApplyHeldReceiptInput,
+  type DismissHeldReceiptInput,
   type PageQuery,
   applyHeldReceiptSchema,
+  dismissHeldReceiptSchema,
   pageQuerySchema,
 } from '@cobra/contracts'
 import { readCallerId } from '~/auth/caller'
@@ -47,17 +49,19 @@ export class HeldReceiptsController {
   }
 
   @Post(':receiptId/dismiss')
-  @ApiOperation({ summary: 'Descartar un comprobante retenido sin registrar nada' })
+  @ApiOperation({ summary: 'Descartar un comprobante retenido y avisarle al cliente por qué' })
   dismiss(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Param('receiptId', ParseUUIDPipe) receiptId: string,
+    @Body(new ZodValidationPipe(dismissHeldReceiptSchema)) input: DismissHeldReceiptInput,
   ) {
     return this.heldReceipts.dismiss({
       client: ctx.supabase,
       userId: readCallerId(ctx.userClaims),
       tenantId,
       receiptId,
+      note: input.note || undefined,
     })
   }
 }

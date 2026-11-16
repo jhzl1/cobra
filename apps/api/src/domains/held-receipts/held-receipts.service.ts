@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -14,6 +15,7 @@ import {
   type HeldReceipt,
   type HeldReceiptResolution,
   type Page,
+  SERVICE_WINDOW_MS,
 } from '@cobra/contracts'
 import { selectPage } from '~/common/pagination'
 import { QueueService } from '~/queue/queue.service'
@@ -58,7 +60,7 @@ export class HeldReceiptsService {
             `id, conversation_id, alert_reason, amount, reference, paid_at, destination_method,
              destination_account, payment_method_id, confidence, raw_extraction, storage_path,
              created_at, resolution, resolution_error,
-             conversations!inner (contacts!inner (display_name, phone))`,
+             conversations!inner (last_inbound_at, contacts!inner (display_name, phone))`,
             { count: 'exact' },
           )
           .eq('tenant_id', tenantId)
@@ -87,6 +89,7 @@ export class HeldReceiptsService {
         description: descriptionOf(row.raw_extraction),
         imageUrl: await this.signImageUrl(client, row.storage_path as string | null),
         receivedAt: row.created_at as string,
+        lastInboundAt: lastInboundAtOf(row.conversations),
         resolution: (row.resolution as HeldReceiptResolution | null) ?? null,
         resolutionError: (row.resolution_error as string | null) ?? null,
       })),
@@ -151,23 +154,39 @@ export class HeldReceiptsService {
   }
 
   /**
-   * Closes a held receipt without registering anything, and gives the
-   * conversation back to the agent: the case the hold paused is settled.
+   * Closes a held receipt without registering anything, tells the customer
+   * why, and gives the conversation back to the agent: the case the hold
+   * paused is settled.
+   *
+   * The customer sent a payment and was promised that a person would write.
+   * Dismissing in silence left them waiting for that person, so inside
+   * WhatsApp's 24-hour window the note is required and goes out as the
+   * operator's message. Outside it WhatsApp refuses free text, and the receipt
+   * is dismissed without one rather than staying in "Pendientes" for good.
    */
   async dismiss({
     client,
     userId,
     tenantId,
     receiptId,
+    note,
   }: {
     client: SupabaseClient
     userId: string
     tenantId: string
     receiptId: string
+    note: string | undefined
   }): Promise<{ resolution: HeldReceiptResolution }> {
     await this.assertMember(client, tenantId)
 
     const receipt = await this.findHeldOrThrow(tenantId, receiptId)
+    const isWindowOpen = await this.isServiceWindowOpen(tenantId, receipt.conversationId)
+
+    if (isWindowOpen && !note) {
+      throw new BadRequestException(
+        'Escribe la nota que le llega al cliente explicando por qué no se registró su pago.',
+      )
+    }
 
     const { data, error } = await this.supabase.unscoped
       .from('receipts')
@@ -185,6 +204,10 @@ export class HeldReceiptsService {
     if (error) throw this.toHttpError(error)
     if (!data.length) throw new ConflictException(ALREADY_RESOLVED_MESSAGE)
 
+    if (isWindowOpen && note) {
+      await this.sendNote({ tenantId, conversationId: receipt.conversationId, note })
+    }
+
     await this.supabase.unscoped
       .from('conversations')
       .update({ status: 'bot', assigned_to: null })
@@ -193,6 +216,55 @@ export class HeldReceiptsService {
       .eq('status', 'human')
 
     return { resolution: 'dismissed' }
+  }
+
+  /**
+   * Stored as the operator's message and sent through the send queue, the
+   * same way a reply typed in the conversation goes out.
+   */
+  private async sendNote({
+    tenantId,
+    conversationId,
+    note,
+  }: {
+    tenantId: string
+    conversationId: string
+    note: string
+  }): Promise<void> {
+    const { data, error } = await this.supabase.unscoped
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        tenant_id: tenantId,
+        direction: 'outbound',
+        author: 'operator',
+        type: 'text',
+        body: note,
+        delivery_state: 'pending',
+        // Outbound: no turn consumes it.
+        processed_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    await this.queue.enqueueSend({ tenantId, conversationId, messageId: data.id as string })
+  }
+
+  private async isServiceWindowOpen(tenantId: string, conversationId: string): Promise<boolean> {
+    const { data, error } = await this.supabase.unscoped
+      .from('conversations')
+      .select('last_inbound_at')
+      .eq('tenant_id', tenantId)
+      .eq('id', conversationId)
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    const lastInboundAt = data.last_inbound_at as string | null
+
+    return !!lastInboundAt && Date.now() - new Date(lastInboundAt).getTime() < SERVICE_WINDOW_MS
   }
 
   private async findHeldOrThrow(
@@ -305,6 +377,13 @@ const contactOf = (conversation: unknown): HeldReceipt['contact'] => {
     { display_name?: string | null; phone?: string | null } | undefined
 
   return { displayName: contact?.display_name ?? null, phone: contact?.phone ?? null }
+}
+
+const lastInboundAtOf = (conversation: unknown): string | null => {
+  const row = (Array.isArray(conversation) ? conversation[0] : conversation) as
+    { last_inbound_at?: string | null } | undefined
+
+  return row?.last_inbound_at ?? null
 }
 
 /** The reader's own words about the image, kept inside its stored answer. */
