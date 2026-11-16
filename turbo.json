@@ -12,9 +12,6 @@
       "cache": false,
       "persistent": true
     },
-    "lint": {
-      "dependsOn": ["^build"]
-    },
     "tscheck": {
       "dependsOn": ["^build"]
     },
