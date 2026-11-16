@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import type { ConversationSummary, HandoffInput, Message } from '@cobra/contracts'
+import type { AgentRun, ConversationSummary, HandoffInput, Message } from '@cobra/contracts'
 import { Button } from '~/components/ui/button'
 import { Textarea } from '~/components/ui/textarea'
 import { api } from '~/lib/api'
@@ -42,6 +42,19 @@ export const ConversationPanel = ({
     },
   })
 
+  // The same query the timeline reads, so the cache is shared and the stream
+  // that keeps the timeline live keeps this live too.
+  const runs = useQuery({
+    queryKey: queryKeys.runs(conversation.id),
+    queryFn: async () => {
+      const { data } = await api.get<AgentRun[]>(`/conversations/${conversation.id}/runs`)
+
+      return data
+    },
+  })
+
+  const isAgentThinking = isRunInProgress(runs.data?.[0])
+
   const send = useMutation({
     mutationFn: async (body: string) => {
       await api.post(`/conversations/${conversation.id}/messages`, { body })
@@ -77,7 +90,7 @@ export const ConversationPanel = ({
     if (!messages.data?.length) return
 
     bottom.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.data?.length])
+  }, [messages.data?.length, isAgentThinking])
 
   const isServiceWindowClosed = remainingWindowMs(conversation.lastInboundAt) <= 0
   const isHuman = conversation.status === 'human'
@@ -141,6 +154,7 @@ export const ConversationPanel = ({
             onMediaLoad={() => bottom.current?.scrollIntoView({ behavior: 'auto' })}
           />
         ))}
+        {isAgentThinking && <ThinkingBubble />}
         <div ref={bottom} />
       </div>
 
@@ -217,6 +231,41 @@ const AUTHOR_LABEL: Record<Message['author'], string> = {
   agent: 'Agente',
   operator: 'Operador',
 }
+
+/**
+ * A turn stuck in `running` — a worker that died mid-turn never closes its
+ * run — must not show the agent thinking forever. Past the turn's own expiry
+ * in the queue, it is not running anymore whatever the row says.
+ */
+const RUN_STALE_AFTER_MS = 2 * 60 * 1000
+
+const isRunInProgress = (run: AgentRun | undefined): boolean =>
+  run?.status === 'running' && Date.now() - new Date(run.startedAt).getTime() < RUN_STALE_AFTER_MS
+
+/**
+ * The agent's answer on its way: three dots where its bubble is about to be.
+ *
+ * Without it the operator watching the chat saw nothing between the
+ * customer's message and the reply, and could not tell a slow turn from one
+ * that would never come. It shows from the moment the turn starts until its
+ * reply lands — the burst window and a receipt being read come before that.
+ */
+const ThinkingBubble = () => (
+  <div className="flex justify-end" role="status" aria-live="polite">
+    <div className="flex items-center gap-2 rounded-lg bg-accent px-3 py-2.5">
+      <span className="flex items-center gap-1" aria-hidden>
+        {[0, 150, 300].map((delayMs) => (
+          <span
+            key={delayMs}
+            className="size-1.5 rounded-full bg-muted-foreground motion-safe:animate-bounce"
+            style={{ animationDelay: `${delayMs}ms` }}
+          />
+        ))}
+      </span>
+      <span className="font-mono text-[11px] text-muted-foreground">El agente está pensando</span>
+    </div>
+  </div>
+)
 
 const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad: () => void }) => {
   const isOutbound = message.direction === 'outbound'
