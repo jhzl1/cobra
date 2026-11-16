@@ -85,10 +85,10 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId }: Props) => 
         }
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
-        <TabsList className="mx-4 mt-3 md:mx-6">
+        <TabsList variant="line" className="md:px-6">
           <TabsTrigger value="conversations">Conversaciones</TabsTrigger>
           <TabsTrigger value="executions">Ejecuciones</TabsTrigger>
-          <TabsTrigger value="settings">Configuraciones</TabsTrigger>
+          <TabsTrigger value="settings">Configuración</TabsTrigger>
         </TabsList>
 
         <TabsContent value="conversations" className="flex min-h-0 flex-1 flex-col">
@@ -162,10 +162,7 @@ const ReadOnlyConversations = ({
     <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)_340px]">
       <section
         aria-label="Conversaciones"
-        className={cn(
-          'mt-3 min-h-0 flex-col border-t border-r',
-          conversationId ? 'hidden lg:flex' : 'flex',
-        )}
+        className={cn('min-h-0 flex-col border-r', conversationId ? 'hidden lg:flex' : 'flex')}
       >
         <div className="min-h-0 flex-1 overflow-y-auto">
           {conversations.isLoading ? (
@@ -195,7 +192,7 @@ const ReadOnlyConversations = ({
       <section
         aria-label="Conversación abierta"
         className={cn(
-          'mt-3 min-h-0 flex-col border-t bg-card xl:border-r',
+          'min-h-0 flex-col bg-card xl:border-r',
           conversationId ? 'flex' : 'hidden lg:flex',
         )}
       >
@@ -208,10 +205,7 @@ const ReadOnlyConversations = ({
         )}
       </section>
 
-      <section
-        aria-label="Pasos del agente"
-        className="mt-3 hidden min-h-0 flex-col border-t xl:flex"
-      >
+      <section aria-label="Pasos del agente" className="hidden min-h-0 flex-col xl:flex">
         <div className="min-h-0 flex-1 overflow-y-auto">
           {selectedConversation ? (
             <Timeline runs={runs.data ?? []} />

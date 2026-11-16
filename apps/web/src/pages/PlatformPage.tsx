@@ -77,25 +77,25 @@ export const PlatformPage = ({ tab, page }: Props) => {
       onValueChange={(value) =>
         void navigate({ to: '/platform', search: { tab: tabSearchOf(value) } })
       }
-      className="gap-4 p-4"
+      className="gap-0"
     >
-      <TabsList>
+      <TabsList variant="line">
         <TabsTrigger value="companies">Empresas</TabsTrigger>
         <TabsTrigger value="errors">Errores</TabsTrigger>
         <TabsTrigger value="models">Modelos</TabsTrigger>
         <TabsTrigger value="admins">Administradores</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="companies">
+      <TabsContent value="companies" className="p-4">
         <TenantsCard page={page} />
       </TabsContent>
-      <TabsContent value="errors">
+      <TabsContent value="errors" className="p-4">
         <ErrorsCard page={page} />
       </TabsContent>
-      <TabsContent value="models">
+      <TabsContent value="models" className="p-4">
         <ModelSettingsCard />
       </TabsContent>
-      <TabsContent value="admins">
+      <TabsContent value="admins" className="p-4">
         <GrantsCard />
       </TabsContent>
     </Tabs>
