@@ -38,8 +38,11 @@ pnpm dev                 # api + worker + web
 pnpm build
 pnpm tscheck             # typecheck de cada paquete
 pnpm test
+pnpm lint                # oxlint sobre todo el repo, reglas en .oxlintrc.json
 pnpm format:fix
 
+pnpm --filter @cobra/db db:start   # Supabase local
+pnpm --filter @cobra/db db:reset   # aplica las migraciones desde cero
 pnpm db:new <nombre>     # nueva migración
 pnpm db:deploy           # aplicarlas al proyecto enlazado
 pnpm db:types            # regenerar los tipos de la base
@@ -47,10 +50,13 @@ pnpm skills:sync         # regenerar la tabla de la sección 10
 ```
 
 Node 22, pnpm 10. Un paquete se prueba solo: `pnpm --filter @cobra/agent test`.
+Un archivo solo: `pnpm --filter @cobra/worker exec vitest run src/jobs/turn-follow-ups.spec.ts`.
+Los tests corren con Vitest en `agent`, `worker`, `data` y `contracts`; `api`
+usa Jest y `web` no tiene tests.
 
 ## 3 · Invariantes de arquitectura
 
-Seis paquetes, y cada frontera existe por una razón concreta:
+Siete paquetes, y cada frontera existe por una razón concreta:
 
 ```
 apps/api      @cobra/api        CommonJS · NestJS 11 · HTTP + webhook de Meta
@@ -77,6 +83,25 @@ packages/db                     migraciones de Supabase
    credenciales, el nombre de la empresa, el teléfono de soporte y el del
    administrador. Nada más. Una rama `if (tenant.slug === ...)` es un error de
    diseño.
+
+### Cómo viaja un mensaje
+
+1. n8n reenvía el cuerpo de Meta a `POST /wh/wa/:tenantSlug/:webhookToken`. La
+   API cruza el `phone_number_id` contra el tenant de la ruta (403 si no
+   coinciden), guarda el mensaje, responde 200 y encola. Primero persiste,
+   después responde.
+2. Cada mensaje encola `process-turn` con `singletonKey` = la conversación. Una
+   imagen encola además `process-receipt` en el acto, para que Gemini lea el
+   comprobante mientras corre la ventana de ráfaga del texto.
+3. En el worker, `process-turn` drena todos los mensajes sin procesar de la
+   conversación, espera 1,5 s de silencio y corre `@cobra/agent`. Un mensaje
+   que llega a mitad del turno no lo interrumpe: entra antes de la siguiente
+   tool (steering).
+4. La respuesta sale por `send-message`, un job con sus propios reintentos:
+   reintentar un envío es gratis, reintentar un turno no.
+
+El detalle de cada paso y por qué está en la sección «Runtime del agente» de
+`PLAN.md`; los nombres de las colas, en `packages/contracts/src/queues.ts`.
 
 ## 4 · Credenciales de clientes
 
@@ -131,9 +156,19 @@ luminancia y el cursor. Está resuelto en `~/components/ui/button.tsx`; si algo 
 ve apagado, se arregla ahí y no en el sitio que lo usa. Corolario: la burbuja
 saliente del chat es gris elevado, no blanca.
 
+**Una tabla no se mueve cuando cambia un valor.** `~/components/ui/table.tsx` usa
+`table-fixed`, así que el ancho de cada columna lo decide su encabezado y no lo
+que haya en las filas: sin eso, desactivar una cuenta cambiaba "Activa" por
+"Desactivada" y corría todas las columnas. Cada tabla le da ancho fijo (`w-32`…)
+a las columnas de contenido acotado —fechas, montos, estados, acciones— y deja
+sin ancho las de texto libre, cuyas celdas llevan `truncate`. La tabla lleva un
+`min-w-[…]` para que en el teléfono se desplace en vez de aplastarse.
+
 **Las rutas se escriben en inglés**, aunque la interfaz sea española:
 `/settings`, no `/configuracion`. La ruta es un identificador; la etiqueta del
 enlace sigue el idioma de la sección 1.
+
+Schema validator: zod.
 
 **Los formularios validan con los esquemas de `@cobra/contracts`**, los mismos
 que corre la API, así que cliente y servidor no pueden discrepar. El esquema
@@ -213,48 +248,47 @@ Al hacer cualquiera de estas acciones, **invoca primero la skill correspondiente
 
 <!-- BEGIN AUTO-INVOKE -->
 
-| Action                                                         | Skill                                        |
-| -------------------------------------------------------------- | -------------------------------------------- |
-| Editar el prompt del agente o el del extractor de comprobantes | `.claude/skills/agent-runtime/SKILL.md`      |
-| Agregar o cambiar una tool del agente                          | `.claude/skills/agent-runtime/SKILL.md`      |
-| Cambiar las reglas de validación de un comprobante             | `.claude/skills/agent-runtime/SKILL.md`      |
-| Tocar la lógica de RegisterPayment o ApplyCredit               | `.claude/skills/agent-runtime/SKILL.md`      |
-| Cambiar el steering o la ventana de ráfaga                     | `.claude/skills/agent-runtime/SKILL.md`      |
-| Agregar una dependencia a packages/agent                       | `.claude/skills/agent-runtime/SKILL.md`      |
-| Crear una ruta o un endpoint en apps/api                       | `.claude/skills/backend-structure/SKILL.md`  |
-| Crear un módulo nuevo en la API                                | `.claude/skills/backend-structure/SKILL.md`  |
-| Escribir una consulta a Supabase desde el backend              | `.claude/skills/backend-structure/SKILL.md`  |
-| Crear o cambiar un job del worker                              | `.claude/skills/backend-structure/SKILL.md`  |
-| Decidir dónde va un archivo del backend                        | `.claude/skills/backend-structure/SKILL.md`  |
-| Agregar una cola nueva                                         | `.claude/skills/backend-structure/SKILL.md`  |
-| Agregar o cambiar un tipo compartido entre aplicaciones        | `.claude/skills/contracts/SKILL.md`          |
-| Cambiar un esquema zod en packages/contracts                   | `.claude/skills/contracts/SKILL.md`          |
-| Definir el payload de un endpoint nuevo                        | `.claude/skills/contracts/SKILL.md`          |
-| Decidir si un tipo es compartido o local                       | `.claude/skills/contracts/SKILL.md`          |
-| Agregar acceso a datos compartido en packages/data             | `.claude/skills/contracts/SKILL.md`          |
-| Crear una tabla o cambiar el esquema de la base                | `.claude/skills/database-changes/SKILL.md`   |
-| Agregar una columna a una tabla existente                      | `.claude/skills/database-changes/SKILL.md`   |
-| Escribir o cambiar una política RLS                            | `.claude/skills/database-changes/SKILL.md`   |
-| Escribir una función o un trigger en SQL                       | `.claude/skills/database-changes/SKILL.md`   |
-| Aplicar migraciones pendientes a Supabase                      | `.claude/skills/database-changes/SKILL.md`   |
-| Regenerar los tipos de la base                                 | `.claude/skills/database-changes/SKILL.md`   |
-| Crear una pantalla o una vista nueva en apps/web               | `.claude/skills/frontend-structure/SKILL.md` |
-| Crear un componente del panel                                  | `.claude/skills/frontend-structure/SKILL.md` |
-| Crear un hook, query o mutation en apps/web                    | `.claude/skills/frontend-structure/SKILL.md` |
-| Suscribirse a datos en vivo desde el panel                     | `.claude/skills/frontend-structure/SKILL.md` |
-| Decidir dónde va un archivo del front                          | `.claude/skills/frontend-structure/SKILL.md` |
-| Crear una skill nueva en este repositorio                      | `.claude/skills/skill-sync/SKILL.md`         |
-| Editar un SKILL.md existente                                   | `.claude/skills/skill-sync/SKILL.md`         |
-| Agregar o cambiar las frases de auto_invoke de una skill       | `.claude/skills/skill-sync/SKILL.md`         |
-| Regenerar la tabla de skills de CLAUDE.md                      | `.claude/skills/skill-sync/SKILL.md`         |
-| Verificar que CLAUDE.md lista todas las skills                 | `.claude/skills/skill-sync/SKILL.md`         |
-| Tocar el webhook de WhatsApp o su ruta                         | `.claude/skills/whatsapp-webhook/SKILL.md`   |
-| Cambiar cómo se resuelve el tenant de un evento entrante       | `.claude/skills/whatsapp-webhook/SKILL.md`   |
-| Cambiar los filtros de mensajes entrantes                      | `.claude/skills/whatsapp-webhook/SKILL.md`   |
-| Enviar un mensaje por WhatsApp                                 | `.claude/skills/whatsapp-webhook/SKILL.md`   |
-| Cambiar el cliente de Dualhook                                 | `.claude/skills/whatsapp-webhook/SKILL.md`   |
-| Descargar media de WhatsApp                                    | `.claude/skills/whatsapp-webhook/SKILL.md`   |
-| Manejar statuses, errors o smb_message_echoes                  | `.claude/skills/whatsapp-webhook/SKILL.md`   |
+| Action                                                         | Skill                                       |
+| -------------------------------------------------------------- | ------------------------------------------- |
+| Editar el prompt del agente o el del extractor de comprobantes | `.claude/skills/agent-runtime/SKILL.md`     |
+| Agregar o cambiar una tool del agente                          | `.claude/skills/agent-runtime/SKILL.md`     |
+| Cambiar las reglas de validación de un comprobante             | `.claude/skills/agent-runtime/SKILL.md`     |
+| Tocar la lógica de RegisterPayment o ApplyCredit               | `.claude/skills/agent-runtime/SKILL.md`     |
+| Cambiar el steering o la ventana de ráfaga                     | `.claude/skills/agent-runtime/SKILL.md`     |
+| Agregar una dependencia a packages/agent                       | `.claude/skills/agent-runtime/SKILL.md`     |
+| Crear una ruta o un endpoint en apps/api                       | `.claude/skills/backend-structure/SKILL.md` |
+| Crear un módulo nuevo en la API                                | `.claude/skills/backend-structure/SKILL.md` |
+| Escribir una consulta a Supabase desde el backend              | `.claude/skills/backend-structure/SKILL.md` |
+| Crear o cambiar un job del worker                              | `.claude/skills/backend-structure/SKILL.md` |
+| Decidir dónde va un archivo del backend                        | `.claude/skills/backend-structure/SKILL.md` |
+| Agregar una cola nueva                                         | `.claude/skills/backend-structure/SKILL.md` |
+| Agregar o cambiar un tipo compartido entre aplicaciones        | `.claude/skills/contracts/SKILL.md`         |
+| Cambiar un esquema zod en packages/contracts                   | `.claude/skills/contracts/SKILL.md`         |
+| Definir el payload de un endpoint nuevo                        | `.claude/skills/contracts/SKILL.md`         |
+| Decidir si un tipo es compartido o local                       | `.claude/skills/contracts/SKILL.md`         |
+| Agregar acceso a datos compartido en packages/data             | `.claude/skills/contracts/SKILL.md`         |
+| Crear una tabla o cambiar el esquema de la base                | `.claude/skills/database-changes/SKILL.md`  |
+| Agregar una columna a una tabla existente                      | `.claude/skills/database-changes/SKILL.md`  |
+| Escribir o cambiar una política RLS                            | `.claude/skills/database-changes/SKILL.md`  |
+| Escribir una función o un trigger en SQL                       | `.claude/skills/database-changes/SKILL.md`  |
+| Aplicar migraciones pendientes a Supabase                      | `.claude/skills/database-changes/SKILL.md`  |
+| Regenerar los tipos de la base                                 | `.claude/skills/database-changes/SKILL.md`  |
+| Crear una skill nueva en este repositorio                      | `.claude/skills/skill-sync/SKILL.md`        |
+| Editar un SKILL.md existente                                   | `.claude/skills/skill-sync/SKILL.md`        |
+| Agregar o cambiar las frases de auto_invoke de una skill       | `.claude/skills/skill-sync/SKILL.md`        |
+| Regenerar la tabla de skills de CLAUDE.md                      | `.claude/skills/skill-sync/SKILL.md`        |
+| Verificar que CLAUDE.md lista todas las skills                 | `.claude/skills/skill-sync/SKILL.md`        |
+| Crear una pantalla o una vista nueva en apps/web               | `.claude/skills/web-panel/SKILL.md`         |
+| Crear un componente del panel                                  | `.claude/skills/web-panel/SKILL.md`         |
+| Agregar una ruta de empresa o de plataforma en apps/web        | `.claude/skills/web-panel/SKILL.md`         |
+| Suscribirse a datos en vivo desde el panel                     | `.claude/skills/web-panel/SKILL.md`         |
+| Tocar el webhook de WhatsApp o su ruta                         | `.claude/skills/whatsapp-webhook/SKILL.md`  |
+| Cambiar cómo se resuelve el tenant de un evento entrante       | `.claude/skills/whatsapp-webhook/SKILL.md`  |
+| Cambiar los filtros de mensajes entrantes                      | `.claude/skills/whatsapp-webhook/SKILL.md`  |
+| Enviar un mensaje por WhatsApp                                 | `.claude/skills/whatsapp-webhook/SKILL.md`  |
+| Cambiar el cliente de Dualhook                                 | `.claude/skills/whatsapp-webhook/SKILL.md`  |
+| Descargar media de WhatsApp                                    | `.claude/skills/whatsapp-webhook/SKILL.md`  |
+| Manejar statuses, errors o smb_message_echoes                  | `.claude/skills/whatsapp-webhook/SKILL.md`  |
 
 <!-- END AUTO-INVOKE -->
 
