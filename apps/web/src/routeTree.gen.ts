@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TenantIdRouteImport } from './routes/$tenantId'
 import { Route as PlatformRouteImport } from './routes/_platform'
 import { Route as TenantIdIndexRouteImport } from './routes/$tenantId.index'
+import { Route as TenantIdPaymentsRouteImport } from './routes/$tenantId.payments'
 import { Route as TenantIdPendingRouteImport } from './routes/$tenantId.pending'
 import { Route as TenantIdSettingsRouteImport } from './routes/$tenantId.settings'
 import { Route as TenantIdSetupRouteImport } from './routes/$tenantId.setup'
@@ -38,6 +39,11 @@ const PlatformRoute = PlatformRouteImport.update({
 const TenantIdIndexRoute = TenantIdIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => TenantIdRoute,
+} as any)
+const TenantIdPaymentsRoute = TenantIdPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
   getParentRoute: () => TenantIdRoute,
 } as any)
 const TenantIdPendingRoute = TenantIdPendingRouteImport.update({
@@ -82,6 +88,7 @@ const PlatformPlatformTenantsCompanyIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$tenantId': typeof TenantIdRouteWithChildren
+  '/$tenantId/payments': typeof TenantIdPaymentsRoute
   '/$tenantId/pending': typeof TenantIdPendingRoute
   '/$tenantId/settings': typeof TenantIdSettingsRoute
   '/$tenantId/setup': typeof TenantIdSetupRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$tenantId/payments': typeof TenantIdPaymentsRoute
   '/$tenantId/pending': typeof TenantIdPendingRoute
   '/$tenantId/settings': typeof TenantIdSettingsRoute
   '/$tenantId/setup': typeof TenantIdSetupRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$tenantId': typeof TenantIdRouteWithChildren
   '/_platform': typeof PlatformRouteWithChildren
+  '/$tenantId/payments': typeof TenantIdPaymentsRoute
   '/$tenantId/pending': typeof TenantIdPendingRoute
   '/$tenantId/settings': typeof TenantIdSettingsRoute
   '/$tenantId/setup': typeof TenantIdSetupRoute
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$tenantId'
+    | '/$tenantId/payments'
     | '/$tenantId/pending'
     | '/$tenantId/settings'
     | '/$tenantId/setup'
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$tenantId/payments'
     | '/$tenantId/pending'
     | '/$tenantId/settings'
     | '/$tenantId/setup'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$tenantId'
     | '/_platform'
+    | '/$tenantId/payments'
     | '/$tenantId/pending'
     | '/$tenantId/settings'
     | '/$tenantId/setup'
@@ -189,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/$tenantId/'
       preLoaderRoute: typeof TenantIdIndexRouteImport
+      parentRoute: typeof TenantIdRoute
+    }
+    '/$tenantId/payments': {
+      id: '/$tenantId/payments'
+      path: '/payments'
+      fullPath: '/$tenantId/payments'
+      preLoaderRoute: typeof TenantIdPaymentsRouteImport
       parentRoute: typeof TenantIdRoute
     }
     '/$tenantId/pending': {
@@ -244,6 +263,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface TenantIdRouteChildren {
+  TenantIdPaymentsRoute: typeof TenantIdPaymentsRoute
   TenantIdPendingRoute: typeof TenantIdPendingRoute
   TenantIdSettingsRoute: typeof TenantIdSettingsRoute
   TenantIdSetupRoute: typeof TenantIdSetupRoute
@@ -253,6 +273,7 @@ interface TenantIdRouteChildren {
 }
 
 const TenantIdRouteChildren: TenantIdRouteChildren = {
+  TenantIdPaymentsRoute: TenantIdPaymentsRoute,
   TenantIdPendingRoute: TenantIdPendingRoute,
   TenantIdSettingsRoute: TenantIdSettingsRoute,
   TenantIdSetupRoute: TenantIdSetupRoute,

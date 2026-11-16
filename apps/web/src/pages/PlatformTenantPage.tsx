@@ -9,6 +9,7 @@ import { ConversationPanel } from '~/components/ConversationPanel'
 import { HeldReceiptDialog, HeldReceiptTable, useHeldReceipts } from '~/components/HeldReceipts'
 import { JobRunTable } from '~/components/JobRunTable'
 import { Pager } from '~/components/Pager'
+import { type PaymentRange, PaymentsCard } from '~/components/Payments'
 import { TenantControls } from '~/components/TenantControls'
 import { TenantOverview } from '~/components/TenantOverview'
 import { TenantStateBadges } from '~/components/TenantStateBadges'
@@ -25,14 +26,16 @@ import type { TenantSummary } from '~/lib/tenants'
 import { cn } from '~/lib/utils'
 import { NotFoundPage } from '~/pages/ErrorPage'
 
-export type PlatformTenantTab = 'conversations' | 'pending' | 'executions' | 'settings'
+export type PlatformTenantTab = 'conversations' | 'pending' | 'payments' | 'executions' | 'settings'
 
 interface Props {
   tenantId: string
   tab: PlatformTenantTab
   conversationId: string | null
-  /** The page of the held receipts, when that tab is open. */
+  /** The page of the held receipts or the payments, whichever tab is open. */
   page: number
+  /** The payments' days, when that tab is open. */
+  range: PaymentRange
 }
 
 /**
@@ -42,7 +45,7 @@ interface Props {
  * The conversations stay read only — the administrator audits, the company's
  * own team answers its customers.
  */
-export const PlatformTenantPage = ({ tenantId, tab, conversationId, page }: Props) => {
+export const PlatformTenantPage = ({ tenantId, tab, conversationId, page, range }: Props) => {
   const navigate = useNavigate()
 
   const tenant = useQuery({
@@ -92,6 +95,7 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId, page }: Prop
         <TabsList variant="line" className="md:px-6">
           <TabsTrigger value="conversations">Conversaciones</TabsTrigger>
           <TabsTrigger value="pending">Pendientes</TabsTrigger>
+          <TabsTrigger value="payments">Pagos registrados</TabsTrigger>
           <TabsTrigger value="executions">Ejecuciones</TabsTrigger>
           <TabsTrigger value="settings">Configuración</TabsTrigger>
         </TabsList>
@@ -102,6 +106,10 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId, page }: Prop
 
         <TabsContent value="pending" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
           <ReadOnlyHeldReceipts tenantId={tenantId} page={page} />
+        </TabsContent>
+
+        <TabsContent value="payments" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          <PaymentsCard tenantId={tenantId} page={page} range={range} />
         </TabsContent>
 
         <TabsContent value="executions" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
@@ -121,7 +129,8 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId, page }: Prop
 
 /** The conversations tab is the default, so it stays out of the URL. */
 const toTabSearch = (value: string): PlatformTenantTab | undefined => {
-  if (value === 'pending' || value === 'executions' || value === 'settings') return value
+  if (value === 'pending' || value === 'payments' || value === 'executions' || value === 'settings')
+    return value
 
   return undefined
 }

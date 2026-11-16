@@ -33,6 +33,17 @@ export const queryKeys = {
   paymentMethods: (tenantId: string) => ['tenants', tenantId, 'payment-methods'] as const,
   // Every page shares the prefix, so invalidating `heldReceipts` reaches all of them.
   heldReceipts: (tenantId: string) => ['tenants', tenantId, 'held-receipts'] as const,
+  paymentPage: ({
+    tenantId,
+    page,
+    from,
+    to,
+  }: {
+    tenantId: string
+    page: number
+    from: string
+    to: string
+  }) => ['tenants', tenantId, 'payments', from, to, page] as const,
   heldReceiptPage: (tenantId: string, page: number) =>
     ['tenants', tenantId, 'held-receipts', page] as const,
   conversations: (tenantId: string) => ['conversations', tenantId] as const,
