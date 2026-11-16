@@ -17,7 +17,7 @@ export const platformSettingKeySchema = z.enum([
 
 export type PlatformSettingKey = z.infer<typeof platformSettingKeySchema>
 
-const modelIdSchema = z.string().trim().min(1, 'Elige un modelo')
+const modelIdSchema = z.string().trim().min(1, 'Selecciona un modelo')
 
 /**
  * What each key may hold. The column is jsonb, so the database accepts any

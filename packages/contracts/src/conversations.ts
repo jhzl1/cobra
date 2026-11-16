@@ -53,8 +53,8 @@ export type Message = z.infer<typeof messageSchema>
 export const sendMessageSchema = z.object({
   body: z
     .string()
-    .min(1, 'El mensaje está vacío')
-    .max(4096, 'WhatsApp no acepta mensajes de más de 4096 caracteres'),
+    .min(1, 'Escribe un mensaje')
+    .max(4096, 'WhatsApp no admite mensajes de más de 4096 caracteres'),
 })
 
 export type SendMessageInput = z.infer<typeof sendMessageSchema>

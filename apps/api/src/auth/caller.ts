@@ -7,7 +7,8 @@ import type { UserClaims } from '@supabase/server'
  * answers 401 instead of returning null.
  */
 export const readCallerId = (claims: UserClaims | null | undefined): string => {
-  if (!claims?.id) throw new UnauthorizedException('La sesión no es válida')
+  if (!claims?.id)
+    throw new UnauthorizedException('Tu sesión no es válida. Inicia sesión de nuevo.')
 
   return claims.id
 }

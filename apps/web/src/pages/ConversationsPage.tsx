@@ -101,12 +101,10 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
             /* An empty list explains nothing: four things have to be true before a
                message can arrive, and three of them live on another screen. */
             <div className="flex flex-col items-start gap-3 p-4">
-              <p className="text-sm text-muted-foreground">
-                Todavía no ha llegado ninguna conversación.
-              </p>
+              <p className="text-sm text-muted-foreground">Aún no hay conversaciones.</p>
               <Button asChild size="sm" variant="secondary">
                 <Link to="/$tenantId/setup" params={{ tenantId }}>
-                  Ver qué falta
+                  Revisar la puesta en marcha
                 </Link>
               </Button>
             </div>
@@ -156,7 +154,7 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
 
         {!selectedConversation ? (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-sm text-muted-foreground">Elige una conversación de la lista</p>
+            <p className="text-sm text-muted-foreground">Selecciona una conversación de la lista</p>
           </div>
         ) : view === 'steps' ? (
           <div className="min-h-0 flex-1 overflow-y-auto xl:hidden">
@@ -177,7 +175,7 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
             <Timeline runs={runs.data ?? []} />
           ) : (
             <p className="p-4 text-sm text-muted-foreground">
-              Los pasos aparecen al abrir una conversación.
+              Selecciona una conversación para ver los pasos del agente.
             </p>
           )}
         </div>

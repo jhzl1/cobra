@@ -85,7 +85,7 @@ export class PlatformService {
 
     if (error) {
       if (error.code === UNIQUE_VIOLATION) {
-        throw new ConflictException('Esa persona ya tiene ese rol activo')
+        throw new ConflictException('Esta persona ya tiene el rol activo')
       }
       throw this.toHttpError(error)
     }
@@ -117,7 +117,7 @@ export class PlatformService {
       .maybeSingle()
 
     if (error) throw this.toHttpError(error)
-    if (!data) throw new NotFoundException('No se encontró una concesión activa con ese id')
+    if (!data) throw new NotFoundException('No se encontró un rol activo con ese identificador')
 
     return { revokedAt }
   }
@@ -191,7 +191,7 @@ export class PlatformService {
   private toHttpError(error: PostgrestError): Error {
     this.logger.error(`Postgrest ${error.code}: ${error.message}`)
 
-    return new InternalServerErrorException('No se pudo completar la operación')
+    return new InternalServerErrorException('No fue posible completar la operación')
   }
 }
 

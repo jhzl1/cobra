@@ -59,7 +59,7 @@ import { invalidateTenantLists, queryKeys } from '~/lib/queryClient'
 import type { TenantSummary } from '~/lib/tenants'
 
 export const SettingsPage = ({ tenantId }: { tenantId: string }) => (
-  <div className="flex flex-col gap-4 p-4">
+  <div className="flex flex-col gap-4">
     <CompanyDetailsCard tenantId={tenantId} />
     <CredentialsCard tenantId={tenantId} />
     <WhatsappNumbersCard tenantId={tenantId} />
@@ -93,8 +93,8 @@ const CompanyDetailsCard = ({ tenantId }: { tenantId: string }) => {
       <CardHeader>
         <CardTitle>Datos de la empresa</CardTitle>
         <CardDescription>
-          El agente usa el nombre al presentarse, da el teléfono de soporte a quien pregunta por el
-          servicio y avisa al administrador cuando alguien tiene que intervenir.
+          El agente se presenta con el nombre de la empresa, comparte el teléfono de soporte cuando
+          un cliente lo solicita y notifica al administrador cuando se requiere intervención.
         </CardDescription>
         <CardAction>
           <Button
@@ -190,7 +190,7 @@ const CompanyDetailsDialog = ({
       open
       onClose={onClose}
       title="Editar datos de la empresa"
-      description="El agente usa los datos nuevos desde el siguiente mensaje."
+      description="Los cambios se aplican a partir del siguiente mensaje."
       submitLabel="Guardar"
       form={form}
       error={failure}
@@ -212,7 +212,7 @@ const CompanyDetailsDialog = ({
         {(field) => (
           <Field
             label="Teléfono de soporte"
-            hint="El número que el agente le da a quien pregunta por el servicio. Con indicativo de país y sin signos."
+            hint="Número que el agente comparte cuando un cliente solicita soporte. Incluye el indicativo del país, sin espacios ni signos."
             placeholder="573001234567"
             required
             value={field.state.value}
@@ -227,7 +227,7 @@ const CompanyDetailsDialog = ({
         {(field) => (
           <Field
             label="Teléfono del administrador"
-            hint="A dónde llegan los avisos cuando el agente necesita que alguien intervenga. No uses el número de WhatsApp de la empresa: el aviso le llegaría al propio agente."
+            hint="Número al que se envían las alertas cuando se requiere la intervención de una persona. No uses el número de WhatsApp de la empresa: la alerta le llegaría al propio agente."
             placeholder="573001234568"
             required
             value={field.state.value}
@@ -264,22 +264,21 @@ const PROVIDERS: ProviderSpec[] = [
   {
     provider: 'dualhook',
     name: 'WhatsApp (Dualhook)',
-    purpose: 'Envía los mensajes del número de la empresa y descarga los comprobantes.',
-    secretLabel: 'Llave de Dualhook',
-    secretHint:
-      'En el panel de Dualhook, en la conexión del número: la llave de la API. Empieza por dh_live_.',
+    purpose: 'Envía los mensajes desde el número de la empresa y descarga los comprobantes.',
+    secretLabel: 'Clave de API de Dualhook',
+    secretHint: 'En el panel de Dualhook, dentro de la conexión del número. Empieza por dh_live_.',
   },
   {
     provider: 'openrouter',
     name: 'OpenRouter',
-    purpose: 'Corre el agente y la lectura de comprobantes.',
+    purpose: 'Ejecuta el agente y la lectura de comprobantes.',
     secretLabel: 'Clave de API',
-    secretHint: 'En OpenRouter: Keys. Empieza por sk-or-.',
+    secretHint: 'En OpenRouter, sección Keys. Empieza por sk-or-.',
   },
   {
     provider: 'wisphub',
     name: 'Wisphub',
-    purpose: 'Consulta la deuda y registra los pagos.',
+    purpose: 'Consulta la deuda de los clientes y registra los pagos.',
     secretLabel: 'Clave de API',
     secretHint: 'En Wisphub: Configuración → API.',
   },
@@ -312,7 +311,7 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
       <CardHeader>
         <CardTitle>Credenciales</CardTitle>
         <CardDescription>
-          Se guardan cifradas. El panel solo vuelve a ver los últimos cuatro caracteres.
+          Se almacenan cifradas. El panel solo muestra los últimos cuatro caracteres.
         </CardDescription>
       </CardHeader>
 
@@ -344,7 +343,7 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
                     </span>
                   </div>
                 ) : (
-                  <Badge>Sin conectar</Badge>
+                  <Badge>No conectada</Badge>
                 )}
 
                 <Button
@@ -352,7 +351,7 @@ const CredentialsCard = ({ tenantId }: { tenantId: string }) => {
                   variant={savedCredential ? 'secondary' : 'default'}
                   onClick={() => setEditedProvider(spec)}
                 >
-                  {savedCredential ? 'Rotar' : 'Conectar'}
+                  {savedCredential ? 'Reemplazar' : 'Conectar'}
                 </Button>
               </div>
             )
@@ -416,10 +415,10 @@ const CredentialDialog = ({
     <FormDialog
       open
       onClose={onClose}
-      title={`${isRotating ? 'Rotar' : 'Conectar'} ${spec.name}`}
+      title={`${isRotating ? 'Reemplazar' : 'Conectar'} ${spec.name}`}
       description={
         isRotating
-          ? 'La credencial anterior se reemplaza. El agente empieza a usar la nueva de inmediato.'
+          ? 'La credencial actual se reemplaza y el agente comienza a usar la nueva de inmediato.'
           : spec.purpose
       }
       submitLabel="Guardar"
@@ -480,8 +479,8 @@ const WhatsappNumbersCard = ({ tenantId }: { tenantId: string }) => {
       <CardHeader>
         <CardTitle>Números de WhatsApp</CardTitle>
         <CardDescription>
-          Al conectar un número se genera su URL de webhook, que va en el Webhook Override de
-          Dualhook. Su Verify Token es el último tramo de esa URL.
+          Al conectar un número se genera su URL de webhook, que debe configurarse en el Webhook
+          Override de Dualhook. Su Verify Token corresponde al último segmento de esa URL.
         </CardDescription>
         <CardAction>
           <Button size="sm" onClick={() => setIsConnectDialogOpen(true)}>
@@ -508,8 +507,8 @@ const WhatsappNumbersCard = ({ tenantId }: { tenantId: string }) => {
           ))
         ) : (
           <p className="text-sm text-muted-foreground">
-            Todavía no hay ningún número conectado, así que la empresa no recibe mensajes y su URL
-            de webhook no existe todavía: se genera al conectarlo.
+            No hay números conectados. La empresa no recibirá mensajes hasta que conectes uno; la
+            URL de webhook se genera en ese momento.
           </p>
         )}
 
@@ -545,9 +544,9 @@ const WhatsappNumbersCard = ({ tenantId }: { tenantId: string }) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Dar de baja {numberToRetire?.displayNumber}</AlertDialogTitle>
             <AlertDialogDescription>
-              Deja de recibir mensajes y su URL de webhook deja de servir, así que hay que quitarla
-              del Webhook Override de Dualhook. Las conversaciones que entraron por él se conservan,
-              y su identificador queda libre para volver a registrarlo.
+              El número dejará de recibir mensajes y su URL de webhook quedará inactiva, por lo que
+              debes retirarla del Webhook Override de Dualhook. Las conversaciones recibidas por
+              este número se conservan y su identificador podrá registrarse de nuevo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -596,7 +595,7 @@ const WhatsappNumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose
       open
       onClose={onClose}
       title="Conectar un número"
-      description="Los dos datos salen del panel de Dualhook. Al guardarlos, el panel genera la URL que va en su Webhook Override."
+      description="Ambos datos se encuentran en el panel de Dualhook. Al guardarlos, se genera la URL que debe configurarse en su Webhook Override."
       submitLabel="Conectar"
       form={form}
       error={failure}
@@ -605,7 +604,7 @@ const WhatsappNumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose
         {(field) => (
           <Field
             label="Identificador del número"
-            hint="En el panel de Dualhook, en la conexión del número, campo «Phone number ID»."
+            hint="En el panel de Dualhook, dentro de la conexión del número, campo «Phone number ID»."
             required
             value={field.state.value}
             error={fieldError(field)}
@@ -619,7 +618,7 @@ const WhatsappNumberDialog = ({ tenantId, onClose }: { tenantId: string; onClose
         {(field) => (
           <Field
             label="Número de WhatsApp"
-            hint="Con indicativo de país y sin signos."
+            hint="Incluye el indicativo del país, sin espacios ni signos."
             placeholder="573001234567"
             required
             value={field.state.value}
@@ -647,11 +646,11 @@ const ANY_ZONE = '__any__'
  * length limits come across unchanged.
  */
 const paymentMethodFormSchema = paymentMethodSchema.pick({ paymentAddress: true }).extend({
-  zone: z.string().max(80, 'La zona no puede pasar de 80 caracteres'),
+  zone: z.string().max(80, 'La zona no puede superar los 80 caracteres'),
   // Both come from the Wisphub picker: the id is what a payment is registered
   // with, the name is what the panel and the agent call it.
-  wisphubId: z.string().min(1, 'Elige a cuál forma de pago de Wisphub corresponde'),
-  entityName: z.string().min(1, 'Elige a cuál forma de pago de Wisphub corresponde'),
+  wisphubId: z.string().min(1, 'Selecciona la forma de pago de Wisphub correspondiente'),
+  entityName: z.string().min(1, 'Selecciona la forma de pago de Wisphub correspondiente'),
 })
 
 const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
@@ -671,7 +670,8 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
       <CardHeader>
         <CardTitle>Cuentas de recaudo</CardTitle>
         <CardDescription>
-          Un comprobante pagado a una cuenta que no esté aquí se retiene para revisión manual.
+          Los comprobantes pagados a una cuenta que no figure en esta lista se retienen para
+          revisión manual.
         </CardDescription>
         <CardAction>
           <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
@@ -704,7 +704,7 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
             ) : (
               <TableRow>
                 <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">
-                  Sin cuentas registradas
+                  No hay cuentas registradas
                 </TableCell>
               </TableRow>
             )}
@@ -781,7 +781,7 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
       open
       onClose={onClose}
       title="Agregar una cuenta de recaudo"
-      description="El agente compara la cuenta de cada comprobante contra esta lista. Lo que no esté aquí se escala para revisión manual."
+      description="El agente verifica la cuenta de cada comprobante contra esta lista. Los pagos a cuentas no registradas se retienen para revisión manual."
       submitLabel="Agregar"
       form={form}
       error={failure ?? (wisphubPaymentMethods.error ? wisphubPaymentMethods.error.message : null)}
@@ -813,7 +813,9 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
               <SelectTrigger id="wisphub-method" className="w-full">
                 <SelectValue
                   placeholder={
-                    wisphubPaymentMethods.isLoading ? 'Consultando a Wisphub…' : 'Elige una'
+                    wisphubPaymentMethods.isLoading
+                      ? 'Consultando a Wisphub…'
+                      : 'Selecciona una forma de pago'
                   }
                 />
               </SelectTrigger>
@@ -834,7 +836,7 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
       <form.Field name="paymentAddress">
         {(field) => (
           <Field
-            label="Cuenta o llave"
+            label="Número de cuenta o llave"
             required
             value={field.state.value}
             error={fieldError(field)}
@@ -868,7 +870,8 @@ const PaymentMethodDialog = ({ tenantId, onClose }: { tenantId: string; onClose:
             </Select>
 
             <p className="text-xs text-muted-foreground">
-              Sin zona, el agente se la ofrece a cualquier cliente. Con una, solo a los de esa zona.
+              Sin zona, el agente ofrece esta cuenta a todos los clientes. Con una zona, solo a los
+              clientes de esa zona.
             </p>
 
             {fieldError(field) && <p className="text-xs text-destructive">{fieldError(field)}</p>}

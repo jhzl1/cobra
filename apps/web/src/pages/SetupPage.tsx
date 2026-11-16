@@ -22,26 +22,26 @@ interface StepCopy {
 
 const SETUP_STEP_COPY: Record<SetupStep['id'], StepCopy> = {
   credentials: {
-    title: 'Cargar las credenciales',
-    why: 'Sin las tres el agente no puede recibir mensajes, ni pensar, ni registrar un pago.',
+    title: 'Configurar las credenciales',
+    why: 'Sin las tres credenciales, el agente no puede recibir mensajes, generar respuestas ni registrar pagos.',
     action: 'Ir a Credenciales',
     to: '/$tenantId/settings',
   },
   number: {
     title: 'Conectar el número de WhatsApp',
-    why: 'Al registrarlo, el panel genera la URL a la que llegan sus mensajes.',
+    why: 'Al registrarlo, se genera la URL a la que llegarán sus mensajes.',
     action: 'Conectar número',
     to: '/$tenantId/settings',
   },
   webhook: {
-    title: 'Poner la URL en Dualhook',
-    why: 'Este es el único paso que no se hace desde aquí. Se da por hecho cuando llega el primer mensaje.',
+    title: 'Configurar la URL en Dualhook',
+    why: 'Este paso se realiza fuera de Wispay. Se marca como completado cuando llega el primer mensaje.',
     action: 'Ver la URL',
     to: '/$tenantId/settings',
   },
   paymentMethods: {
     title: 'Registrar las cuentas de recaudo',
-    why: 'El agente compara contra ellas la cuenta de cada comprobante. Sin ninguna, retiene todos.',
+    why: 'El agente verifica contra ellas la cuenta de cada comprobante. Si no hay ninguna registrada, todos los comprobantes se retienen.',
     action: 'Agregar cuenta',
     to: '/$tenantId/settings',
   },
@@ -78,7 +78,7 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
   const doneCount = steps.filter((step) => step.isDone).length
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -93,16 +93,16 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
           </CardTitle>
           <CardDescription>
             {isReady
-              ? 'La empresa está recibiendo mensajes y el agente les responde.'
-              : 'Lo que falta para que el agente le responda a los clientes de esta empresa.'}
+              ? 'La empresa está recibiendo mensajes y el agente los está atendiendo.'
+              : 'Pasos pendientes para que el agente atienda a los clientes de esta empresa.'}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="flex flex-col gap-3">
           {status === 'suspended' && (
             <p className="rounded-lg border border-destructive/40 bg-destructive/15 p-3 text-sm text-destructive">
-              La empresa está suspendida: aunque todo lo de abajo esté listo, su número no recibe
-              mensajes y el agente no responde. Se reactiva desde Plataforma.
+              El agente de esta empresa está desactivado. Aunque todos los pasos estén completos, su
+              número no recibe mensajes y el agente no responde. Puede activarse desde Plataforma.
             </p>
           )}
 
@@ -117,10 +117,11 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
       {webhookUrl && (
         <Card>
           <CardHeader>
-            <CardTitle>Lo que va en Dualhook</CardTitle>
+            <CardTitle>Configuración en Dualhook</CardTitle>
             <CardDescription>
-              En la conexión de este número, en Webhook Override, pega estos dos valores y pulsa
-              Test endpoint. Desde ese momento los mensajes llegan directo a Wispay.
+              En la conexión de este número, sección Webhook Override, pega estos dos valores y
+              pulsa Test endpoint. A partir de ese momento, los mensajes llegan directamente a
+              Wispay.
             </CardDescription>
           </CardHeader>
 
@@ -139,8 +140,8 @@ export const SetupPage = ({ tenantId }: { tenantId: string }) => {
                 needs no configuration — and it changes when the tunnel does. */}
             {webhookUrl.includes('localhost') && (
               <p className="text-xs text-muted-foreground">
-                Esta URL es local: Meta no la alcanza. Expón la API con un túnel y vuelve a abrir
-                esta página desde esa dirección para verla ya armada.
+                Esta URL es local y Meta no puede acceder a ella. Expón la API mediante un túnel y
+                abre esta página desde esa dirección para obtener la URL definitiva.
               </p>
             )}
           </CardContent>

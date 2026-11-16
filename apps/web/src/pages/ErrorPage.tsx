@@ -20,9 +20,10 @@ const Frame = ({
 
 /** Any route that does not exist. */
 export const NotFoundPage = () => (
-  <Frame icon={<SearchXIcon className="size-8" />} title="Esta página no existe">
+  <Frame icon={<SearchXIcon className="size-8" />} title="Página no encontrada">
     <p className="max-w-sm text-sm text-muted-foreground">
-      Puede que el enlace esté mal escrito, o que sea de una empresa a la que no tienes acceso.
+      Es posible que el enlace sea incorrecto o que corresponda a una empresa a la que no tienes
+      acceso.
     </p>
     <Button asChild size="sm">
       <Link to="/">Volver al inicio</Link>
@@ -44,7 +45,10 @@ export const ErrorPage = ({ error, reset }: { error: unknown; reset: () => void 
   const message = error instanceof Error ? error.message : null
 
   return (
-    <Frame icon={<AlertTriangleIcon className="size-8" />} title="Algo falló al cargar esta página">
+    <Frame
+      icon={<AlertTriangleIcon className="size-8" />}
+      title="No fue posible cargar esta página"
+    >
       {message && <p className="max-w-lg font-mono text-xs text-destructive">{message}</p>}
       <div className="flex gap-2">
         <Button size="sm" onClick={reset}>

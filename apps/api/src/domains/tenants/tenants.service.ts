@@ -355,8 +355,8 @@ export class TenantsService {
         // screen sends the operator looking for a company that has nothing to
         // do with it.
         throw new ConflictException(
-          'Ese identificador ya está registrado y activo. Si es de esta empresa, está en la ' +
-            'lista de arriba; dalo de baja antes de volver a registrarlo.',
+          'Este identificador ya está registrado y activo. Si pertenece a esta empresa, aparece en ' +
+            'la lista de números; dalo de baja antes de registrarlo de nuevo.',
         )
       }
       throw this.toHttpError(error)
@@ -431,19 +431,19 @@ export class TenantsService {
         id: 'credentials',
         isDone: missing.length === 0,
         missingDetail: missing.length
-          ? `Faltan ${missing.map((provider) => PROVIDER_LABEL[provider]).join(' y ')}`
+          ? `Credenciales pendientes: ${new Intl.ListFormat('es').format(missing.map((provider) => PROVIDER_LABEL[provider]))}`
           : null,
       },
       {
         id: 'number',
         isDone: !!number,
-        missingDetail: number ? null : 'Todavía no hay ningún número conectado',
+        missingDetail: number ? null : 'Aún no hay números conectados',
       },
       {
         id: 'webhook',
         isDone: (inbound.count ?? 0) > 0,
         missingDetail:
-          (inbound.count ?? 0) > 0 ? null : 'Todavía no ha llegado ningún mensaje por el webhook',
+          (inbound.count ?? 0) > 0 ? null : 'Aún no se ha recibido ningún mensaje por el webhook',
       },
       {
         id: 'paymentMethods',
@@ -451,7 +451,7 @@ export class TenantsService {
         missingDetail:
           (methods.count ?? 0) > 0
             ? null
-            : 'Sin cuentas, todo comprobante se retiene para revisión manual',
+            : 'Sin cuentas registradas, todos los comprobantes se retienen para revisión manual',
       },
     ]
 
@@ -501,7 +501,7 @@ export class TenantsService {
 
     if (!apiKey) {
       throw new ConflictException(
-        'Esta empresa todavía no tiene cargada la credencial de Wisphub, así que no hay de dónde traer sus datos.',
+        'Esta empresa aún no tiene configurada la credencial de Wisphub, por lo que no es posible consultar sus datos.',
       )
     }
 
@@ -518,14 +518,18 @@ export class TenantsService {
 
       if (!response.ok) {
         this.logger.error(`Wisphub answered ${response.status} listing ${resource}`)
-        throw new InternalServerErrorException(`Wisphub no respondió a la consulta de ${resource}`)
+        throw new InternalServerErrorException(
+          `Wisphub no respondió a la consulta de ${resource.replaceAll('-', ' ')}. Inténtalo de nuevo en unos minutos.`,
+        )
       }
 
       const parsed = wisphubNamedEntityPageSchema.safeParse(await response.json())
 
       if (!parsed.success) {
         this.logger.error(`Wisphub answered an unexpected shape listing ${resource}`)
-        throw new InternalServerErrorException('Wisphub respondió algo que no se pudo leer')
+        throw new InternalServerErrorException(
+          'Wisphub devolvió una respuesta que no fue posible interpretar',
+        )
       }
 
       found.push(...parsed.data.results)
@@ -563,7 +567,7 @@ export class TenantsService {
 
     if (error) {
       if (error.code === UNIQUE_VIOLATION) {
-        throw new ConflictException('Esa cuenta ya está registrada para esta empresa')
+        throw new ConflictException('Esta cuenta ya está registrada para esta empresa')
       }
       throw this.toHttpError(error)
     }
@@ -603,7 +607,7 @@ export class TenantsService {
     // An update that matched nothing is the silent failure this method exists to
     // avoid repeating: say so rather than answering as if it worked.
     if (!data?.length) {
-      throw new NotFoundException('Ese número no existe o ya estaba dado de baja')
+      throw new NotFoundException('El número no existe o ya fue dado de baja')
     }
   }
 
@@ -646,7 +650,9 @@ export class TenantsService {
       if (error.code !== UNIQUE_VIOLATION) throw this.toHttpError(error)
     }
 
-    throw new ConflictException('Ya hay demasiadas empresas con un nombre parecido')
+    throw new ConflictException(
+      'Ya existen demasiadas empresas con un nombre similar. Usa un nombre distinto.',
+    )
   }
 
   /** The decrypted secret of one provider. It exists in this process and nowhere else. */
@@ -695,7 +701,7 @@ export class TenantsService {
 
     this.logger.error(`Postgrest ${error.code}: ${error.message}`)
 
-    return new InternalServerErrorException('No se pudo completar la operación')
+    return new InternalServerErrorException('No fue posible completar la operación')
   }
 }
 

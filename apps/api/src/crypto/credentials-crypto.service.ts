@@ -25,7 +25,7 @@ export class CredentialsCryptoService {
     try {
       return this.crypto.decrypt(ciphertext)
     } catch {
-      throw new InternalServerErrorException('No se pudo descifrar la credencial')
+      throw new InternalServerErrorException('No fue posible descifrar la credencial')
     }
   }
 }

@@ -152,8 +152,8 @@ const ErrorsCard = ({ page }: { page: number }) => {
       <CardHeader>
         <CardTitle>Errores</CardTitle>
         <CardDescription>
-          Ejecuciones que fallaron en cualquier empresa. Las que dicen “se reintenta” todavía pueden
-          salir bien solas; las que dicen “Falló” ya agotaron sus intentos.
+          Ejecuciones con error en cualquier empresa. Las marcadas como “se reintentará” aún pueden
+          completarse automáticamente; las marcadas como “Con error” ya agotaron sus intentos.
         </CardDescription>
         <CardAction>
           <Button
@@ -176,7 +176,7 @@ const ErrorsCard = ({ page }: { page: number }) => {
             <JobRunTable
               runs={errors.data?.items ?? []}
               showCompany
-              emptyText="Ninguna ejecución ha fallado"
+              emptyText="No hay ejecuciones con error"
             />
             <Pager page={page} total={errors.data?.total ?? 0} onPageChange={goToPage} />
           </>
@@ -203,7 +203,7 @@ const TenantsCard = ({ page }: { page: number }) => {
       <CardHeader>
         <CardTitle>Empresas</CardTitle>
         <CardDescription>
-          Abre una empresa para ver sus datos y sus conversaciones, y para encender o apagar su
+          Abre una empresa para consultar sus datos y conversaciones, y para activar o desactivar su
           agente y su modo de prueba.
         </CardDescription>
         <CardAction>
@@ -258,7 +258,7 @@ const TenantsCard = ({ page }: { page: number }) => {
             ) : (
               <TableRow>
                 <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">
-                  Todavía no hay empresas
+                  No hay empresas registradas
                 </TableCell>
               </TableRow>
             )}
@@ -304,7 +304,7 @@ const CreateTenantDialog = ({ onClose }: { onClose: () => void }) => {
       open
       onClose={onClose}
       title="Nueva empresa"
-      description="Quedas como miembro de la empresa que crees. Después hay que cargarle sus credenciales y conectarle un número de WhatsApp."
+      description="Quedarás como miembro de la empresa que crees. Luego deberás configurar sus credenciales y conectar un número de WhatsApp."
       submitLabel="Crear"
       form={form}
       error={failure}
@@ -327,7 +327,7 @@ const CreateTenantDialog = ({ onClose }: { onClose: () => void }) => {
         {(field) => (
           <Field
             label="Teléfono de soporte"
-            hint="El número que el agente le da a quien pregunta por el servicio. Con indicativo de país y sin signos."
+            hint="Número que el agente comparte cuando un cliente solicita soporte. Incluye el indicativo del país, sin espacios ni signos."
             placeholder="573001234567"
             required
             value={field.state.value}
@@ -342,7 +342,7 @@ const CreateTenantDialog = ({ onClose }: { onClose: () => void }) => {
         {(field) => (
           <Field
             label="Teléfono del administrador"
-            hint="A dónde llegan los avisos cuando el agente necesita que alguien intervenga."
+            hint="Número al que se envían las alertas cuando se requiere la intervención de una persona."
             placeholder="573001234568"
             required
             value={field.state.value}
@@ -383,8 +383,8 @@ const GrantsCard = () => {
       <CardHeader>
         <CardTitle>Administradores de la plataforma</CardTitle>
         <CardDescription>
-          Se otorga por correo, aunque esa persona todavía no tenga cuenta: el rol se amarra a su
-          identidad la primera vez que entra. Revocar conserva el registro.
+          El rol se otorga por correo, incluso si la persona aún no tiene cuenta: queda vinculado a
+          su identidad la primera vez que inicia sesión. Al revocarlo, el registro se conserva.
         </CardDescription>
         <CardAction>
           <Button size="sm" onClick={() => setIsGrantDialogOpen(true)}>
@@ -399,7 +399,7 @@ const GrantsCard = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Correo</TableHead>
-              <TableHead>Otorgado</TableHead>
+              <TableHead>Fecha de otorgamiento</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead> </TableHead>
             </TableRow>
@@ -433,7 +433,7 @@ const GrantsCard = () => {
             ) : (
               <TableRow>
                 <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">
-                  Sin concesiones
+                  No hay administradores registrados
                 </TableCell>
               </TableRow>
             )}
@@ -477,8 +477,8 @@ const GrantDialog = ({ onClose }: { onClose: () => void }) => {
     <FormDialog
       open
       onClose={onClose}
-      title="Otorgar administrador de la plataforma"
-      description="Quien reciba este rol podrá crear empresas, entrar a cualquiera de ellas y otorgar este mismo rol."
+      title="Otorgar rol de administrador de la plataforma"
+      description="Quien reciba este rol podrá crear empresas, acceder a cualquiera de ellas y otorgar este mismo rol."
       submitLabel="Otorgar"
       form={form}
       error={failure}
@@ -486,8 +486,8 @@ const GrantDialog = ({ onClose }: { onClose: () => void }) => {
       <form.Field name="email">
         {(field) => (
           <Field
-            label="Correo"
-            hint="Funciona aunque esa persona todavía no tenga cuenta."
+            label="Correo electrónico"
+            hint="Funciona incluso si la persona aún no tiene cuenta."
             type="email"
             required
             value={field.state.value}

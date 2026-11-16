@@ -9,7 +9,9 @@ const PAYMENTS_TIME_ZONE = 'America/Bogota'
 /** Bogotá has no daylight saving, so the offset is fixed. */
 const PAYMENTS_UTC_OFFSET = '-05:00'
 
-const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha va en formato AAAA-MM-DD')
+const daySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener el formato AAAA-MM-DD')
 
 /**
  * The payments list: a page and a range of registration days, both inclusive.

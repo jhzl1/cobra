@@ -33,7 +33,13 @@ api.interceptors.response.use(
     // axios' own message says "Request failed with status code 409".
     const { message, details } = error.response?.data ?? {}
 
-    if (message) error.message = message
+    // Without an answer from the API there is no Spanish message to show, and
+    // the operator would read axios' own "Network Error" instead.
+    error.message =
+      message ??
+      (error.response
+        ? 'No fue posible completar la operación. Inténtalo de nuevo.'
+        : 'No fue posible conectar con el servidor. Verifica tu conexión e inténtalo de nuevo.')
     // The API names the offending field. Dropping it leaves the panel able to
     // say only "los datos no son válidos" and the operator guessing which one.
     if (details?.length) Object.assign(error, { fieldErrors: details })

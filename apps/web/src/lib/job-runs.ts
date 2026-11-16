@@ -25,13 +25,13 @@ interface AttemptState {
 export const attemptStateOf = (run: JobRun): AttemptState => {
   if (run.status === 'running') return { label: 'En curso', tone: 'info' }
   if (run.status === 'done') return { label: 'Completada', tone: 'success' }
-  if (run.attempt < run.maxAttempts) return { label: 'Falló, se reintenta', tone: 'warning' }
+  if (run.attempt < run.maxAttempts) return { label: 'Con error, se reintentará', tone: 'warning' }
 
-  return { label: 'Falló', tone: 'destructive' }
+  return { label: 'Con error', tone: 'destructive' }
 }
 
 export const formatAttempt = (run: JobRun): string =>
-  run.maxAttempts > 1 ? `${run.attempt} de ${run.maxAttempts}` : 'Único'
+  run.maxAttempts > 1 ? `${run.attempt} de ${run.maxAttempts}` : 'Intento único'
 
 export const formatStartedAt = (iso: string): string =>
   new Date(iso).toLocaleString('es-CO', {

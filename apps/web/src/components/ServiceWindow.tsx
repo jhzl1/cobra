@@ -38,14 +38,14 @@ export const ServiceWindow = ({ lastInboundAt }: { lastInboundAt: string | null 
   }, [lastInboundAt])
 
   if (remaining <= 0) {
-    return <span className="whitespace-nowrap text-destructive">Ventana cerrada</span>
+    return <span className="whitespace-nowrap text-destructive">Ventana de respuesta cerrada</span>
   }
 
   // A line of text rather than a badge: it sits in the chat's subtitle, and it
   // only takes colour in the last two hours, when it starts to matter.
   return (
     <span className={cn('whitespace-nowrap', remaining < 2 * 60 * 60 * 1000 && 'text-warning')}>
-      Quedan {formatDuration(remaining)} para escribirle
+      Quedan {formatDuration(remaining)} para responder
     </span>
   )
 }

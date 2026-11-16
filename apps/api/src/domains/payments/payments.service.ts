@@ -146,7 +146,7 @@ export class PaymentsService {
   private toHttpError(error: PostgrestError): Error {
     this.logger.error(`Postgrest ${error.code}: ${error.message}`)
 
-    return new InternalServerErrorException('No se pudieron cargar los pagos')
+    return new InternalServerErrorException('No fue posible cargar los pagos')
   }
 }
 

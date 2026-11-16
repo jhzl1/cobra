@@ -29,9 +29,9 @@ interface Settlement {
  * gets charged twice, so both of these say so in the receipt.
  */
 const UNKNOWN_OUTCOME_REASON =
-  'Wisphub no respondió y no se sabe si registró el pago. Revísalo en Wisphub antes de volver a aplicarlo.'
+  'Wisphub no respondió y no es posible confirmar si el pago quedó registrado. Verifícalo en Wisphub antes de aplicarlo de nuevo.'
 const PARTIAL_PAYMENT_REASON =
-  'Wisphub registró solo una parte del pago y el administrador ya fue avisado. Revísalo en Wisphub antes de volver a aplicarlo.'
+  'Wisphub registró solo una parte del pago y ya se notificó al administrador. Verifícalo en Wisphub antes de aplicarlo de nuevo.'
 
 /**
  * An operator registering a held receipt by hand, from "Pendientes".
@@ -71,7 +71,7 @@ export class ApplyHeldReceiptJobHandler {
       await this.receipts.failApplying(
         tenantId,
         receiptId,
-        'La cuenta de recaudo elegida no tiene forma de pago de Wisphub. Asígnasela en Configuración.',
+        'La cuenta de recaudo seleccionada no tiene una forma de pago de Wisphub asignada. Asígnala en Configuración.',
       )
 
       return {}
@@ -91,7 +91,7 @@ export class ApplyHeldReceiptJobHandler {
       await this.receipts.failApplying(
         tenantId,
         receiptId,
-        'No se pudo consultar al cliente en Wisphub. No se registró nada; intenta de nuevo.',
+        'No fue posible consultar al cliente en Wisphub. No se registró ningún pago; inténtalo de nuevo.',
       )
 
       return {}

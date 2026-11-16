@@ -161,7 +161,7 @@ describe('ApplyHeldReceiptJobHandler', () => {
     expect(receipts.failApplying).toHaveBeenCalledWith(
       TENANT_ID,
       RECEIPT_ID,
-      expect.stringContaining('Revísalo en Wisphub'),
+      expect.stringContaining('Verifícalo en Wisphub'),
     )
   })
 
@@ -185,7 +185,7 @@ describe('ApplyHeldReceiptJobHandler', () => {
     expect(receipts.failApplying).toHaveBeenCalledWith(
       TENANT_ID,
       RECEIPT_ID,
-      expect.stringContaining('Revísalo en Wisphub'),
+      expect.stringContaining('Verifícalo en Wisphub'),
     )
   })
 
@@ -203,7 +203,7 @@ describe('ApplyHeldReceiptJobHandler', () => {
     expect(receipts.failApplying).toHaveBeenCalledWith(
       TENANT_ID,
       RECEIPT_ID,
-      expect.stringContaining('No se registró nada'),
+      expect.stringContaining('No se registró ningún pago'),
     )
   })
 

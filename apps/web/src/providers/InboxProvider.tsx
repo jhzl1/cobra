@@ -89,7 +89,7 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
 
       notifyIncomingMessage(
         conversation.contact.displayName ?? conversation.contact.phone ?? 'Mensaje nuevo',
-        conversation.lastMessagePreview ?? 'Te escribieron por WhatsApp',
+        conversation.lastMessagePreview ?? 'Nuevo mensaje de WhatsApp',
       )
     }
   }, [conversations, openConversationId, conversationsQuery.isSuccess])

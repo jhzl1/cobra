@@ -15,7 +15,7 @@ export const platformRoleSchema = z.enum(['ADMIN'])
 export type PlatformRole = z.infer<typeof platformRoleSchema>
 
 export const grantRoleSchema = z.object({
-  email: z.email('Escribe un correo válido'),
+  email: z.email('Ingresa un correo electrónico válido'),
   role: platformRoleSchema.default('ADMIN'),
 })
 

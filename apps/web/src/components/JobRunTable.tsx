@@ -30,9 +30,9 @@ export const JobRunTable = ({ runs, showCompany = false, emptyText }: Props) => 
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Cuándo</TableHead>
+          <TableHead>Fecha</TableHead>
           {showCompany && <TableHead>Empresa</TableHead>}
-          <TableHead>Qué corrió</TableHead>
+          <TableHead>Proceso</TableHead>
           <TableHead>Intento</TableHead>
           <TableHead>Estado</TableHead>
           <TableHead>Error</TableHead>

@@ -116,7 +116,7 @@ export class PlatformSettingsService {
 
     if (!isAvailable) {
       throw new BadRequestException(
-        'Ese modelo no está en OpenRouter o no soporta lo que necesita esta tarea. Elige uno de la lista.',
+        'El modelo no está disponible en OpenRouter o no es compatible con esta tarea. Selecciona uno de la lista.',
       )
     }
   }
@@ -136,7 +136,7 @@ export class PlatformSettingsService {
       this.logger.error(`OpenRouter catalog: ${(error as Error).message}`)
 
       throw new ServiceUnavailableException(
-        'No se pudo consultar el catálogo de OpenRouter. Intenta de nuevo en unos minutos.',
+        'No fue posible consultar el catálogo de OpenRouter. Inténtalo de nuevo en unos minutos.',
       )
     }
   }
@@ -144,7 +144,7 @@ export class PlatformSettingsService {
   private toHttpError(error: PostgrestError): Error {
     this.logger.error(`Postgrest ${error.code}: ${error.message}`)
 
-    return new InternalServerErrorException('No se pudo completar la operación')
+    return new InternalServerErrorException('No fue posible completar la operación')
   }
 }
 

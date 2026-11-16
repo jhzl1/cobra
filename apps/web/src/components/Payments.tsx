@@ -39,7 +39,7 @@ const KIND_LABEL: Record<Payment['kind'], string> = {
 
 const REGISTERED_BY_LABEL: Record<Payment['registeredBy'], string> = {
   agent: 'Agente',
-  operator: 'Asesor, desde Pendientes',
+  operator: 'Asesor (desde Pendientes)',
 }
 
 /**
@@ -85,8 +85,8 @@ export const PaymentsCard = ({
       <CardHeader>
         <CardTitle>Pagos registrados</CardTitle>
         <CardDescription>
-          Los pagos que esta app registró en Wisphub, por el agente o por un asesor desde
-          Pendientes, según el día en que quedaron registrados.
+          Pagos que Wispay registró en Wisphub, ya sea por el agente o por un asesor desde
+          Pendientes, filtrados por fecha de registro.
         </CardDescription>
       </CardHeader>
 
@@ -100,7 +100,7 @@ export const PaymentsCard = ({
                 {formatPesos(list.data.totalAmount)}
               </p>
               <p className="text-xs text-muted-foreground">
-                {list.data.total} {list.data.total === 1 ? 'pago' : 'pagos'} en el rango
+                {list.data.total} {list.data.total === 1 ? 'pago' : 'pagos'} en el periodo
               </p>
             </div>
           )}
@@ -122,7 +122,7 @@ export const PaymentsCard = ({
           </>
         ) : (
           <p className="text-sm text-muted-foreground">
-            No se registró ningún pago entre esas fechas.
+            No hay pagos registrados en el periodo seleccionado.
           </p>
         )}
       </CardContent>
@@ -277,7 +277,7 @@ const PaymentDialog = ({ payment, onClose }: { payment: Payment | null; onClose:
               {payment.receipt && (
                 <section className="flex flex-col gap-2">
                   <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    Lo que se leyó del comprobante
+                    Datos leídos del comprobante
                   </h3>
                   <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
                     <Detail
@@ -294,17 +294,17 @@ const PaymentDialog = ({ payment, onClose }: { payment: Payment | null; onClose:
                       label="Referencia"
                       value={payment.receipt.references.join(', ') || null}
                     />
-                    <Detail label="Medio" value={payment.receipt.destinationMethod} />
-                    <Detail label="Cuenta destino" value={payment.receipt.destinationAccount} />
+                    <Detail label="Medio de pago" value={payment.receipt.destinationMethod} />
+                    <Detail label="Cuenta de destino" value={payment.receipt.destinationAccount} />
                     <Detail
-                      label="Seguridad de la lectura"
+                      label="Confianza de la lectura"
                       value={
                         payment.receipt.confidence === null
                           ? null
                           : `${Math.round(payment.receipt.confidence * 100)} %`
                       }
                     />
-                    <Detail label="Lo que se leyó" value={payment.receipt.description} />
+                    <Detail label="Descripción" value={payment.receipt.description} />
                   </dl>
                 </section>
               )}
@@ -319,7 +319,7 @@ const PaymentDialog = ({ payment, onClose }: { payment: Payment | null; onClose:
 const Detail = ({ label, value }: { label: string; value: string | null }) => (
   <>
     <dt className="text-muted-foreground">{label}</dt>
-    <dd className="min-w-0 break-words">{value ?? 'No se leyó'}</dd>
+    <dd className="min-w-0 break-words">{value ?? 'No disponible'}</dd>
   </>
 )
 

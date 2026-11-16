@@ -134,8 +134,8 @@ export const ConversationPanel = ({
             loading={handoff.isPending}
             title={
               isHuman
-                ? 'El agente vuelve a responder los mensajes que entren'
-                : 'El agente deja de responder y escribes tú'
+                ? 'El agente retoma la atención de los mensajes entrantes'
+                : 'El agente deja de responder y la conversación queda a tu cargo'
             }
             onClick={() => handoff.mutate(isHuman ? 'release' : 'take')}
           >
@@ -162,12 +162,12 @@ export const ConversationPanel = ({
         <footer className="flex shrink-0 flex-col gap-1 border-t px-4 py-3 text-xs md:px-6">
           {conversation.lastRunFailed && (
             <p className="text-destructive">
-              El último turno del agente falló, así que el cliente se quedó sin respuesta.
+              El agente no pudo completar su última respuesta y el cliente sigue esperando.
             </p>
           )}
           <p className="text-muted-foreground">
-            Las conversaciones de una empresa las responde su equipo. Desde la plataforma solo se
-            leen.
+            Cada empresa atiende sus propias conversaciones. Desde la plataforma solo pueden
+            consultarse.
           </p>
         </footer>
       ) : (
@@ -176,8 +176,11 @@ export const ConversationPanel = ({
             tray exists — but the only way out on screen is now the operator. */}
           {conversation.lastRunFailed && (
             <p className="text-xs text-destructive">
-              El último turno del agente falló, así que el cliente se quedó sin respuesta.
-              {!isSendBlocked && (isHuman ? ' Escríbele tú.' : ' Toma el control y escríbele tú.')}
+              El agente no pudo completar su última respuesta y el cliente sigue esperando.
+              {!isSendBlocked &&
+                (isHuman
+                  ? ' Responde al cliente desde aquí.'
+                  : ' Toma el control para responderle.')}
             </p>
           )}
 
@@ -188,14 +191,14 @@ export const ConversationPanel = ({
             <p className="text-xs text-muted-foreground">{sendBlockedReason}</p>
           ) : isServiceWindowClosed ? (
             <p className="text-xs text-destructive">
-              Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp no permite
-              escribirle sin una plantilla aprobada.
+              Han pasado más de 24 horas desde el último mensaje del cliente. WhatsApp solo permite
+              contactarlo con una plantilla aprobada.
             </p>
           ) : (
             !isHuman &&
             !conversation.lastRunFailed && (
               <p className="text-xs text-muted-foreground">
-                El agente está respondiendo. Toma el control para escribirle tú.
+                El agente está atendiendo esta conversación. Toma el control para responder.
               </p>
             )
           )}
@@ -229,7 +232,7 @@ export const ConversationPanel = ({
 const AUTHOR_LABEL: Record<Message['author'], string> = {
   contact: 'Cliente',
   agent: 'Agente',
-  operator: 'Operador',
+  operator: 'Asesor',
 }
 
 /**
@@ -262,7 +265,9 @@ const ThinkingBubble = () => (
           />
         ))}
       </span>
-      <span className="font-mono text-[11px] text-muted-foreground">El agente está pensando</span>
+      <span className="font-mono text-[11px] text-muted-foreground">
+        El agente está redactando una respuesta
+      </span>
     </div>
   </div>
 )

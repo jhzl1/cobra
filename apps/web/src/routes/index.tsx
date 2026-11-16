@@ -43,9 +43,11 @@ const Home = () => {
  */
 const NoTenant = () => (
   <div className="flex flex-col items-start gap-2 p-4 md:p-6">
-    <p className="text-sm text-muted-foreground">Todavía no hay ninguna empresa a tu nombre.</p>
     <p className="text-sm text-muted-foreground">
-      Pídele a quien administra la plataforma que te agregue a una.
+      Tu cuenta aún no está asociada a ninguna empresa.
+    </p>
+    <p className="text-sm text-muted-foreground">
+      Solicita al administrador de la plataforma que te agregue a una.
     </p>
   </div>
 )
