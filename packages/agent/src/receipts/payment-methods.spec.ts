@@ -9,6 +9,7 @@ const method = (over: Partial<PaymentMethod>): PaymentMethod => ({
   paymentAddress: '3001234567',
   wisphubId: '7',
   description: null,
+  isActive: true,
   ...over,
 })
 

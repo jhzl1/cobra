@@ -10,6 +10,7 @@ const method: PaymentMethod = {
   paymentAddress: '3001234567',
   wisphubId: '7',
   description: 'Nequi principal',
+  isActive: true,
 }
 
 const extraction = (over: Partial<ReceiptExtraction> = {}): ReceiptExtraction => ({
@@ -78,6 +79,18 @@ describe('validateReceipt', () => {
     })
 
     expect(result.alertReason).toBe('destination_not_ours')
+  })
+
+  it('holds a receipt paid into an account the company switched off', () => {
+    const result = validateReceipt({
+      extraction: extraction(),
+      paymentMethods: [{ ...method, isActive: false }],
+      isReferenceUsed: true,
+      now,
+    })
+
+    // Reported before the spent reference: it takes the slot of rule 3.
+    expect(result.alertReason).toBe('destination_inactive')
   })
 
   it('rejects a reference already spent', () => {

@@ -21,13 +21,19 @@ export class PaymentMethodRepository {
   async list(tenantId: string, zone: string | null): Promise<PaymentMethod[]> {
     const all = await this.fetchAll(tenantId)
 
-    return all.filter((method) => isOfferedInZone(method, zone))
+    return all.filter((method) => method.isActive && isOfferedInZone(method, zone))
   }
 
   private async fetchAll(tenantId: string): Promise<PaymentMethod[]> {
     const { data, error } = await this.supabase
       .scope(tenantId)
-      .select('payment_methods', 'id, zone, entity_name, payment_address, wisphub_id, description')
+      .select(
+        'payment_methods',
+        'id, zone, entity_name, payment_address, wisphub_id, description, is_active',
+      )
+      // A removed account is gone for the agent: a receipt paid into it is
+      // "not ours", like one paid into an account that was never registered.
+      .is('archived_at', null)
 
     if (error) throw error
 
@@ -38,11 +44,14 @@ export class PaymentMethodRepository {
       paymentAddress: row['payment_address'] as string,
       wisphubId: (row['wisphub_id'] as string | null) ?? null,
       description: (row['description'] as string | null) ?? null,
+      isActive: row['is_active'] as boolean,
     }))
   }
 
   /**
-   * Every account of the tenant, zoned or not.
+   * Every account of the tenant, zoned or not, switched off or not: a receipt
+   * paid into a switched-off account has to be recognised as such to be held
+   * with that reason.
    *
    * For matching a receipt that arrived before anyone identified the customer:
    * there is no zone to narrow by yet, and an account left out here is a receipt

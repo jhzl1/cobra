@@ -27,6 +27,8 @@ export interface PaymentMethod {
   paymentAddress: string
   wisphubId: string | null
   description: string | null
+  /** Switched off in the panel: never offered, and a receipt paid into it is held. */
+  isActive: boolean
 }
 
 export interface ConversationMessage {
@@ -153,13 +155,14 @@ export interface StepRecorder {
   ): Promise<void>
 }
 
-/** What a receipt looked like after the vision model and the five rules. */
+/** What a receipt looked like after the vision model and the validation rules. */
 export interface ReceiptValidation {
   extraction: ReceiptExtraction
   paidAt: Date | null
   isPaymentDateReadable: boolean
   isPaymentDateRecent: boolean
   isDestinationOurs: boolean
+  isDestinationActive: boolean
   isReferenceUnused: boolean
   paymentMethod: PaymentMethod | null
   alertReason: AlertReason | null

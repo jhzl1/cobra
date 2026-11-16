@@ -71,6 +71,7 @@ export const alertReasonSchema = z.enum([
   'not_a_voucher',
   'older_than_7_days',
   'destination_not_ours',
+  'destination_inactive',
   'reference_already_used',
   'unreadable_date',
 ])
@@ -81,6 +82,7 @@ export const ALERT_REASON_TEXT: Record<AlertReason, string> = {
   not_a_voucher: 'La imagen no es un comprobante de pago',
   older_than_7_days: 'Comprobante con más de 7 días de antigüedad',
   destination_not_ours: 'La cuenta de destino no pertenece a la empresa',
+  destination_inactive: 'El pago se hizo a una cuenta de recaudo que no está activa',
   reference_already_used: 'Comprobante registrado previamente',
   unreadable_date: 'No fue posible leer la fecha del comprobante',
 }
@@ -95,6 +97,7 @@ export const ALERT_REASON_TEXT: Record<AlertReason, string> = {
 export const APPLICABLE_ALERT_REASONS: readonly AlertReason[] = [
   'older_than_7_days',
   'destination_not_ours',
+  'destination_inactive',
   'reference_already_used',
   'unreadable_date',
 ]

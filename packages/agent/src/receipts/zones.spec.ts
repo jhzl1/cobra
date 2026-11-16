@@ -9,6 +9,7 @@ const method = (zone: string | null): PaymentMethod => ({
   paymentAddress: '3001234567',
   wisphubId: '44324',
   description: null,
+  isActive: true,
 })
 
 describe('isOfferedInZone', () => {
