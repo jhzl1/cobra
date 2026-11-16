@@ -31,6 +31,10 @@ export const queryKeys = {
     ['tenants', tenantId, 'wisphub', 'payment-methods'] as const,
   wisphubZones: (tenantId: string) => ['tenants', tenantId, 'wisphub', 'zones'] as const,
   paymentMethods: (tenantId: string) => ['tenants', tenantId, 'payment-methods'] as const,
+  // Every page shares the prefix, so invalidating `heldReceipts` reaches all of them.
+  heldReceipts: (tenantId: string) => ['tenants', tenantId, 'held-receipts'] as const,
+  heldReceiptPage: (tenantId: string, page: number) =>
+    ['tenants', tenantId, 'held-receipts', page] as const,
   conversations: (tenantId: string) => ['conversations', tenantId] as const,
   messages: (conversationId: string) => ['conversations', conversationId, 'messages'] as const,
   runs: (conversationId: string) => ['conversations', conversationId, 'runs'] as const,

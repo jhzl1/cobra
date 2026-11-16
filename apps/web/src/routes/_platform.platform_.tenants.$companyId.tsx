@@ -1,14 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { pageSearchOf } from '@cobra/contracts'
 import { PlatformTenantPage, type PlatformTenantTab } from '~/pages/PlatformTenantPage'
 
 interface Search {
   tab?: PlatformTenantTab
   conversationId?: string
+  /** The held receipts' page. Changing tab drops it, so each tab starts on page 1. */
+  page?: number
 }
 
-/** The conversations tab is the default, so the URL only names the other two. */
+/** The conversations tab is the default, so the URL only names the others. */
 const tabOf = (value: unknown): PlatformTenantTab | undefined => {
-  if (value === 'executions' || value === 'settings') return value
+  if (value === 'pending' || value === 'executions' || value === 'settings') return value
 
   return undefined
 }
@@ -26,16 +29,18 @@ export const Route = createFileRoute('/_platform/platform_/tenants/$companyId')(
     tab: tabOf(search['tab']),
     conversationId:
       typeof search['conversationId'] === 'string' ? search['conversationId'] : undefined,
+    page: pageSearchOf(search['page']),
   }),
   component: () => {
     const { companyId } = Route.useParams()
-    const { tab, conversationId } = Route.useSearch()
+    const { tab, conversationId, page } = Route.useSearch()
 
     return (
       <PlatformTenantPage
         tenantId={companyId}
         tab={tab ?? 'conversations'}
         conversationId={conversationId ?? null}
+        page={page ?? 1}
       />
     )
   },

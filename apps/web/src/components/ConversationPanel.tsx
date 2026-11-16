@@ -2,17 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import type { ConversationSummary, HandoffInput, Message } from '@cobra/contracts'
 import { Button } from '~/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '~/components/ui/dialog'
 import { Textarea } from '~/components/ui/textarea'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
 import { cn } from '~/lib/utils'
+import { ReceiptImage } from './ReceiptImage'
 import { ServiceWindow, remainingWindowMs } from './ServiceWindow'
 
 interface Props {
@@ -242,7 +236,7 @@ const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad
         )}
       >
         {message.mediaUrl && (
-          <MessageImage
+          <ReceiptImage
             url={message.mediaUrl}
             receivedAt={message.receivedAt}
             onLoad={onMediaLoad}
@@ -270,57 +264,5 @@ const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad
         </p>
       </div>
     </div>
-  )
-}
-
-/**
- * A message's image, and a way to actually read it.
- *
- * Any `mediaUrl` lands here, but in practice it is almost always a receipt. In
- * the bubble it is a thumbnail, and a thumbnail of a bank transfer is
- * illegible — the amount and the reference are the whole point of looking. The
- * full-size view is what lets the operator check what the agent read.
- */
-const MessageImage = ({
-  url,
-  receivedAt,
-  onLoad,
-}: {
-  url: string
-  receivedAt: string
-  onLoad: () => void
-}) => {
-  const [isFullSizeOpen, setIsFullSizeOpen] = useState(false)
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setIsFullSizeOpen(true)}
-        title="Ver el comprobante completo"
-        className="mb-1 block cursor-zoom-in overflow-hidden rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-      >
-        <img src={url} alt="Comprobante" className="max-h-64" onLoad={onLoad} />
-      </button>
-
-      <Dialog open={isFullSizeOpen} onOpenChange={setIsFullSizeOpen}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Comprobante</DialogTitle>
-            <DialogDescription>
-              Recibido el {new Date(receivedAt).toLocaleString('es-CO', { hour12: true })}
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* `object-contain` and a viewport cap: a tall receipt photographed
-              from a phone is otherwise cropped exactly where the reference is. */}
-          <img
-            src={url}
-            alt="Comprobante"
-            className="max-h-[75vh] w-full rounded-lg object-contain"
-          />
-        </DialogContent>
-      </Dialog>
-    </>
   )
 }

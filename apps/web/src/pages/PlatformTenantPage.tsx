@@ -6,7 +6,9 @@ import { useState } from 'react'
 import type { AgentRun, ConversationSummary, JobRun } from '@cobra/contracts'
 import { ConversationList } from '~/components/ConversationList'
 import { ConversationPanel } from '~/components/ConversationPanel'
+import { HeldReceiptCard, useHeldReceipts } from '~/components/HeldReceiptCard'
 import { JobRunTable } from '~/components/JobRunTable'
+import { Pager } from '~/components/Pager'
 import { TenantControls } from '~/components/TenantControls'
 import { TenantOverview } from '~/components/TenantOverview'
 import { TenantStateBadges } from '~/components/TenantStateBadges'
@@ -23,12 +25,14 @@ import type { TenantSummary } from '~/lib/tenants'
 import { cn } from '~/lib/utils'
 import { NotFoundPage } from '~/pages/ErrorPage'
 
-export type PlatformTenantTab = 'conversations' | 'executions' | 'settings'
+export type PlatformTenantTab = 'conversations' | 'pending' | 'executions' | 'settings'
 
 interface Props {
   tenantId: string
   tab: PlatformTenantTab
   conversationId: string | null
+  /** The page of the held receipts, when that tab is open. */
+  page: number
 }
 
 /**
@@ -38,7 +42,7 @@ interface Props {
  * The conversations stay read only — the administrator audits, the company's
  * own team answers its customers.
  */
-export const PlatformTenantPage = ({ tenantId, tab, conversationId }: Props) => {
+export const PlatformTenantPage = ({ tenantId, tab, conversationId, page }: Props) => {
   const navigate = useNavigate()
 
   const tenant = useQuery({
@@ -87,12 +91,17 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId }: Props) => 
       >
         <TabsList variant="line" className="md:px-6">
           <TabsTrigger value="conversations">Conversaciones</TabsTrigger>
+          <TabsTrigger value="pending">Pendientes</TabsTrigger>
           <TabsTrigger value="executions">Ejecuciones</TabsTrigger>
           <TabsTrigger value="settings">Configuración</TabsTrigger>
         </TabsList>
 
         <TabsContent value="conversations" className="flex min-h-0 flex-1 flex-col">
           <ReadOnlyConversations tenantId={tenantId} conversationId={conversationId} />
+        </TabsContent>
+
+        <TabsContent value="pending" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          <ReadOnlyHeldReceipts tenantId={tenantId} page={page} />
         </TabsContent>
 
         <TabsContent value="executions" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
@@ -112,9 +121,50 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId }: Props) => 
 
 /** The conversations tab is the default, so it stays out of the URL. */
 const toTabSearch = (value: string): PlatformTenantTab | undefined => {
-  if (value === 'executions' || value === 'settings') return value
+  if (value === 'pending' || value === 'executions' || value === 'settings') return value
 
   return undefined
+}
+
+/* Pending --------------------------------------------------------------------- */
+
+/**
+ * The company's held receipts, to read. Applying and dismissing stay with the
+ * company's own team, like answering its customers does.
+ */
+const ReadOnlyHeldReceipts = ({ tenantId, page }: { tenantId: string; page: number }) => {
+  const { list: heldReceipts, goToPage } = useHeldReceipts({ tenantId, page })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          Comprobantes retenidos
+          {heldReceipts.data ? (
+            <span className="ml-2 font-mono text-sm font-normal text-muted-foreground">
+              {heldReceipts.data.total}
+            </span>
+          ) : null}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {heldReceipts.isLoading ? (
+          <PageCenter />
+        ) : heldReceipts.error ? (
+          <p className="text-sm text-destructive">{heldReceipts.error.message}</p>
+        ) : heldReceipts.data?.items.length ? (
+          <>
+            {heldReceipts.data.items.map((receipt) => (
+              <HeldReceiptCard key={receipt.id} receipt={receipt} />
+            ))}
+            <Pager page={page} total={heldReceipts.data.total} onPageChange={goToPage} />
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">No hay comprobantes retenidos.</p>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 /* Conversations --------------------------------------------------------------- */
