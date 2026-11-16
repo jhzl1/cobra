@@ -48,6 +48,17 @@ export interface SteeringOptions {
 export class Steering {
   private latched = false
   private queued: ConversationMessage[] = []
+  /**
+   * Every message that has steered this turn, queued or already injected.
+   *
+   * They stay unprocessed in the database until the turn ends, so
+   * `readUnconsumed` keeps returning them. Without this set the turn re-latched
+   * on the same message before every tool: on 2026-11-15 one "listo pago
+   * realizado" skipped four tool calls in a row, the model invented that an
+   * advisor had the case, and a second turn then registered the payment.
+   */
+  private readonly steered = new Set<string>()
+  private injected: string[] = []
   private readonly maxQueued: number
 
   constructor(
@@ -67,7 +78,19 @@ export class Steering {
   }
 
   /**
+   * The messages this turn already read, through the prompt that carried them
+   * into the history. The turn marks them processed with its own burst, or the
+   * next turn would answer them a second time.
+   */
+  get injectedMessageIds(): readonly string[] {
+    return this.injected
+  }
+
+  /**
    * Called before launching a tool. Returns true when this tool must be skipped.
+   *
+   * Only a message that has not steered this turn yet counts: once one is in
+   * the history, the tools after it run normally, and a newer one steers again.
    *
    * A failure of the check is not a reason to skip: the customer's message is
    * less important than the turn completing, so an unreachable database leaves
@@ -78,10 +101,11 @@ export class Steering {
 
     try {
       const pending = await this.port.readUnconsumed()
+      const fresh = pending.filter((message) => !this.steered.has(message.id))
 
-      if (pending.length) {
+      if (fresh.length) {
         this.latched = true
-        this.enqueue(pending)
+        this.enqueue(fresh)
       }
     } catch {
       return false
@@ -103,6 +127,7 @@ export class Steering {
     const messages = this.queued
     this.queued = []
     this.latched = false
+    this.injected = [...this.injected, ...messages.map((message) => message.id)]
 
     const overflow = messages.length - this.maxQueued
     const kept = overflow > 0 ? messages.slice(-this.maxQueued) : messages
@@ -120,10 +145,11 @@ export class Steering {
   }
 
   private enqueue(messages: readonly ConversationMessage[]): void {
-    const known = new Set(this.queued.map((message) => message.id))
-
     for (const message of messages) {
-      if (!known.has(message.id)) this.queued.push(message)
+      if (this.steered.has(message.id)) continue
+
+      this.steered.add(message.id)
+      this.queued.push(message)
     }
   }
 }
