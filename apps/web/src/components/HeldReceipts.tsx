@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { ALERT_REASON_TEXT, type HeldReceipt, type Page } from '@cobra/contracts'
-import { ViewReceiptButton } from '~/components/ReceiptImage'
 import { Badge } from '~/components/ui/badge'
 import {
   Dialog,
@@ -22,6 +22,7 @@ import {
 import { usePageInUrl } from '~/hooks/usePageInUrl'
 import { api } from '~/lib/api'
 import { queryKeys } from '~/lib/queryClient'
+import { cn } from '~/lib/utils'
 
 /** While a receipt is being applied, the list asks again this often. */
 const APPLYING_POLL_MS = 3_000
@@ -140,7 +141,7 @@ export const HeldReceiptDialog = ({
       if (!open) onClose()
     }}
   >
-    <DialogContent className="sm:max-w-xl">
+    <DialogContent className="sm:max-w-4xl">
       {receipt && (
         <>
           <DialogHeader>
@@ -151,54 +152,99 @@ export const HeldReceiptDialog = ({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="warning">{ALERT_REASON_TEXT[receipt.alertReason]}</Badge>
-            {receipt.resolution === 'applying' && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Spinner className="size-3" />
-                Aplicando en Wisphub…
-              </span>
-            )}
+          {/* The image beside the data, so what was read can be checked
+              against what is printed without leaving the dialog. Keyed by
+              receipt: its loading state must start over for each one. */}
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+            <ReceiptPreview key={receipt.id} url={receipt.imageUrl} />
+
+            <div className="flex min-w-0 flex-col gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="warning">{ALERT_REASON_TEXT[receipt.alertReason]}</Badge>
+                {receipt.resolution === 'applying' && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Spinner className="size-3" />
+                    Aplicando en Wisphub…
+                  </span>
+                )}
+              </div>
+
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
+                <Detail
+                  label="Monto"
+                  value={receipt.amount === null ? null : formatPesos(receipt.amount)}
+                />
+                <Detail
+                  label="Fecha del pago"
+                  value={receipt.paidAt ? formatDateTime(receipt.paidAt) : null}
+                />
+                <Detail label="Referencia" value={receipt.references.join(', ') || null} />
+                <Detail label="Medio" value={receipt.destinationMethod} />
+                <Detail label="Cuenta destino" value={receipt.destinationAccount} />
+                <Detail
+                  label="Seguridad de la lectura"
+                  value={
+                    receipt.confidence === null ? null : `${Math.round(receipt.confidence * 100)} %`
+                  }
+                />
+                <Detail label="Lo que se leyó" value={receipt.description} />
+              </dl>
+
+              {receipt.resolutionError && (
+                <p className="text-sm text-destructive">{receipt.resolutionError}</p>
+              )}
+            </div>
           </div>
 
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
-            <Detail
-              label="Monto"
-              value={receipt.amount === null ? null : formatPesos(receipt.amount)}
-            />
-            <Detail
-              label="Fecha del pago"
-              value={receipt.paidAt ? formatDateTime(receipt.paidAt) : null}
-            />
-            <Detail label="Referencia" value={receipt.references.join(', ') || null} />
-            <Detail label="Medio" value={receipt.destinationMethod} />
-            <Detail label="Cuenta destino" value={receipt.destinationAccount} />
-            <Detail
-              label="Seguridad de la lectura"
-              value={
-                receipt.confidence === null ? null : `${Math.round(receipt.confidence * 100)} %`
-              }
-            />
-            <Detail label="Lo que se leyó" value={receipt.description} />
-          </dl>
-
-          {receipt.resolutionError && (
-            <p className="text-sm text-destructive">{receipt.resolutionError}</p>
-          )}
-
-          <DialogFooter className="items-center sm:justify-between">
-            {receipt.imageUrl ? (
-              <ViewReceiptButton url={receipt.imageUrl} receivedAt={receipt.receivedAt} />
-            ) : (
-              <p className="text-xs text-muted-foreground">La imagen no quedó guardada.</p>
-            )}
-            {children}
-          </DialogFooter>
+          {children && <DialogFooter>{children}</DialogFooter>}
         </>
       )}
     </DialogContent>
   </Dialog>
 )
+
+/**
+ * The receipt's image, with a spinner in its place until it arrives: it comes
+ * from a signed URL in private storage and can take a moment.
+ *
+ * A path is stored even when the upload failed, so a URL that does not load is
+ * expected, and it says so instead of leaving an empty box.
+ */
+const ReceiptPreview = ({ url }: { url: string | null }) => {
+  const [state, setState] = useState<'loading' | 'loaded' | 'failed'>(url ? 'loading' : 'failed')
+
+  if (!url || state === 'failed') {
+    return (
+      <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-border p-4">
+        <p className="text-center text-sm text-muted-foreground">
+          La imagen del comprobante no quedó guardada.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative flex min-h-48 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
+      {state === 'loading' && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Spinner className="size-6" aria-label="Cargando el comprobante" />
+        </div>
+      )}
+      {/* `object-contain` and a viewport cap: a tall receipt photographed from
+          a phone is otherwise cropped exactly where the reference is. */}
+      <img
+        src={url}
+        alt="Comprobante"
+        onLoad={() => setState('loaded')}
+        onError={() => setState('failed')}
+        className={cn(
+          'max-h-[65vh] w-full object-contain transition-opacity duration-200',
+          state === 'loaded' ? 'opacity-100' : 'opacity-0',
+        )}
+      />
+    </div>
+  )
+}
 
 const Detail = ({ label, value }: { label: string; value: string | null }) => (
   <>

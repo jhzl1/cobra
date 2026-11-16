@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Button } from '~/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -37,30 +36,6 @@ export const ReceiptImage = ({
       >
         <img src={url} alt="Comprobante" className="max-h-64" onLoad={onLoad} />
       </button>
-
-      <FullSizeReceipt
-        url={url}
-        receivedAt={receivedAt}
-        open={isFullSizeOpen}
-        onOpenChange={setIsFullSizeOpen}
-      />
-    </>
-  )
-}
-
-/**
- * The same full-size view, behind a button instead of a thumbnail: for a list
- * of receipts, where a column of images would push the data each one is judged
- * by out of sight.
- */
-export const ViewReceiptButton = ({ url, receivedAt }: ReceiptProps) => {
-  const [isFullSizeOpen, setIsFullSizeOpen] = useState(false)
-
-  return (
-    <>
-      <Button size="sm" variant="ghost" onClick={() => setIsFullSizeOpen(true)}>
-        Ver comprobante
-      </Button>
 
       <FullSizeReceipt
         url={url}
