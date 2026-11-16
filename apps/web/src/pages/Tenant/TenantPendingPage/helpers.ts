@@ -1,14 +1,24 @@
 import { z } from 'zod'
 import { type AlertReason, dismissHeldReceiptSchema } from '@cobra/contracts'
 
-/** Inside the window the note is what the customer gets, so it cannot be empty. */
-export const requiredNoteSchema = dismissHeldReceiptSchema.extend({
-  note: z
-    .string()
-    .trim()
-    .min(1, 'Escribe la nota para el cliente')
-    .max(1000, 'La nota no puede superar los 1000 caracteres'),
-})
+/**
+ * The operator chooses whether the customer hears back. When they do, the note
+ * is what the customer gets, so it cannot be empty.
+ */
+export const dismissFormSchema = dismissHeldReceiptSchema
+  .extend({
+    shouldSendNote: z.boolean(),
+    note: z.string().trim().max(1000, 'La nota no puede superar los 1000 caracteres'),
+  })
+  .superRefine(({ shouldSendNote, note }, context) => {
+    if (shouldSendNote && !note) {
+      context.addIssue({
+        code: 'custom',
+        path: ['note'],
+        message: 'Escribe la nota para el cliente',
+      })
+    }
+  })
 
 /**
  * Where each dismissal note starts, by the reason the receipt was held. The
