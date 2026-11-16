@@ -261,6 +261,9 @@ export class WhatsappService {
           // than holding an internal identifier dressed as a phone.
           phone: /^\d+$/.test(personId) ? personId : null,
           display_name: profile?.profile?.name ?? null,
+          // Only when Meta sends one: an echo carries no profile, and writing
+          // null would erase the username the customer's last message brought.
+          ...(profile?.profile?.username && { username: profile.profile.username }),
         },
         { onConflict: 'tenant_id,person_id' },
       )

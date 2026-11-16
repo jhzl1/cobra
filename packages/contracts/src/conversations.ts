@@ -23,15 +23,29 @@ export const conversationSummarySchema = z.object({
     personId: z.string(),
     phone: z.string().nullable(),
     displayName: z.string().nullable(),
+    /** The WhatsApp username, for a customer who has one and no phone. */
+    username: z.string().nullable(),
   }),
   lastMessageAt: z.string().nullable(),
   lastInboundAt: z.string().nullable(),
   lastMessagePreview: z.string().nullable(),
+  /**
+   * Who wrote the message in the preview. The list reads it to say whether the
+   * customer is the one waiting for an answer.
+   */
+  lastMessageAuthor: messageAuthorSchema.nullable(),
   /** True when the most recent run of this conversation ended in error. */
   lastRunFailed: z.boolean(),
 })
 
 export type ConversationSummary = z.infer<typeof conversationSummarySchema>
+
+/** What an operator types to find a customer: a name, a WhatsApp username or a phone. */
+export const conversationSearchSchema = z
+  .string()
+  .trim()
+  .max(80, 'La búsqueda no puede superar los 80 caracteres')
+  .optional()
 
 export const messageSchema = z.object({
   id: z.uuid(),

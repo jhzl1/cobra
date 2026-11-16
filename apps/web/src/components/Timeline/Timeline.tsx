@@ -6,8 +6,9 @@ import {
   AccordionTrigger,
 } from '~/components/ui/accordion'
 import { formatClock, formatSeconds } from '~/utils/formatters'
+import { TimelineNarrative } from './components/TimelineNarrative'
 import { TimelineStep } from './components/TimelineStep'
-import { STATUS_LABEL, STATUS_TONE } from './helpers'
+import { STATUS_LABEL, STATUS_TONE, narrativeOf } from './helpers'
 
 interface TimelineProps {
   runs: AgentRun[]
@@ -39,6 +40,13 @@ export const Timeline = ({ runs }: TimelineProps) => {
         const elapsed = run.finishedAt
           ? new Date(run.finishedAt).getTime() - new Date(run.startedAt).getTime()
           : null
+        // In `seq` order already: the API sorts them.
+        const steps = run.steps
+        const isRunning = run.status === 'running'
+        const narrative = isRunning ? narrativeOf(steps) : null
+        const currentStepId = isRunning
+          ? steps.filter((step) => step.status === 'running').at(-1)?.id
+          : undefined
 
         return (
           <AccordionItem key={run.id} value={run.id}>
@@ -56,13 +64,17 @@ export const Timeline = ({ runs }: TimelineProps) => {
             </AccordionTrigger>
 
             <AccordionContent className="pb-2">
+              {narrative && <TimelineNarrative key={narrative} text={narrative} />}
               <ol className="flex flex-col">
-                {run.steps
-                  .slice()
-                  .sort((a, b) => a.seq - b.seq)
-                  .map((step) => (
-                    <TimelineStep key={step.id} step={step} />
-                  ))}
+                {steps.map((step, index) => (
+                  <TimelineStep
+                    key={step.id}
+                    step={step}
+                    isCurrent={step.id === currentStepId}
+                    isFirst={index === 0}
+                    isLast={index === steps.length - 1}
+                  />
+                ))}
               </ol>
             </AccordionContent>
           </AccordionItem>

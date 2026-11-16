@@ -20,8 +20,8 @@ export interface RedraftInput {
  * Steering only looks for new messages before a tool runs. A message that
  * arrives while the model is writing its last words is never seen, and the
  * customer gets two replies a few seconds apart, the second one repeating the
- * first: on 2026-11-16 "tengo un abono a favor" and "podrías revisar por favor",
- * ten seconds apart, got two near-identical balance summaries.
+ * first: on 2026-11-16 a customer who wrote twice, ten seconds apart, about a
+ * balance in their favour got two near-identical balance summaries.
  *
  * Only a turn that read and nothing else can be redone: one that registered a
  * payment, credited a balance or alerted the administrator already acted, and

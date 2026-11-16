@@ -13,6 +13,7 @@ import {
   type ConversationSummary,
   type HandoffInput,
   type Message,
+  type MessageAuthor,
   SERVICE_WINDOW_MS,
 } from '@cobra/contracts'
 import { QueueService } from '~/queue/queue.service'
@@ -41,16 +42,30 @@ export class ConversationsService {
   /**
    * The inbox. Reads through the caller's client, so RLS is what limits it to
    * their tenants — there is no tenant filter written here to get wrong.
+   *
+   * With `search`, only the conversations whose customer matches it by name,
+   * WhatsApp username or phone. It runs here and not in the panel because the
+   * inbox holds the latest hundred, and a customer who wrote last week is
+   * exactly the one an operator goes looking for.
    */
-  async list(client: SupabaseClient, tenantId: string): Promise<ConversationSummary[]> {
-    const { data, error } = await client
+  async list(
+    client: SupabaseClient,
+    { tenantId, search }: { tenantId: string; search?: string },
+  ): Promise<ConversationSummary[]> {
+    let query = client
       .from('conversations')
       .select(
         `id, status, assigned_to, last_message_at, last_inbound_at,
-         contacts!inner (id, person_id, phone, display_name)`,
+         contacts!inner (id, person_id, phone, display_name, username)`,
       )
       .eq('tenant_id', tenantId)
       .neq('status', 'closed')
+
+    const contactFilter = search ? contactSearchFilterOf(search) : null
+
+    if (contactFilter) query = query.or(contactFilter, { referencedTable: 'contacts' })
+
+    const { data, error } = await query
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(100)
 
@@ -75,10 +90,12 @@ export class ConversationsService {
           personId: (contact?.['person_id'] as string) ?? '',
           phone: (contact?.['phone'] as string | null) ?? null,
           displayName: (contact?.['display_name'] as string | null) ?? null,
+          username: (contact?.['username'] as string | null) ?? null,
         },
         lastMessageAt: (row.last_message_at as string | null) ?? null,
         lastInboundAt: (row.last_inbound_at as string | null) ?? null,
-        lastMessagePreview: previews.get(row.id as string) ?? null,
+        lastMessagePreview: previews.get(row.id as string)?.body ?? null,
+        lastMessageAuthor: previews.get(row.id as string)?.author ?? null,
         lastRunFailed: idsWithFailedRun.has(row.id as string),
       }
     })
@@ -245,7 +262,7 @@ export class ConversationsService {
     return { status }
   }
 
-  /** The timeline: runs of this conversation with their steps, newest first. */
+  /** The timeline: runs of this conversation, newest first, each with its steps in order. */
   async listRuns(client: SupabaseClient, conversationId: string) {
     const { data, error } = await client
       .from('agent_runs')
@@ -256,6 +273,7 @@ export class ConversationsService {
       )
       .eq('conversation_id', conversationId)
       .order('started_at', { ascending: false })
+      .order('seq', { referencedTable: 'agent_steps' })
       .limit(20)
 
     if (error) throw this.toHttpError(error)
@@ -301,21 +319,27 @@ export class ConversationsService {
   private async lastMessagePreviews(
     client: SupabaseClient,
     conversationIds: string[],
-  ): Promise<Map<string, string>> {
+  ): Promise<Map<string, { body: string; author: MessageAuthor }>> {
     if (!conversationIds.length) return new Map()
 
     const { data } = await client
       .from('messages')
-      .select('conversation_id, body, received_at')
+      .select('conversation_id, body, author, received_at')
       .in('conversation_id', conversationIds)
       .order('received_at', { ascending: false })
       .limit(conversationIds.length * 3)
 
-    const previews = new Map<string, string>()
+    const previews = new Map<string, { body: string; author: MessageAuthor }>()
 
     for (const row of data ?? []) {
       const id = row.conversation_id as string
-      if (!previews.has(id) && row.body) previews.set(id, (row.body as string).slice(0, 120))
+
+      if (!previews.has(id) && row.body) {
+        previews.set(id, {
+          body: (row.body as string).slice(0, 120),
+          author: row.author as MessageAuthor,
+        })
+      }
     }
 
     return previews
@@ -409,3 +433,25 @@ const toAgentStep = (row: Record<string, unknown>): AgentStep => ({
   durationMs: (row['duration_ms'] as number | null) ?? null,
   createdAt: row['created_at'] as string,
 })
+
+/**
+ * The PostgREST `or` filter for a search typed by an operator.
+ *
+ * The characters that build the filter's own syntax (commas, parentheses,
+ * wildcards) are dropped rather than escaped: a name never needs them, and left
+ * in they would let the text rewrite the filter. A phone is matched on its
+ * digits, so "+57 300 123" finds 57300123…; fewer than three digits would match
+ * almost every number.
+ */
+const contactSearchFilterOf = (search: string): string | null => {
+  const text = search.replace(/[,()*%\\"]/g, ' ').trim()
+
+  if (!text) return null
+
+  const digits = text.replace(/\D/g, '')
+  const conditions = [`display_name.ilike.*${text}*`, `username.ilike.*${text}*`]
+
+  if (digits.length >= 3) conditions.push(`phone.like.*${digits}*`)
+
+  return conditions.join(',')
+}

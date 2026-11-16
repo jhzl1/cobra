@@ -6,16 +6,47 @@ import { KIND_LABEL, STATUS_LABEL, STATUS_MARK, STATUS_TONE } from '../helpers'
 
 interface TimelineStepProps {
   step: AgentStep
+  /** The step the agent is on right now: its stretch of the rail runs light. */
+  isCurrent: boolean
+  isFirst: boolean
+  isLast: boolean
 }
 
-export const TimelineStep = ({ step }: TimelineStepProps) => {
+/**
+ * One step, on a rail that joins the marks: green where a step settled, light
+ * running down the one in progress, so how far the turn got reads at a glance.
+ */
+export const TimelineStep = ({ step, isCurrent, isFirst, isLast }: TimelineStepProps) => {
   const hasDetail = Boolean(step.input || step.output || step.error)
+  const isAlone = isFirst && isLast
 
   return (
-    <li className="grid grid-cols-[8px_minmax(0,1fr)_auto] items-baseline gap-x-2.5 border-t border-dashed px-4 py-2 font-mono text-xs">
+    <li className="relative grid grid-cols-[8px_minmax(0,1fr)_auto] items-baseline gap-x-2.5 border-t border-dashed px-4 py-2 font-mono text-xs">
+      {/* From the mark above to the one below; the first and last stop at their own mark. */}
+      {!isAlone && (
+        <span
+          aria-hidden
+          className={cn(
+            'absolute left-[19px] w-0.5 overflow-hidden',
+            isFirst ? 'top-3.5' : 'top-0',
+            isLast ? 'h-3.5' : 'bottom-0',
+            step.status === 'done' && 'bg-success/40',
+            step.status === 'error' && 'bg-destructive/40',
+            (step.status === 'running' || step.status === 'skipped') && 'bg-border',
+          )}
+        >
+          {isCurrent && (
+            <span className="absolute inset-x-0 top-0 h-2/5 bg-info motion-safe:animate-flow" />
+          )}
+        </span>
+      )}
+
       <span
         aria-hidden
-        className={cn('size-2 self-center rounded-full', STATUS_MARK[step.status])}
+        className={cn(
+          'relative z-10 size-2 self-center rounded-full bg-background',
+          STATUS_MARK[step.status],
+        )}
       />
 
       <span

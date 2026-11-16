@@ -31,7 +31,7 @@ const metaImageSchema = z.object({
  * One inbound message.
  *
  * `from` and the contact's `wa_id` are absent when the sender has a WhatsApp
- * username: Meta sends `from_user_id` / `user_id` (`CO.1036773249265400`)
+ * username: Meta sends `from_user_id` / `user_id` (`CO.1234567890123456`)
  * instead. Both are optional here and the identity is resolved by
  * `readMessagePersonId`, because a schema that requires `from` drops exactly the
  * customers that already migrated.
@@ -51,7 +51,8 @@ export type MetaMessage = z.infer<typeof metaMessageSchema>
 export const metaContactSchema = z.looseObject({
   wa_id: z.string().optional(),
   user_id: z.string().optional(),
-  profile: z.object({ name: z.string().optional() }).optional(),
+  /** `username` only comes for a customer who adopted one. */
+  profile: z.object({ name: z.string().optional(), username: z.string().optional() }).optional(),
 })
 
 export type MetaContact = z.infer<typeof metaContactSchema>
