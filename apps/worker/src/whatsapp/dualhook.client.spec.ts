@@ -20,7 +20,7 @@ describe('DualhookClient', () => {
   it('sends a text to the number on Dualhook, with its key as the bearer', async () => {
     const fetchImpl = fakeFetch(Response.json({ messages: [{ id: 'wamid.SENT' }] }))
 
-    const wamid = await clientWith(fetchImpl).sendText('573001234567', 'Hola')
+    const wamid = await clientWith(fetchImpl).sendText({ phone: '573001234567' }, 'Hola')
 
     const { url, init, headers } = requestOf(fetchImpl)
     const body = JSON.parse(String(init?.body))
@@ -30,6 +30,22 @@ describe('DualhookClient', () => {
     expect(init?.method).toBe('POST')
     expect(headers['Authorization']).toBe(`Bearer ${API_KEY}`)
     expect(body).toMatchObject({ to: '573001234567', type: 'text', text: { body: 'Hola' } })
+  })
+
+  /**
+   * A customer with a WhatsApp username has no phone number, only the id Meta
+   * gave us. In `to` it came back 131026 "Message undeliverable", and none of
+   * those customers ever received a reply.
+   */
+  it('addresses a username customer in `recipient`, never in `to`', async () => {
+    const fetchImpl = fakeFetch(Response.json({ messages: [{ id: 'wamid.SENT' }] }))
+
+    await clientWith(fetchImpl).sendText({ userId: 'CO.1445129810307666' }, 'Hola')
+
+    const body = JSON.parse(String(requestOf(fetchImpl).init?.body))
+
+    expect(body).toMatchObject({ recipient: 'CO.1445129810307666', type: 'text' })
+    expect(body).not.toHaveProperty('to')
   })
 
   it('downloads media in one call to /{media_id}/content', async () => {
@@ -65,7 +81,7 @@ describe('DualhookClient', () => {
       Response.json({ error: { code: 131047, message: 'Re-engagement message' } }, { status: 400 }),
     )
 
-    const sending = clientWith(fetchImpl).sendText('573001234567', 'Hola')
+    const sending = clientWith(fetchImpl).sendText({ phone: '573001234567' }, 'Hola')
 
     await expect(sending).rejects.toBeInstanceOf(DualhookError)
     await expect(sending).rejects.toMatchObject({ status: 400 })

@@ -32,12 +32,12 @@ export class NotifyTenantAdminJobHandler {
 
       if (payload.mediaId) {
         await runtime.whatsapp.sendImage(
-          runtime.runtimeConfig.adminPhone,
+          { phone: runtime.runtimeConfig.adminPhone },
           payload.mediaId,
           payload.text,
         )
       } else {
-        await runtime.whatsapp.sendText(runtime.runtimeConfig.adminPhone, payload.text)
+        await runtime.whatsapp.sendText({ phone: runtime.runtimeConfig.adminPhone }, payload.text)
       }
 
       return { sent: true }

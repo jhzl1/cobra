@@ -27,11 +27,15 @@ export class TenantAdminAlertService {
 
         try {
           if (mediaId) {
-            await runtime.whatsapp.sendImage(runtime.runtimeConfig.adminPhone, mediaId, message)
+            await runtime.whatsapp.sendImage(
+              { phone: runtime.runtimeConfig.adminPhone },
+              mediaId,
+              message,
+            )
             return
           }
 
-          await runtime.whatsapp.sendText(runtime.runtimeConfig.adminPhone, message)
+          await runtime.whatsapp.sendText({ phone: runtime.runtimeConfig.adminPhone }, message)
         } catch (error) {
           /**
            * Outside the 24-hour window Meta answers 131047 and the alert never
