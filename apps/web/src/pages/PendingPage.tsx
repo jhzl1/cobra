@@ -7,7 +7,7 @@ import {
   type PaymentMethodSummary,
   applyHeldReceiptSchema,
 } from '@cobra/contracts'
-import { HeldReceiptCard, useHeldReceipts } from '~/components/HeldReceiptCard'
+import { HeldReceiptDialog, HeldReceiptTable, useHeldReceipts } from '~/components/HeldReceipts'
 import { Pager } from '~/components/Pager'
 import {
   AlertDialog,
@@ -45,8 +45,13 @@ import { queryKeys } from '~/lib/queryClient'
  */
 export const PendingPage = ({ tenantId, page }: { tenantId: string; page: number }) => {
   const { list: heldReceipts, goToPage } = useHeldReceipts({ tenantId, page })
+  // By id, so the open dialog follows the list as it polls: "Aplicando…"
+  // turns into the result without closing and reopening it.
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [receiptToApply, setReceiptToApply] = useState<HeldReceipt | null>(null)
   const [receiptToDismiss, setReceiptToDismiss] = useState<HeldReceipt | null>(null)
+
+  const selected = heldReceipts.data?.items.find((receipt) => receipt.id === selectedId) ?? null
 
   return (
     <div className="flex flex-col gap-4">
@@ -75,15 +80,10 @@ export const PendingPage = ({ tenantId, page }: { tenantId: string; page: number
             <p className="text-sm text-destructive">{heldReceipts.error.message}</p>
           ) : heldReceipts.data?.items.length ? (
             <>
-              {heldReceipts.data.items.map((receipt) => (
-                <HeldReceiptCard key={receipt.id} receipt={receipt}>
-                  <ReceiptActions
-                    receipt={receipt}
-                    onApply={() => setReceiptToApply(receipt)}
-                    onDismiss={() => setReceiptToDismiss(receipt)}
-                  />
-                </HeldReceiptCard>
-              ))}
+              <HeldReceiptTable
+                receipts={heldReceipts.data.items}
+                onSelect={(receipt) => setSelectedId(receipt.id)}
+              />
               <Pager page={page} total={heldReceipts.data.total} onPageChange={goToPage} />
             </>
           ) : (
@@ -91,6 +91,22 @@ export const PendingPage = ({ tenantId, page }: { tenantId: string; page: number
           )}
         </CardContent>
       </Card>
+
+      <HeldReceiptDialog receipt={selected} onClose={() => setSelectedId(null)}>
+        {selected && (
+          <ReceiptActions
+            receipt={selected}
+            onApply={() => {
+              setSelectedId(null)
+              setReceiptToApply(selected)
+            }}
+            onDismiss={() => {
+              setSelectedId(null)
+              setReceiptToDismiss(selected)
+            }}
+          />
+        )}
+      </HeldReceiptDialog>
 
       {/* Keyed per receipt: a form left over from another receipt would carry
           its amount into this one's payment. */}
@@ -125,21 +141,20 @@ const ReceiptActions = ({
   const isApplicable = APPLICABLE_ALERT_REASONS.includes(receipt.alertReason)
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {/* Secondary, not white: the primary goes once per screen, and here
-          every receipt carries the same pair. */}
-      {isApplicable && (
-        <Button size="sm" variant="secondary" disabled={isApplying} onClick={onApply}>
-          Aplicar pago
-        </Button>
-      )}
-      <Button size="sm" variant="ghost" disabled={isApplying} onClick={onDismiss}>
-        Descartar
-      </Button>
+    <div className="flex flex-wrap items-center justify-end gap-2">
       {!isApplicable && (
         <p className="text-xs text-muted-foreground">
           No hay pago que aplicar: la imagen no es un comprobante.
         </p>
+      )}
+      <Button size="sm" variant="secondary" disabled={isApplying} onClick={onDismiss}>
+        Descartar
+      </Button>
+      {/* The dialog is about this one receipt, so applying is its primary. */}
+      {isApplicable && (
+        <Button size="sm" disabled={isApplying} onClick={onApply}>
+          Aplicar pago
+        </Button>
       )}
     </div>
   )

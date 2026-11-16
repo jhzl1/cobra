@@ -6,7 +6,7 @@ import { useState } from 'react'
 import type { AgentRun, ConversationSummary, JobRun } from '@cobra/contracts'
 import { ConversationList } from '~/components/ConversationList'
 import { ConversationPanel } from '~/components/ConversationPanel'
-import { HeldReceiptCard, useHeldReceipts } from '~/components/HeldReceiptCard'
+import { HeldReceiptDialog, HeldReceiptTable, useHeldReceipts } from '~/components/HeldReceipts'
 import { JobRunTable } from '~/components/JobRunTable'
 import { Pager } from '~/components/Pager'
 import { TenantControls } from '~/components/TenantControls'
@@ -134,6 +134,9 @@ const toTabSearch = (value: string): PlatformTenantTab | undefined => {
  */
 const ReadOnlyHeldReceipts = ({ tenantId, page }: { tenantId: string; page: number }) => {
   const { list: heldReceipts, goToPage } = useHeldReceipts({ tenantId, page })
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = heldReceipts.data?.items.find((receipt) => receipt.id === selectedId) ?? null
 
   return (
     <Card>
@@ -154,15 +157,18 @@ const ReadOnlyHeldReceipts = ({ tenantId, page }: { tenantId: string; page: numb
           <p className="text-sm text-destructive">{heldReceipts.error.message}</p>
         ) : heldReceipts.data?.items.length ? (
           <>
-            {heldReceipts.data.items.map((receipt) => (
-              <HeldReceiptCard key={receipt.id} receipt={receipt} />
-            ))}
+            <HeldReceiptTable
+              receipts={heldReceipts.data.items}
+              onSelect={(receipt) => setSelectedId(receipt.id)}
+            />
             <Pager page={page} total={heldReceipts.data.total} onPageChange={goToPage} />
           </>
         ) : (
           <p className="text-sm text-muted-foreground">No hay comprobantes retenidos.</p>
         )}
       </CardContent>
+
+      <HeldReceiptDialog receipt={selected} onClose={() => setSelectedId(null)} />
     </Card>
   )
 }
