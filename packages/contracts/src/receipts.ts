@@ -163,11 +163,7 @@ export type ApplyHeldReceiptInput = z.infer<typeof applyHeldReceiptSchema>
  * free text after 24 hours; inside the window the API requires it.
  */
 export const dismissHeldReceiptSchema = z.object({
-  note: z
-    .string()
-    .trim()
-    .max(1000, 'La nota no puede pasar de 1000 caracteres')
-    .optional(),
+  note: z.string().trim().max(1000, 'La nota no puede pasar de 1000 caracteres').optional(),
 })
 
 export type DismissHeldReceiptInput = z.infer<typeof dismissHeldReceiptSchema>
