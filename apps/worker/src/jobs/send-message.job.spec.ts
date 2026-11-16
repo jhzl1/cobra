@@ -69,7 +69,7 @@ describe('SendMessageJobHandler', () => {
     const result = await handler.run(PAYLOAD)
 
     expect(result).toEqual({ sent: true })
-    expect(sendText).toHaveBeenCalledWith('573001234567', 'Hola')
+    expect(sendText).toHaveBeenCalledWith({ phone: '573001234567' }, 'Hola')
     expect(updates[0]).toMatchObject({ delivery_state: 'sent', wamid: 'wamid.SENT' })
   })
 
@@ -93,6 +93,6 @@ describe('SendMessageJobHandler', () => {
     const result = await handler.run({ ...PAYLOAD, isHandoffNotice: true })
 
     expect(result).toEqual({ sent: true })
-    expect(sendText).toHaveBeenCalledWith('573001234567', 'Hola')
+    expect(sendText).toHaveBeenCalledWith({ phone: '573001234567' }, 'Hola')
   })
 })

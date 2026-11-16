@@ -91,10 +91,11 @@ export class SendMessageJobHandler {
     }
 
     try {
-      const wamid = await runtime.whatsapp.sendText(
-        conversation.phone ?? conversation.personId,
-        String(message['body'] ?? ''),
-      )
+      // A customer with a WhatsApp username has no phone, only the id Meta gave us.
+      const recipient = conversation.phone
+        ? { phone: conversation.phone }
+        : { userId: conversation.personId }
+      const wamid = await runtime.whatsapp.sendText(recipient, String(message['body'] ?? ''))
 
       await this.supabase
         .scope(tenantId)

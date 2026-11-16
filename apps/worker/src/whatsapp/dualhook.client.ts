@@ -17,6 +17,17 @@ export interface DualhookClientOptions {
   fetchImpl?: typeof fetch
 }
 
+/**
+ * Who a message goes to.
+ *
+ * A customer with a WhatsApp username shares no phone number: Meta hands over a
+ * business-scoped id (`CO.1445129810307666`) instead, and that id only goes in
+ * the `recipient` field. Sent in `to`, Meta answers 131026 "Message
+ * undeliverable" or Dualhook a 400, and the customer hears nothing — which is
+ * what happened to every reply to such a customer until the two were told apart.
+ */
+export type WhatsappRecipient = { phone: string } | { userId: string }
+
 export class DualhookError extends Error {
   constructor(
     message: string,
@@ -50,11 +61,11 @@ export class DualhookClient {
   }
 
   /** Returns the `wamid`, which is what the delivery statuses come back keyed by. */
-  async sendText(to: string, body: string): Promise<string | null> {
+  async sendText(recipient: WhatsappRecipient, body: string): Promise<string | null> {
     const response = await this.postMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
-      to,
+      ...addressOf(recipient),
       type: 'text',
       text: { preview_url: false, body },
     })
@@ -62,11 +73,15 @@ export class DualhookClient {
     return readWamid(response)
   }
 
-  async sendImage(to: string, mediaId: string, caption: string): Promise<string | null> {
+  async sendImage(
+    recipient: WhatsappRecipient,
+    mediaId: string,
+    caption: string,
+  ): Promise<string | null> {
     const response = await this.postMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
-      to,
+      ...addressOf(recipient),
       type: 'image',
       image: { id: mediaId, caption },
     })
@@ -152,3 +167,7 @@ const parseBody = (text: string): unknown => {
     return text
   }
 }
+
+/** Meta takes a phone number in `to` and a username's id in `recipient`, never one for the other. */
+const addressOf = (recipient: WhatsappRecipient): { to: string } | { recipient: string } =>
+  'phone' in recipient ? { to: recipient.phone } : { recipient: recipient.userId }
