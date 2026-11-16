@@ -2,7 +2,12 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestj
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
-import { type HandoffInput, handoffSchema, sendMessageSchema } from '@cobra/contracts'
+import {
+  type HandoffInput,
+  conversationSearchSchema,
+  handoffSchema,
+  sendMessageSchema,
+} from '@cobra/contracts'
 import { readCallerId } from '~/auth/caller'
 import { RequireSession } from '~/auth/require-session.decorator'
 import { ZodValidationPipe } from '~/common/pipes/zod-validation.pipe'
@@ -16,8 +21,12 @@ export class ConversationsController {
 
   @Get()
   @ApiOperation({ summary: 'Bandeja de conversaciones de una empresa' })
-  list(@SupabaseCtx() ctx: SupabaseContext, @Query('tenantId', ParseUUIDPipe) tenantId: string) {
-    return this.conversations.list(ctx.supabase, tenantId)
+  list(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Query('tenantId', ParseUUIDPipe) tenantId: string,
+    @Query('search', new ZodValidationPipe(conversationSearchSchema)) search?: string,
+  ) {
+    return this.conversations.list(ctx.supabase, { tenantId, search })
   }
 
   @Get(':conversationId/messages')
