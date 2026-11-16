@@ -39,6 +39,13 @@ export const QUEUES = {
   dispatchContextResets: 'dispatch-context-resets',
   /** Starts the agent's memory over in one tenant's conversations that went silent. */
   resetStaleContexts: 'reset-stale-contexts',
+  /**
+   * An operator registering a held receipt by hand. A queue and not the API,
+   * because the payment logic lives in @cobra/agent, which is ESM-only and the
+   * API is CommonJS — and because it is the same logic the agent runs, not a
+   * second copy of it.
+   */
+  applyHeldReceipt: 'apply-held-receipt',
 } as const
 
 export const processTurnPayloadSchema = z.object({
@@ -86,6 +93,19 @@ export const notifyTenantAdminPayloadSchema = z.object({
 })
 
 export type NotifyTenantAdminPayload = z.infer<typeof notifyTenantAdminPayloadSchema>
+
+export const applyHeldReceiptPayloadSchema = z.object({
+  tenantId: z.uuid(),
+  receiptId: z.uuid(),
+  /** Comma-separated, as the operator typed them. */
+  documents: z.string(),
+  amount: z.number(),
+  /** `payment_methods.id`, not Wisphub's id: the worker resolves that. */
+  paymentMethodId: z.uuid(),
+  appliedBy: z.uuid(),
+})
+
+export type ApplyHeldReceiptPayload = z.infer<typeof applyHeldReceiptPayloadSchema>
 
 /**
  * pg-boss defaults that would misbehave here, overridden once.
