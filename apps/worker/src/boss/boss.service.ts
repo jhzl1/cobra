@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } fro
 import { ConfigService } from '@nestjs/config'
 import PgBoss from 'pg-boss'
 import {
+  type ApplyHeldReceiptPayload,
   type NotifyTenantAdminPayload,
   type ProcessReceiptPayload,
   type ProcessTurnPayload,
@@ -9,6 +10,7 @@ import {
   type SendMessagePayload,
   TURN_QUEUE_OPTIONS,
 } from '@cobra/contracts'
+import { ApplyHeldReceiptJobHandler } from '../jobs/apply-held-receipt.job.js'
 import { NotifyTenantAdminJobHandler } from '../jobs/notify-tenant-admin.job.js'
 import { ProcessReceiptJobHandler } from '../jobs/process-receipt.job.js'
 import { ProcessTurnJobHandler } from '../jobs/process-turn.job.js'
@@ -86,12 +88,13 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
     private readonly sendMessageHandler: SendMessageJobHandler,
     private readonly notifyTenantAdminHandler: NotifyTenantAdminJobHandler,
     private readonly resetStaleContextsHandler: ResetStaleContextsJobHandler,
+    private readonly applyHeldReceiptHandler: ApplyHeldReceiptJobHandler,
     private readonly tenants: TenantRepository,
     private readonly jobRuns: JobRunRepository,
   ) {
     this.boss = new PgBoss({
       connectionString: config.getOrThrow<string>('DATABASE_URL'),
-      max: 6,
+      max: 7,
       migrate: true,
     })
   }
@@ -163,6 +166,18 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
     await this.boss.createQueue(QUEUES.dispatchContextResets, contextResetQueueOptions)
     await this.boss.createQueue(QUEUES.resetStaleContexts, contextResetQueueOptions)
 
+    /**
+     * `singleton` keeps one job per receipt, so a double submit that slipped past
+     * the API's `applying` guard is still one payment. No retries: a retry after
+     * Wisphub registered the money is the double charge this job guards against;
+     * a failure lands back in "Pendientes" with its reason instead.
+     */
+    await this.boss.createQueue(QUEUES.applyHeldReceipt, {
+      policy: 'singleton',
+      retryLimit: 0,
+      expireInSeconds: 120,
+    })
+
     // Idempotent: it replaces the schedule this queue already had, so a restart
     // or a second worker does not add another one.
     await this.boss.schedule(QUEUES.dispatchContextResets, CONTEXT_RESET_SCHEDULE.cron, undefined, {
@@ -210,6 +225,28 @@ export class BossService implements OnModuleInit, OnApplicationShutdown {
         for (const job of jobs) {
           await this.recordAttempt(job, async () => {
             await this.sendMessageHandler.run(job.data)
+          })
+        }
+      },
+    )
+
+    await this.boss.work<ApplyHeldReceiptPayload>(
+      QUEUES.applyHeldReceipt,
+      { includeMetadata: true },
+      async (jobs) => {
+        for (const job of jobs) {
+          await this.recordAttempt(job, async () => {
+            const outcome = await this.applyHeldReceiptHandler.run(job.data)
+
+            // The confirmation goes out through the send queue and its retries,
+            // like every other message.
+            if (outcome.confirmation) {
+              const send: SendMessagePayload = {
+                tenantId: job.data.tenantId,
+                ...outcome.confirmation,
+              }
+              await this.boss.send(QUEUES.sendMessage, send)
+            }
           })
         }
       },

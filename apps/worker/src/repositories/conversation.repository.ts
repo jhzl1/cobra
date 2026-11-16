@@ -167,6 +167,45 @@ export class ConversationRepository {
     if (error) throw error
   }
 
+  /** Undoes a handoff, unless nobody holds it anymore. */
+  async handBackToAgent(tenantId: string, conversationId: string): Promise<void> {
+    const { error } = await this.supabase
+      .scope(tenantId)
+      .update('conversations', { status: 'bot', assigned_to: null })
+      .eq('id', conversationId)
+      .eq('status', 'human')
+
+    if (error) throw error
+  }
+
+  /**
+   * A message written on an operator's behalf, stored `pending` for the send
+   * job. Marked processed because it is outbound: no turn consumes it.
+   */
+  async storeOperatorReply(
+    tenantId: string,
+    conversationId: string,
+    body: string,
+  ): Promise<string> {
+    const { data, error } = await this.supabase
+      .scope(tenantId)
+      .insert('messages', {
+        conversation_id: conversationId,
+        direction: 'outbound',
+        author: 'operator',
+        type: 'text',
+        body,
+        delivery_state: 'pending',
+        processed_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    if (error) throw error
+
+    return (data as { id: string }).id
+  }
+
   /**
    * Gives back to the agent the conversations of the tenant held by a person in
    * which no operator wrote for `idle` (a Postgres interval). Returns how many.

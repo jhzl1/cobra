@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { BossService } from './boss/boss.service.js'
 import { loadEnv } from './config/env.js'
+import { ApplyHeldReceiptJobHandler } from './jobs/apply-held-receipt.job.js'
 import { NotifyTenantAdminJobHandler } from './jobs/notify-tenant-admin.job.js'
 import { ProcessReceiptJobHandler } from './jobs/process-receipt.job.js'
 import { ProcessTurnJobHandler } from './jobs/process-turn.job.js'
@@ -46,6 +47,7 @@ const here = dirname(fileURLToPath(import.meta.url))
     SendMessageJobHandler,
     NotifyTenantAdminJobHandler,
     ResetStaleContextsJobHandler,
+    ApplyHeldReceiptJobHandler,
     BossService,
   ],
 })
