@@ -1,12 +1,17 @@
-import { useQuery } from '@tanstack/react-query'
-import type { TenantMember, WhatsappNumber } from '@cobra/contracts'
 import { Badge } from '~/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
-import { CopyField } from '~/components/ui/copy-field'
 import { Spinner } from '~/components/ui/spinner'
-import { api } from '~/lib/api'
-import { queryKeys } from '~/lib/queryClient'
-import { type TenantSummary, verifyTokenOf } from '~/lib/tenants'
+import { useWhatsappNumbersQuery } from '~/hooks/queries/useWhatsappNumbersQuery'
+import type { TenantSummary } from '~/types/tenant'
+import { ActiveNumberDetails } from './components/ActiveNumberDetails'
+import { OverviewEmpty } from './components/OverviewEmpty'
+import { OverviewRow } from './components/OverviewRow'
+import { OverviewSection } from './components/OverviewSection'
+import { useTenantMembersQuery } from './hooks/queries/useTenantMembersQuery'
+
+interface TenantOverviewProps {
+  tenant: TenantSummary
+}
 
 /**
  * What the platform gets to see about a company: its settings, its numbers and
@@ -17,24 +22,9 @@ import { type TenantSummary, verifyTokenOf } from '~/lib/tenants'
  * characters of a client's keys are not the platform's business, and a
  * screen that shows them teaches that they are.
  */
-export const TenantOverview = ({ tenant }: { tenant: TenantSummary }) => {
-  const members = useQuery({
-    queryKey: queryKeys.members(tenant.id),
-    queryFn: async () => {
-      const { data } = await api.get<TenantMember[]>(`/tenants/${tenant.id}/members`)
-
-      return data
-    },
-  })
-
-  const numbers = useQuery({
-    queryKey: queryKeys.whatsappNumbers(tenant.id),
-    queryFn: async () => {
-      const { data } = await api.get<WhatsappNumber[]>(`/tenants/${tenant.id}/whatsapp-numbers`)
-
-      return data
-    },
-  })
+export const TenantOverview = ({ tenant }: TenantOverviewProps) => {
+  const members = useTenantMembersQuery(tenant.id)
+  const numbers = useWhatsappNumbersQuery(tenant.id)
 
   const activeNumbers = numbers.data?.filter((number) => !number.validTo) ?? []
   const retiredNumbers = numbers.data?.filter((number) => number.validTo) ?? []
@@ -45,16 +35,16 @@ export const TenantOverview = ({ tenant }: { tenant: TenantSummary }) => {
         <CardTitle>Empresa</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
-        <Section title="Contacto">
-          <Row label="Soporte" value={tenant.supportPhone} />
-          <Row label="Administrador" value={tenant.adminPhone} />
-        </Section>
+        <OverviewSection title="Contacto">
+          <OverviewRow label="Soporte" value={tenant.supportPhone} />
+          <OverviewRow label="Administrador" value={tenant.adminPhone} />
+        </OverviewSection>
 
-        <Section title="Números de WhatsApp">
+        <OverviewSection title="Números de WhatsApp">
           {numbers.isLoading && <Spinner />}
           {activeNumbers.length
-            ? activeNumbers.map((number) => <ActiveNumber key={number.id} number={number} />)
-            : !numbers.isLoading && <Empty>No hay números conectados</Empty>}
+            ? activeNumbers.map((number) => <ActiveNumberDetails key={number.id} number={number} />)
+            : !numbers.isLoading && <OverviewEmpty>No hay números conectados</OverviewEmpty>}
           {retiredNumbers.map((number) => (
             <div key={number.id} className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>
@@ -63,59 +53,23 @@ export const TenantOverview = ({ tenant }: { tenant: TenantSummary }) => {
               <Badge>Dado de baja</Badge>
             </div>
           ))}
-        </Section>
+        </OverviewSection>
 
-        <Section title={`Miembros (${tenant.memberCount})`}>
+        <OverviewSection title={`Miembros (${tenant.memberCount})`}>
           {members.isLoading && <Spinner />}
           {members.data?.length
             ? members.data.map((member) => (
-                <Row
+                <OverviewRow
                   key={member.userId}
                   label={member.email ?? 'Cuenta sin correo electrónico'}
                   value={new Date(member.joinedAt).toLocaleDateString('es-CO')}
                 />
               ))
             : !members.isLoading && (
-                <Empty>No hay miembros. Nadie puede acceder a esta empresa.</Empty>
+                <OverviewEmpty>No hay miembros. Nadie puede acceder a esta empresa.</OverviewEmpty>
               )}
-        </Section>
+        </OverviewSection>
       </CardContent>
     </Card>
   )
 }
-
-/**
- * The two values that go in the number's Webhook Override in Dualhook. The
- * platform sets that up, so it sees them here without entering the company.
- */
-const ActiveNumber = ({ number }: { number: WhatsappNumber }) => (
-  <div className="flex flex-col gap-2 py-1">
-    <Row label={number.displayNumber} value={number.phoneNumberId} />
-    <div className="flex flex-col gap-1">
-      <p className="text-xs text-muted-foreground">Webhook URL</p>
-      <CopyField className="max-w-full" value={number.webhookUrl} />
-    </div>
-    <div className="flex flex-col gap-1">
-      <p className="text-xs text-muted-foreground">Verify Token</p>
-      <CopyField className="max-w-full" value={verifyTokenOf(number.webhookUrl)} />
-    </div>
-  </div>
-)
-
-const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <div className="flex flex-col gap-2">
-    <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h3>
-    <div className="flex flex-col gap-1">{children}</div>
-  </div>
-)
-
-const Row = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex items-baseline justify-between gap-4 text-sm">
-    <span className="truncate">{label}</span>
-    <span className="shrink-0 font-mono text-xs text-muted-foreground">{value}</span>
-  </div>
-)
-
-const Empty = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-muted-foreground">{children}</p>
-)

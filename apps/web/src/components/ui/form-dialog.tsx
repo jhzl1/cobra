@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog'
+import { Spinner } from '~/components/ui/spinner'
 
 interface Props {
   open: boolean
@@ -18,6 +19,12 @@ interface Props {
   form: AnyFormApi
   /** What the API said that no field on screen accounts for. */
   error?: string | null
+  /**
+   * The fields depend on data still on its way. Showing them meanwhile shows
+   * empty pickers that fill in a moment later, which reads as a form with no
+   * values.
+   */
+  isLoading?: boolean
   children: React.ReactNode
 }
 
@@ -37,6 +44,7 @@ export const FormDialog = ({
   submitLabel,
   form,
   error,
+  isLoading = false,
   children,
 }: Props) => {
   // Read off the store rather than through `form.Subscribe`: that component is
@@ -64,7 +72,14 @@ export const FormDialog = ({
             void form.handleSubmit()
           }}
         >
-          {children}
+          {isLoading ? (
+            <div className="flex min-h-40 items-center justify-center">
+              <Spinner className="size-5" />
+              <span className="sr-only">Cargando</span>
+            </div>
+          ) : (
+            children
+          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -72,7 +87,7 @@ export const FormDialog = ({
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" loading={isSubmitting} disabled={isLoading}>
               {submitLabel}
             </Button>
           </DialogFooter>

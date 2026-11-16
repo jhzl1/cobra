@@ -1,42 +1,13 @@
 import type { ConversationSummary } from '@cobra/contracts'
 import { cn } from '~/lib/utils'
+import { formatTimeOrDay } from '~/utils/formatters'
+import { stateOf } from './helpers'
 
-interface Props {
+interface ConversationListProps {
   conversations: ConversationSummary[]
   selectedId: string | null
   isUnread: (conversation: ConversationSummary) => boolean
   onSelect: (conversationId: string) => void
-}
-
-interface State {
-  label: string
-  /** The dot and the word share it; nothing else on the row is coloured. */
-  tone: string
-}
-
-/**
- * One state per row, said once: a dot and a word in the same colour. A failed
- * turn outranks the status, because it is the one the operator has to act on —
- * the customer was left without an answer.
- */
-const stateOf = (conversation: ConversationSummary): State => {
-  if (conversation.lastRunFailed) return { label: 'Con error', tone: 'text-destructive' }
-  if (conversation.status === 'human') return { label: 'Asesor', tone: 'text-warning' }
-  if (conversation.status === 'closed')
-    return { label: 'Cerrada', tone: 'text-disabled-foreground' }
-
-  return { label: 'Agente', tone: 'text-muted-foreground' }
-}
-
-const formatWhen = (iso: string | null): string => {
-  if (!iso) return ''
-
-  const date = new Date(iso)
-  const today = new Date().toDateString() === date.toDateString()
-
-  return today
-    ? date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })
-    : date.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit' })
 }
 
 /**
@@ -48,7 +19,12 @@ const formatWhen = (iso: string | null): string => {
  * The row takes weight instead — the name bolder, the preview and the time at
  * full contrast — and holds it until the operator opens it.
  */
-export const ConversationList = ({ conversations, selectedId, isUnread, onSelect }: Props) => (
+export const ConversationList = ({
+  conversations,
+  selectedId,
+  isUnread,
+  onSelect,
+}: ConversationListProps) => (
   <ul className="flex flex-col">
     {conversations.map((conversation) => {
       const isSelected = conversation.id === selectedId
@@ -92,7 +68,7 @@ export const ConversationList = ({ conversations, selectedId, isUnread, onSelect
                 hasUnread ? 'text-foreground' : 'text-muted-foreground',
               )}
             >
-              {formatWhen(conversation.lastMessageAt)}
+              {formatTimeOrDay(conversation.lastMessageAt)}
             </span>
 
             <span

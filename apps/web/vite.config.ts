@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   return {
     // The router plugin goes first: it writes src/routeTree.gen.ts from
     // src/routes, and React's transform has to see the file it wrote.
-    plugins: [tanstackRouter({ target: 'react' }), react(), tailwindcss()],
+    plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react(), tailwindcss()],
     resolve: {
       alias: { '~': '/src' },
     },

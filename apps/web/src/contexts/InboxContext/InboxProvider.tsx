@@ -1,29 +1,14 @@
-import { useQuery } from '@tanstack/react-query'
-import { createContext, use, useEffect, useRef, useState } from 'react'
-import type { ConversationSummary } from '@cobra/contracts'
+import { useEffect, useRef, useState } from 'react'
+import { useConversationsQuery } from '~/hooks/queries/useConversationsQuery'
+import { useCurrentTenantQuery } from '~/hooks/queries/useCurrentTenantQuery'
 import { useTenantStream } from '~/hooks/useTenantStream'
 import { useUnread } from '~/hooks/useUnread'
-import { api } from '~/lib/api'
-import { notifyIncomingMessage } from '~/lib/notify'
-import { queryKeys } from '~/lib/queryClient'
-import { useTenant } from '~/providers/TenantProvider'
+import { notifyIncomingMessage } from '~/utils/notify'
+import { InboxContext } from './InboxContext'
 
-interface InboxContextValue {
-  conversations: ConversationSummary[]
-  isLoading: boolean
-  isUnread: (conversation: ConversationSummary) => boolean
-  unreadCount: number
-  /** The conversation on screen, so it stops counting as unread. */
-  setOpenConversationId: (conversationId: string | null) => void
+interface InboxProviderProps {
+  children: React.ReactNode
 }
-
-const InboxContext = createContext<InboxContextValue>({
-  conversations: [],
-  isLoading: true,
-  isUnread: () => false,
-  unreadCount: 0,
-  setOpenConversationId: () => {},
-})
 
 const BASE_TITLE = 'Wispay'
 
@@ -34,21 +19,11 @@ const BASE_TITLE = 'Wispay'
  * whole point is to notice a message while looking at something else — a
  * subscription that only exists on the conversation's own page cannot.
  */
-export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
-  const { tenantId } = useTenant()
+export const InboxProvider = ({ children }: InboxProviderProps) => {
+  const currentTenantQuery = useCurrentTenantQuery()
+  const tenantId = currentTenantQuery.data?.id ?? null
   const [openConversationId, setOpenConversationId] = useState<string | null>(null)
-
-  const conversationsQuery = useQuery({
-    queryKey: queryKeys.conversations(tenantId ?? ''),
-    enabled: !!tenantId,
-    queryFn: async () => {
-      const { data } = await api.get<ConversationSummary[]>('/conversations', {
-        params: { tenantId },
-      })
-
-      return data
-    },
-  })
+  const conversationsQuery = useConversationsQuery(tenantId)
 
   const conversations = conversationsQuery.data ?? []
   const { isUnread, unreadCount } = useUnread(conversations, openConversationId)
@@ -118,5 +93,3 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
     </InboxContext>
   )
 }
-
-export const useInbox = () => use(InboxContext)

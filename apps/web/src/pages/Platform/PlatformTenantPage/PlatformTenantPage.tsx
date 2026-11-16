@@ -1,42 +1,21 @@
-import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, getRouteApi } from '@tanstack/react-router'
 import { isAxiosError } from 'axios'
 import { ArrowLeftIcon } from 'lucide-react'
-import { useState } from 'react'
-import type { AgentRun, ConversationSummary, JobRun } from '@cobra/contracts'
-import { ConversationList } from '~/components/ConversationList'
-import { ConversationPanel } from '~/components/ConversationPanel'
-import { HeldReceiptDialog, HeldReceiptTable, useHeldReceipts } from '~/components/HeldReceipts'
-import { JobRunTable } from '~/components/JobRunTable'
-import { Pager } from '~/components/Pager'
-import { type PaymentRange, PaymentsCard } from '~/components/Payments'
-import { TenantControls } from '~/components/TenantControls'
-import { TenantOverview } from '~/components/TenantOverview'
-import { TenantStateBadges } from '~/components/TenantStateBadges'
-import { Timeline } from '~/components/Timeline'
+import { PaymentsCard } from '~/components/PaymentsCard'
 import { Button } from '~/components/ui/button'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
-import { Spinner } from '~/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
-import { useConversationStream } from '~/hooks/useConversationStream'
-import { useTenantStream } from '~/hooks/useTenantStream'
-import { api } from '~/lib/api'
-import { queryKeys } from '~/lib/queryClient'
-import type { TenantSummary } from '~/lib/tenants'
-import { cn } from '~/lib/utils'
-import { NotFoundPage } from '~/pages/ErrorPage'
+import { useTenantQuery } from '~/hooks/queries/useTenantQuery'
+import { NotFoundPage } from '~/pages/NotFoundPage'
+import { TenantStateBadges } from '~/pages/Platform/common/components/TenantStateBadges'
+import { CenteredSpinner } from './components/CenteredSpinner'
+import { Executions } from './components/Executions'
+import { ReadOnlyConversations } from './components/ReadOnlyConversations'
+import { ReadOnlyHeldReceipts } from './components/ReadOnlyHeldReceipts'
+import { TenantControls } from './components/TenantControls'
+import { TenantOverview } from './components/TenantOverview'
+import { platformTenantTabSchema } from './searchSchemas'
 
-export type PlatformTenantTab = 'conversations' | 'pending' | 'payments' | 'executions' | 'settings'
-
-interface Props {
-  tenantId: string
-  tab: PlatformTenantTab
-  conversationId: string | null
-  /** The page of the held receipts or the payments, whichever tab is open. */
-  page: number
-  /** The payments' days, when that tab is open. */
-  range: PaymentRange
-}
+const route = getRouteApi('/_app/_platform/platform_/tenants/$companyId')
 
 /**
  * A company from the platform: who it is and the two switches only the
@@ -45,19 +24,19 @@ interface Props {
  * The conversations stay read only — the administrator audits, the company's
  * own team answers its customers.
  */
-export const PlatformTenantPage = ({ tenantId, tab, conversationId, page, range }: Props) => {
-  const navigate = useNavigate()
+export const PlatformTenantPage = () => {
+  const { companyId: tenantId } = route.useParams()
+  const { tab, conversationId, page, from, to } = route.useSearch()
+  const navigate = route.useNavigate()
+  const tenant = useTenantQuery(tenantId)
 
-  const tenant = useQuery({
-    queryKey: queryKeys.tenant(tenantId),
-    queryFn: async () => {
-      const { data } = await api.get<TenantSummary>(`/tenants/${tenantId}`)
+  const handleTabChange = (value: string) => {
+    const nextTab = platformTenantTabSchema.parse(value)
 
-      return data
-    },
-  })
+    void navigate({ search: { tab: nextTab === 'conversations' ? undefined : nextTab } })
+  }
 
-  if (tenant.isLoading) return <PageCenter />
+  if (tenant.isLoading) return <CenteredSpinner />
 
   if (!tenant.data) {
     // A 404 is a company that does not exist; anything else is the API failing,
@@ -83,13 +62,7 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId, page, range 
 
       <Tabs
         value={tab}
-        onValueChange={(value) =>
-          void navigate({
-            to: '/platform/tenants/$companyId',
-            params: { companyId: tenantId },
-            search: { tab: toTabSearch(value) },
-          })
-        }
+        onValueChange={handleTabChange}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <TabsList variant="line" className="md:px-6">
@@ -101,7 +74,7 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId, page, range 
         </TabsList>
 
         <TabsContent value="conversations" className="flex min-h-0 flex-1 flex-col">
-          <ReadOnlyConversations tenantId={tenantId} conversationId={conversationId} />
+          <ReadOnlyConversations tenantId={tenantId} conversationId={conversationId ?? null} />
         </TabsContent>
 
         <TabsContent value="pending" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
@@ -109,7 +82,7 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId, page, range 
         </TabsContent>
 
         <TabsContent value="payments" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-          <PaymentsCard tenantId={tenantId} page={page} range={range} />
+          <PaymentsCard tenantId={tenantId} page={page} from={from} to={to} />
         </TabsContent>
 
         <TabsContent value="executions" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
@@ -126,214 +99,3 @@ export const PlatformTenantPage = ({ tenantId, tab, conversationId, page, range 
     </div>
   )
 }
-
-/** The conversations tab is the default, so it stays out of the URL. */
-const toTabSearch = (value: string): PlatformTenantTab | undefined => {
-  if (value === 'pending' || value === 'payments' || value === 'executions' || value === 'settings')
-    return value
-
-  return undefined
-}
-
-/* Pending --------------------------------------------------------------------- */
-
-/**
- * The company's held receipts, to read. Applying and dismissing stay with the
- * company's own team, like answering its customers does.
- */
-const ReadOnlyHeldReceipts = ({ tenantId, page }: { tenantId: string; page: number }) => {
-  const { list: heldReceipts, goToPage } = useHeldReceipts({ tenantId, page })
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-
-  const selected = heldReceipts.data?.items.find((receipt) => receipt.id === selectedId) ?? null
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          Comprobantes retenidos
-          {heldReceipts.data ? (
-            <span className="ml-2 font-mono text-sm font-normal text-muted-foreground">
-              {heldReceipts.data.total}
-            </span>
-          ) : null}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {heldReceipts.isLoading ? (
-          <PageCenter />
-        ) : heldReceipts.error ? (
-          <p className="text-sm text-destructive">{heldReceipts.error.message}</p>
-        ) : heldReceipts.data?.items.length ? (
-          <>
-            <HeldReceiptTable
-              receipts={heldReceipts.data.items}
-              onSelect={(receipt) => setSelectedId(receipt.id)}
-            />
-            <Pager page={page} total={heldReceipts.data.total} onPageChange={goToPage} />
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">No hay comprobantes retenidos.</p>
-        )}
-      </CardContent>
-
-      <HeldReceiptDialog receipt={selected} onClose={() => setSelectedId(null)} />
-    </Card>
-  )
-}
-
-/* Conversations --------------------------------------------------------------- */
-
-const ReadOnlyConversations = ({
-  tenantId,
-  conversationId,
-}: {
-  tenantId: string
-  conversationId: string | null
-}) => {
-  const navigate = useNavigate()
-
-  const conversations = useQuery({
-    queryKey: queryKeys.conversations(tenantId),
-    queryFn: async () => {
-      const { data } = await api.get<ConversationSummary[]>('/conversations', {
-        params: { tenantId },
-      })
-
-      return data
-    },
-  })
-
-  const runs = useQuery({
-    queryKey: queryKeys.runs(conversationId ?? ''),
-    enabled: !!conversationId,
-    queryFn: async () => {
-      const { data } = await api.get<AgentRun[]>(`/conversations/${conversationId}/runs`)
-
-      return data
-    },
-  })
-
-  // Same live channels the company's panel uses: RLS lets the administrator
-  // read them, and a thread that only updates on reload is not worth auditing.
-  useTenantStream(tenantId)
-  useConversationStream(conversationId)
-
-  const selectedConversation = conversations.data?.find(
-    (conversation) => conversation.id === conversationId,
-  )
-
-  return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)_340px]">
-      <section
-        aria-label="Conversaciones"
-        className={cn('min-h-0 flex-col border-r', conversationId ? 'hidden lg:flex' : 'flex')}
-      >
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {conversations.isLoading ? (
-            <PageCenter />
-          ) : conversations.data?.length ? (
-            <ConversationList
-              conversations={conversations.data}
-              // Unread belongs to whoever answers the company's chats.
-              isUnread={() => false}
-              selectedId={conversationId}
-              onSelect={(id) =>
-                void navigate({
-                  to: '/platform/tenants/$companyId',
-                  params: { companyId: tenantId },
-                  search: { tab: 'conversations', conversationId: id },
-                })
-              }
-            />
-          ) : (
-            <p className="p-4 text-sm text-muted-foreground">Aún no hay conversaciones.</p>
-          )}
-        </div>
-      </section>
-
-      <section
-        aria-label="Conversación abierta"
-        className={cn(
-          'min-h-0 flex-col bg-card xl:border-r',
-          conversationId ? 'flex' : 'hidden lg:flex',
-        )}
-      >
-        {selectedConversation ? (
-          <ConversationPanel conversation={selectedConversation} isReadOnly />
-        ) : (
-          <div className="flex flex-1 items-center justify-center">
-            <p className="text-sm text-muted-foreground">Selecciona una conversación de la lista</p>
-          </div>
-        )}
-      </section>
-
-      <section aria-label="Pasos del agente" className="hidden min-h-0 flex-col xl:flex">
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {selectedConversation ? (
-            <Timeline runs={runs.data ?? []} />
-          ) : (
-            <p className="p-4 text-sm text-muted-foreground">
-              Selecciona una conversación para ver los pasos del agente.
-            </p>
-          )}
-        </div>
-      </section>
-    </div>
-  )
-}
-
-/* Executions ------------------------------------------------------------------ */
-
-const Executions = ({ tenantId }: { tenantId: string }) => {
-  const [isOnlyErrors, setIsOnlyErrors] = useState(false)
-
-  const jobRuns = useQuery({
-    queryKey: queryKeys.jobRuns(tenantId, isOnlyErrors),
-    queryFn: async () => {
-      const { data } = await api.get<JobRun[]>(`/platform/tenants/${tenantId}/job-runs`, {
-        params: isOnlyErrors ? { status: 'error' } : {},
-      })
-
-      return data
-    },
-  })
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Ejecuciones</CardTitle>
-        <CardAction>
-          <Button
-            size="sm"
-            variant="secondary"
-            aria-pressed={isOnlyErrors}
-            onClick={() => setIsOnlyErrors((current) => !current)}
-          >
-            {isOnlyErrors ? 'Ver todas' : 'Ver solo errores'}
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        {jobRuns.isLoading ? (
-          <PageCenter />
-        ) : jobRuns.error ? (
-          <p className="text-sm text-destructive">{jobRuns.error.message}</p>
-        ) : (
-          <JobRunTable
-            runs={jobRuns.data ?? []}
-            emptyText={
-              isOnlyErrors ? 'No hay ejecuciones con error' : 'Aún no hay ejecuciones registradas'
-            }
-          />
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-const PageCenter = () => (
-  <div className="flex h-full min-h-20 items-center justify-center">
-    <Spinner className="size-5" />
-  </div>
-)

@@ -10,9 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from '~/components/ui/table'
-import { attemptStateOf, formatAttempt, formatStartedAt, queueLabel } from '~/lib/job-runs'
+import { attemptStateOf, formatAttempt, formatStartedAt, queueLabel } from './helpers'
 
-interface Props {
+interface JobRunTableProps {
   runs: (JobRun & { companyName?: string })[]
   /** The error tray mixes companies, so it says whose each row is. */
   showCompany?: boolean
@@ -23,20 +23,20 @@ interface Props {
  * Attempts of worker jobs, newest first. Read only: what failed is fixed where
  * it failed, not from here.
  */
-export const JobRunTable = ({ runs, showCompany = false, emptyText }: Props) => {
+export const JobRunTable = ({ runs, showCompany = false, emptyText }: JobRunTableProps) => {
   const columnCount = showCompany ? 7 : 6
 
   return (
-    <Table>
+    <Table className="min-w-[1100px]">
       <TableHeader>
         <TableRow>
-          <TableHead>Fecha</TableHead>
-          {showCompany && <TableHead>Empresa</TableHead>}
-          <TableHead>Proceso</TableHead>
-          <TableHead>Intento</TableHead>
-          <TableHead>Estado</TableHead>
+          <TableHead className="w-44">Fecha</TableHead>
+          {showCompany && <TableHead className="w-48">Empresa</TableHead>}
+          <TableHead className="w-[17rem]">Proceso</TableHead>
+          <TableHead className="w-28">Intento</TableHead>
+          <TableHead className="w-52">Estado</TableHead>
           <TableHead>Error</TableHead>
-          <TableHead> </TableHead>
+          <TableHead className="w-40"> </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -49,13 +49,15 @@ export const JobRunTable = ({ runs, showCompany = false, emptyText }: Props) => 
                 <TableCell className="font-mono text-xs whitespace-nowrap">
                   {formatStartedAt(run.startedAt)}
                 </TableCell>
-                {showCompany && <TableCell className="font-medium">{run.companyName}</TableCell>}
+                {showCompany && (
+                  <TableCell className="truncate font-medium">{run.companyName}</TableCell>
+                )}
                 <TableCell>{queueLabel(run.queue)}</TableCell>
                 <TableCell className="font-mono text-xs">{formatAttempt(run)}</TableCell>
                 <TableCell>
                   <Badge variant={state.tone}>{state.label}</Badge>
                 </TableCell>
-                <TableCell className="max-w-md">
+                <TableCell>
                   {run.error && (
                     <p className="line-clamp-3 font-mono text-xs break-words whitespace-normal text-muted-foreground">
                       {run.error}

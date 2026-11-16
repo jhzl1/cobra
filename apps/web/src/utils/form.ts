@@ -1,5 +1,5 @@
 import type { AnyFieldApi, AnyFormApi } from '@tanstack/react-form'
-import { fieldErrorsOf } from '~/lib/api'
+import { fieldErrorsOf } from '~/api/client'
 
 /**
  * What to show under a field, or nothing.

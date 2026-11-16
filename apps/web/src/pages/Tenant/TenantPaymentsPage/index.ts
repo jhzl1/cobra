@@ -1,0 +1,1 @@
+export { TenantPaymentsPage } from './TenantPaymentsPage'

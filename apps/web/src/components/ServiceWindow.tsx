@@ -1,21 +1,10 @@
 import { useEffect, useState } from 'react'
-import { SERVICE_WINDOW_MS } from '@cobra/contracts'
 import { cn } from '~/lib/utils'
+import { formatDuration } from '~/utils/formatters'
+import { remainingWindowMs } from '~/utils/serviceWindow'
 
-export const remainingWindowMs = (
-  lastInboundAt: string | null,
-  now: number = Date.now(),
-): number => {
-  if (!lastInboundAt) return 0
-
-  return Math.max(SERVICE_WINDOW_MS - (now - new Date(lastInboundAt).getTime()), 0)
-}
-
-const formatDuration = (ms: number): string => {
-  const minutes = Math.floor(ms / 60_000)
-  const hours = Math.floor(minutes / 60)
-
-  return hours > 0 ? `${hours} h ${minutes % 60} min` : `${minutes} min`
+interface ServiceWindowProps {
+  lastInboundAt: string | null
 }
 
 /**
@@ -26,7 +15,7 @@ const formatDuration = (ms: number): string => {
  * through. Without this the operator writes, sees their message on screen, and
  * the customer never receives it.
  */
-export const ServiceWindow = ({ lastInboundAt }: { lastInboundAt: string | null }) => {
+export const ServiceWindow = ({ lastInboundAt }: ServiceWindowProps) => {
   const [remaining, setRemaining] = useState(() => remainingWindowMs(lastInboundAt))
 
   useEffect(() => {

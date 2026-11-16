@@ -1,15 +1,20 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import type { AgentRun, ConversationSummary, HandoffInput, Message } from '@cobra/contracts'
+import type { ConversationSummary } from '@cobra/contracts'
+import { ServiceWindow } from '~/components/ServiceWindow'
 import { Button } from '~/components/ui/button'
 import { Textarea } from '~/components/ui/textarea'
-import { api } from '~/lib/api'
-import { queryKeys } from '~/lib/queryClient'
+import { useConversationRunsQuery } from '~/hooks/queries/useConversationRunsQuery'
 import { cn } from '~/lib/utils'
-import { ReceiptImage } from './ReceiptImage'
-import { ServiceWindow, remainingWindowMs } from './ServiceWindow'
+import { remainingWindowMs } from '~/utils/serviceWindow'
+import { ComposerNotice } from './components/ComposerNotice'
+import { MessageBubble } from './components/MessageBubble'
+import { ThinkingBubble } from './components/ThinkingBubble'
+import { isRunInProgress } from './helpers'
+import { useHandoffMutation } from './hooks/mutations/useHandoffMutation'
+import { useSendMessageMutation } from './hooks/mutations/useSendMessageMutation'
+import { useMessagesQuery } from './hooks/queries/useMessagesQuery'
 
-interface Props {
+interface ConversationPanelProps {
   conversation: ConversationSummary
   /**
    * The platform's view of a company: the thread and nothing to act with. The
@@ -28,51 +33,15 @@ export const ConversationPanel = ({
   conversation,
   isReadOnly = false,
   sendBlockedReason = null,
-}: Props) => {
-  const queryClient = useQueryClient()
+}: ConversationPanelProps) => {
   const [draft, setDraft] = useState('')
   const bottom = useRef<HTMLDivElement>(null)
-
-  const messages = useQuery({
-    queryKey: queryKeys.messages(conversation.id),
-    queryFn: async () => {
-      const { data } = await api.get<Message[]>(`/conversations/${conversation.id}/messages`)
-
-      return data
-    },
-  })
-
-  // The same query the timeline reads, so the cache is shared and the stream
-  // that keeps the timeline live keeps this live too.
-  const runs = useQuery({
-    queryKey: queryKeys.runs(conversation.id),
-    queryFn: async () => {
-      const { data } = await api.get<AgentRun[]>(`/conversations/${conversation.id}/runs`)
-
-      return data
-    },
-  })
+  const messages = useMessagesQuery(conversation.id)
+  const runs = useConversationRunsQuery(conversation.id)
+  const send = useSendMessageMutation(conversation.id)
+  const handoff = useHandoffMutation(conversation.id)
 
   const isAgentThinking = isRunInProgress(runs.data?.[0])
-
-  const send = useMutation({
-    mutationFn: async (body: string) => {
-      await api.post(`/conversations/${conversation.id}/messages`, { body })
-    },
-    onSuccess: () => {
-      setDraft('')
-      void queryClient.invalidateQueries({ queryKey: queryKeys.messages(conversation.id) })
-    },
-  })
-
-  const handoff = useMutation({
-    mutationFn: async (action: HandoffInput['action']) => {
-      await api.post(`/conversations/${conversation.id}/handoff`, { action })
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['conversations'] })
-    },
-  })
 
   /**
    * Opening a conversation lands at the bottom, and a new message slides there.
@@ -187,21 +156,12 @@ export const ConversationPanel = ({
           {/* The composer locks when the window closes. Leaving it open would let
             the operator write a message WhatsApp refuses with 131047, and they
             would only find out from the customer. */}
-          {isSendBlocked ? (
-            <p className="text-xs text-muted-foreground">{sendBlockedReason}</p>
-          ) : isServiceWindowClosed ? (
-            <p className="text-xs text-destructive">
-              Han pasado más de 24 horas desde el último mensaje del cliente. WhatsApp solo permite
-              contactarlo con una plantilla aprobada.
-            </p>
-          ) : (
-            !isHuman &&
-            !conversation.lastRunFailed && (
-              <p className="text-xs text-muted-foreground">
-                El agente está atendiendo esta conversación. Toma el control para responder.
-              </p>
-            )
-          )}
+          <ComposerNotice
+            sendBlockedReason={sendBlockedReason}
+            isServiceWindowClosed={isServiceWindowClosed}
+            // A failed turn already says it above, with what to do next.
+            isAgentAnswering={!isHuman && !conversation.lastRunFailed}
+          />
 
           <div className="flex items-end gap-2">
             <Textarea
@@ -216,7 +176,7 @@ export const ConversationPanel = ({
             <Button
               disabled={isComposerLocked || !draft.trim()}
               loading={send.isPending}
-              onClick={() => send.mutate(draft.trim())}
+              onClick={() => send.mutate(draft.trim(), { onSuccess: () => setDraft('') })}
             >
               Enviar
             </Button>
@@ -225,98 +185,6 @@ export const ConversationPanel = ({
           {send.error && <p className="text-xs text-destructive">{send.error.message}</p>}
         </footer>
       )}
-    </div>
-  )
-}
-
-const AUTHOR_LABEL: Record<Message['author'], string> = {
-  contact: 'Cliente',
-  agent: 'Agente',
-  operator: 'Asesor',
-}
-
-/**
- * A turn stuck in `running` — a worker that died mid-turn never closes its
- * run — must not show the agent thinking forever. Past the turn's own expiry
- * in the queue, it is not running anymore whatever the row says.
- */
-const RUN_STALE_AFTER_MS = 2 * 60 * 1000
-
-const isRunInProgress = (run: AgentRun | undefined): boolean =>
-  run?.status === 'running' && Date.now() - new Date(run.startedAt).getTime() < RUN_STALE_AFTER_MS
-
-/**
- * The agent's answer on its way: three dots where its bubble is about to be.
- *
- * Without it the operator watching the chat saw nothing between the
- * customer's message and the reply, and could not tell a slow turn from one
- * that would never come. It shows from the moment the turn starts until its
- * reply lands — the burst window and a receipt being read come before that.
- */
-const ThinkingBubble = () => (
-  <div className="flex justify-end" role="status" aria-live="polite">
-    <div className="flex items-center gap-2 rounded-lg bg-accent px-3 py-2.5">
-      <span className="flex items-center gap-1" aria-hidden>
-        {[0, 150, 300].map((delayMs) => (
-          <span
-            key={delayMs}
-            className="size-1.5 rounded-full bg-muted-foreground motion-safe:animate-bounce"
-            style={{ animationDelay: `${delayMs}ms` }}
-          />
-        ))}
-      </span>
-      <span className="font-mono text-[11px] text-muted-foreground">
-        El agente está redactando una respuesta
-      </span>
-    </div>
-  </div>
-)
-
-const MessageBubble = ({ message, onMediaLoad }: { message: Message; onMediaLoad: () => void }) => {
-  const isOutbound = message.direction === 'outbound'
-  // A reply the agent wrote and nobody received: it reads as part of the
-  // thread, so the bubble itself has to look unlike one that went out.
-  const isDryRun = message.deliveryState === 'dry_run'
-
-  return (
-    <div className={isOutbound ? 'flex justify-end' : 'flex justify-start'}>
-      {/* Raised grey for what goes out, sunken for what comes in. White is the
-          primary action and does not compete with the transcript. */}
-      <div
-        className={cn(
-          'max-w-[85%] rounded-lg px-3 py-2 text-sm md:max-w-[70%]',
-          isOutbound ? 'bg-accent' : 'border bg-background',
-          isDryRun && 'border border-dashed border-info/50',
-        )}
-      >
-        {message.mediaUrl && (
-          <ReceiptImage
-            url={message.mediaUrl}
-            receivedAt={message.receivedAt}
-            onLoad={onMediaLoad}
-          />
-        )}
-
-        {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
-
-        {/* Who and when, after the words: the author is context, not a title. */}
-        <p className="mt-1 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-          <span>{AUTHOR_LABEL[message.author]}</span>
-          <span aria-hidden>·</span>
-          <span>
-            {new Date(message.receivedAt).toLocaleTimeString('es-CO', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-            })}
-          </span>
-          {message.deliveryState === 'pending' && <span>· enviando</span>}
-          {message.deliveryState === 'failed' && (
-            <span className="text-destructive">· no entregado</span>
-          )}
-          {isDryRun && <span className="text-info">· no enviado · modo de prueba</span>}
-        </p>
-      </div>
     </div>
   )
 }

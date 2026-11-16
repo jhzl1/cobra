@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { queryOptions } from '@tanstack/react-query'
 import type { PlatformIdentity } from '@cobra/contracts'
-import { api } from '~/lib/api'
+import { api } from '~/api/client'
 import { queryKeys } from '~/lib/queryClient'
 
 /**
@@ -14,8 +14,8 @@ import { queryKeys } from '~/lib/queryClient'
  * For deciding what to show. What is allowed is decided by the API and by RLS,
  * every time.
  */
-export const usePlatformIdentity = () =>
-  useQuery({
+export const platformIdentityQueryOptions = () =>
+  queryOptions({
     queryKey: queryKeys.platformIdentity,
     queryFn: async () => {
       const { data } = await api.get<PlatformIdentity>('/platform/me')

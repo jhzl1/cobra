@@ -1,35 +1,35 @@
-import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, getRouteApi, useNavigate, useParams } from '@tanstack/react-router'
 import { ArrowLeftIcon } from 'lucide-react'
-import { type ReactNode, useEffect, useState } from 'react'
-import type { AgentRun } from '@cobra/contracts'
-import { ConversationList } from '~/components/ConversationList'
-import { ConversationPanel } from '~/components/ConversationPanel'
+import { useEffect, useState } from 'react'
 import { Timeline } from '~/components/Timeline'
 import { Button } from '~/components/ui/button'
-import { Spinner } from '~/components/ui/spinner'
+import { useInbox } from '~/contexts/InboxContext/useInbox'
+import { useConversationRunsQuery } from '~/hooks/queries/useConversationRunsQuery'
+import { useCurrentTenantQuery } from '~/hooks/queries/useCurrentTenantQuery'
 import { useConversationStream } from '~/hooks/useConversationStream'
-import { api } from '~/lib/api'
-import { queryKeys } from '~/lib/queryClient'
-import { sendBlockedReason } from '~/lib/tenants'
 import { cn } from '~/lib/utils'
-import { useInbox } from '~/providers/InboxProvider'
-import { useTenant } from '~/providers/TenantProvider'
+import { InboxList } from './components/InboxList'
+import { OpenConversation } from './components/OpenConversation'
+import { PaneHeader } from './components/PaneHeader'
+import { sendBlockedReason } from './helpers'
 
-interface Props {
-  tenantId: string
-  /** From the path. Null on /$tenantId/conversations, which is the list with nothing open. */
-  conversationId: string | null
-}
+const tenantRoute = getRouteApi('/_app/$tenantId')
 
-export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
+/**
+ * Served at /$tenantId/conversations, the list with nothing open, and at
+ * /$tenantId/conversations/$conversationId, where the conversation lives in the
+ * path. Read loosely because only the second route has it.
+ */
+export const TenantConversationsPage = () => {
+  const { tenantId } = tenantRoute.useParams()
+  const conversationId = useParams({ strict: false }).conversationId ?? null
   const navigate = useNavigate()
   const inbox = useInbox()
-  const { tenants } = useTenant()
+  const currentTenantQuery = useCurrentTenantQuery()
 
-  // The list `TenantProvider` already holds carries both fields, so the
-  // composer needs no request of its own to know the company cannot send.
-  const tenant = tenants.find((candidate) => candidate.id === tenantId)
+  // The company list already carries both fields, so the composer needs no
+  // request of its own to know the company cannot send.
+  const tenant = currentTenantQuery.data
   const blockedReason = tenant ? sendBlockedReason(tenant) : null
 
   // What is on screen stops counting as unread, and stops interrupting.
@@ -39,18 +39,10 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
     return () => inbox.setOpenConversationId(null)
   }, [conversationId, inbox])
 
-  const runs = useQuery({
-    queryKey: queryKeys.runs(conversationId ?? ''),
-    enabled: !!conversationId,
-    queryFn: async () => {
-      const { data } = await api.get<AgentRun[]>(`/conversations/${conversationId}/runs`)
-
-      return data
-    },
-  })
+  const runs = useConversationRunsQuery(conversationId)
 
   /**
-   * The live half. The two queries above are the source of truth — Realtime
+   * The live half. The queries are the source of truth — Realtime
    * retains its messages for days, not forever — and this only tells them when
    * to refetch.
    */
@@ -81,34 +73,16 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
         </PaneHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {inbox.isLoading ? (
-            <div className="flex h-full items-center justify-center">
-              <Spinner className="size-5" />
-            </div>
-          ) : inbox.conversations.length ? (
-            <ConversationList
-              conversations={inbox.conversations}
-              isUnread={inbox.isUnread}
-              selectedId={conversationId}
-              onSelect={(id) =>
-                void navigate({
-                  to: '/$tenantId/conversations/$conversationId',
-                  params: { tenantId, conversationId: id },
-                })
-              }
-            />
-          ) : (
-            /* An empty list explains nothing: four things have to be true before a
-               message can arrive, and three of them live on another screen. */
-            <div className="flex flex-col items-start gap-3 p-4">
-              <p className="text-sm text-muted-foreground">Aún no hay conversaciones.</p>
-              <Button asChild size="sm" variant="secondary">
-                <Link to="/$tenantId/setup" params={{ tenantId }}>
-                  Revisar la puesta en marcha
-                </Link>
-              </Button>
-            </div>
-          )}
+          <InboxList
+            tenantId={tenantId}
+            selectedId={conversationId}
+            onSelect={(id) =>
+              void navigate({
+                to: '/$tenantId/conversations/$conversationId',
+                params: { tenantId, conversationId: id },
+              })
+            }
+          />
         </div>
       </section>
 
@@ -152,20 +126,11 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
           </div>
         )}
 
-        {!selectedConversation ? (
-          <div className="flex flex-1 items-center justify-center">
-            <p className="text-sm text-muted-foreground">Selecciona una conversación de la lista</p>
-          </div>
-        ) : view === 'steps' ? (
-          <div className="min-h-0 flex-1 overflow-y-auto xl:hidden">
-            <Timeline runs={runs.data ?? []} />
-          </div>
-        ) : (
-          <ConversationPanel
-            conversation={selectedConversation}
-            sendBlockedReason={blockedReason}
-          />
-        )}
+        <OpenConversation
+          conversation={selectedConversation}
+          view={view}
+          sendBlockedReason={blockedReason}
+        />
       </section>
 
       <section aria-label="Pasos del agente" className="hidden min-h-0 flex-col xl:flex">
@@ -183,11 +148,3 @@ export const ConversationsPage = ({ tenantId, conversationId }: Props) => {
     </div>
   )
 }
-
-/** The strip above a pane: what it holds, and a count or a figure on the right. */
-const PaneHeader = ({ title, children }: { title: string; children?: ReactNode }) => (
-  <div className="flex h-10 shrink-0 items-center justify-between border-b px-4 text-xs text-muted-foreground">
-    <h2 className="font-sans font-medium tracking-wide uppercase">{title}</h2>
-    {children}
-  </div>
-)

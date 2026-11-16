@@ -1,0 +1,1 @@
+export { ReceiptImage } from './ReceiptImage'

@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import type { ApiFieldError } from '@cobra/contracts'
-import { supabase } from './supabase'
+import { supabase } from '~/lib/supabase'
 
 const { VITE_API_URL } = import.meta.env
 
