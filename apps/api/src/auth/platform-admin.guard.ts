@@ -7,7 +7,7 @@ import {
 import type { Request } from 'express'
 import { SupabaseService } from '~/supabase/supabase.service'
 
-export const FORBIDDEN_MESSAGE = 'No tienes permisos para esta acción'
+export const FORBIDDEN_MESSAGE = 'No tienes permisos para realizar esta acción'
 
 interface RequestWithSupabase extends Request {
   supabaseContext?: {

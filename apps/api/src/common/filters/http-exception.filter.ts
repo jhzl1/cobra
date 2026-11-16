@@ -38,7 +38,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
         response.status(cause.status).json({
           success: false,
-          message: 'La sesión no es válida o expiró',
+          message: 'Tu sesión expiró o no es válida. Inicia sesión de nuevo.',
           code: cause.code,
         })
         return
@@ -58,7 +58,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: 'Ocurrió un error inesperado. Intente de nuevo en unos minutos.',
+      message: 'Ocurrió un error inesperado. Inténtalo de nuevo en unos minutos.',
     })
   }
 }

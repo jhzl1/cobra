@@ -21,10 +21,10 @@ import { SupabaseService } from '~/supabase/supabase.service'
 const SIGNED_URL_TTL_SECONDS = 600
 
 export const SUSPENDED_MESSAGE =
-  'El agente de esta empresa está apagado y no sale ningún mensaje hacia WhatsApp. Para escribir, hay que encenderlo desde la página de la empresa en la plataforma.'
+  'El agente de esta empresa está desactivado y no se envían mensajes por WhatsApp. Para responder, debe activarse desde la página de la empresa en la plataforma.'
 
 export const DRY_RUN_MESSAGE =
-  'Esta empresa está en modo de prueba: los mensajes no salen hacia WhatsApp. Para escribir, hay que desactivar el modo de prueba desde la página de la empresa en la plataforma.'
+  'Esta empresa está en modo de prueba y no se envían mensajes por WhatsApp. Para responder, debe desactivarse el modo de prueba desde la página de la empresa en la plataforma.'
 
 export const READ_ONLY_MESSAGE =
   'Solo un miembro de la empresa puede responder o tomar el control. Desde la plataforma las conversaciones se leen, no se responden.'
@@ -145,12 +145,12 @@ export class ConversationsService {
     await this.assertTenantIsLive(client, conversation.tenant_id)
 
     if (conversation.status !== 'human') {
-      throw new ConflictException('Toma el control de la conversación antes de escribir')
+      throw new ConflictException('Toma el control de la conversación para poder responder')
     }
 
     if (!this.isServiceWindowOpen(conversation.last_inbound_at)) {
       throw new ConflictException(
-        'Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp no permite escribirle sin una plantilla aprobada.',
+        'Han pasado más de 24 horas desde el último mensaje del cliente. WhatsApp solo permite contactarlo con una plantilla aprobada.',
       )
     }
 
@@ -368,7 +368,7 @@ export class ConversationsService {
 
     this.logger.error(`Postgrest ${error.code}: ${error.message}`)
 
-    return new InternalServerErrorException('No se pudo completar la operación')
+    return new InternalServerErrorException('No fue posible completar la operación')
   }
 }
 

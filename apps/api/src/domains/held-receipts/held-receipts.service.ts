@@ -24,7 +24,7 @@ import { SupabaseService } from '~/supabase/supabase.service'
 const SIGNED_URL_TTL_SECONDS = 600
 
 const ALREADY_RESOLVED_MESSAGE =
-  'Este comprobante ya se está aplicando o ya se resolvió. Recarga la lista para ver su estado.'
+  'Este comprobante ya se está aplicando o ya fue resuelto. Actualiza la lista para ver su estado.'
 
 /**
  * "Pendientes": the receipts the rules held back, and what an operator does
@@ -124,7 +124,7 @@ export class HeldReceiptsService {
 
     if (!APPLICABLE_ALERT_REASONS.includes(receipt.alertReason)) {
       throw new ConflictException(
-        'La imagen no es un comprobante de pago, así que no hay pago que aplicar. Descártalo.',
+        'La imagen no corresponde a un comprobante de pago, por lo que no hay un pago para aplicar. Descártalo.',
       )
     }
 
@@ -184,7 +184,7 @@ export class HeldReceiptsService {
 
     if (isWindowOpen && !note) {
       throw new BadRequestException(
-        'Escribe la nota que le llega al cliente explicando por qué no se registró su pago.',
+        'Escribe la nota para el cliente explicando por qué no se registró su pago.',
       )
     }
 
@@ -280,7 +280,7 @@ export class HeldReceiptsService {
       .maybeSingle()
 
     if (error) throw this.toHttpError(error)
-    if (!data) throw new NotFoundException('No se encontró ese comprobante retenido')
+    if (!data) throw new NotFoundException('No se encontró el comprobante retenido')
 
     return {
       alertReason: data.alert_reason as AlertReason,
@@ -303,12 +303,14 @@ export class HeldReceiptsService {
     if (error) throw this.toHttpError(error)
 
     if (!data) {
-      throw new NotFoundException('Esa cuenta de recaudo no es de esta empresa. Elige otra.')
+      throw new NotFoundException(
+        'La cuenta de recaudo seleccionada no pertenece a esta empresa. Selecciona otra.',
+      )
     }
 
     if (!data.wisphub_id) {
       throw new ConflictException(
-        'Esa cuenta de recaudo no tiene forma de pago de Wisphub. Asígnasela en Configuración antes de aplicar.',
+        'La cuenta de recaudo seleccionada no tiene una forma de pago de Wisphub asignada. Asígnala en Configuración antes de aplicar el pago.',
       )
     }
   }
@@ -341,7 +343,7 @@ export class HeldReceiptsService {
 
     if (data.status === 'suspended') {
       throw new ConflictException(
-        'El agente de esta empresa está apagado y no se registran pagos. Hay que encenderlo desde la página de la empresa en la plataforma.',
+        'El agente de esta empresa está desactivado y no es posible registrar pagos. Debe activarse desde la página de la empresa en la plataforma.',
       )
     }
   }
@@ -366,7 +368,7 @@ export class HeldReceiptsService {
 
     this.logger.error(`Postgrest ${error.code}: ${error.message}`)
 
-    return new InternalServerErrorException('No se pudo completar la operación')
+    return new InternalServerErrorException('No fue posible completar la operación')
   }
 }
 
