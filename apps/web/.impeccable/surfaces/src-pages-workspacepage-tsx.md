@@ -1,8 +1,14 @@
 ---
 version: 1
-slug: "src-pages-workspacepage-tsx"
-primary_target: "src/pages/WorkspacePage.tsx"
-related_targets: ["src/components/ConversationList.tsx","src/components/ChatPanel.tsx","src/components/Timeline.tsx","src/components/AppLayout.tsx"]
+slug: 'src-pages-workspacepage-tsx'
+primary_target: 'src/pages/WorkspacePage.tsx'
+related_targets:
+  [
+    'src/components/ConversationList.tsx',
+    'src/components/ChatPanel.tsx',
+    'src/components/Timeline.tsx',
+    'src/components/AppLayout.tsx',
+  ]
 ---
 
 # Chats (WorkspacePage)
