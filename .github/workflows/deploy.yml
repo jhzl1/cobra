@@ -162,6 +162,8 @@ jobs:
       VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
       VITE_API_URL: ${{ vars.VITE_API_URL }}
+      # The panel's own address, for the absolute image URL of its link preview.
+      VITE_PUBLIC_URL: ${{ vars.VITE_PUBLIC_URL }}
       VITE_APP_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
@@ -180,7 +182,7 @@ jobs:
       - name: Check the environment
         run: |
           missing=()
-          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_API_URL; do
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_API_URL VITE_PUBLIC_URL; do
             [ -n "${!name:-}" ] || missing+=("$name")
           done
           if [ "$IS_PRODUCTION" != 'true' ] && [ -z "$VERCEL_ALIAS" ]; then
