@@ -7,6 +7,7 @@ import { loadEnv } from './config/env'
 import { CryptoModule } from './crypto/crypto.module'
 import { ConversationsModule } from './domains/conversations/conversations.module'
 import { HealthController } from './domains/health/health.controller'
+import { HeldReceiptsModule } from './domains/held-receipts/held-receipts.module'
 import { PlatformModule } from './domains/platform/platform.module'
 import { TenantsModule } from './domains/tenants/tenants.module'
 import { QueueModule } from './queue/queue.module'
@@ -29,6 +30,7 @@ import { WhatsappModule } from './webhooks/whatsapp.module'
     PlatformModule,
     TenantsModule,
     ConversationsModule,
+    HeldReceiptsModule,
     WhatsappModule,
   ],
   controllers: [HealthController],
