@@ -20,6 +20,7 @@ import { TraceRepository } from '../repositories/trace.repository.js'
 import { TenantAdminAlertService } from '../runtime/tenant-admin-alert.service.js'
 import { TenantRuntimeService } from '../runtime/tenant-runtime.service.js'
 import { remainingBurstWaitMs } from './burst-window.js'
+import { shouldRedraftTurn } from './redraft.js'
 
 /** How long the turn waits for an image's receipt job before giving up on it. */
 const RECEIPT_WAIT_MS = 20_000
@@ -37,7 +38,11 @@ export interface TurnOutcome {
   outboundMessageId?: string | null
   /** The turn handed the conversation to a person; its reply says so. */
   isHandoff?: boolean
-  skipped?: 'no-messages' | 'human' | 'no-conversation' | 'suspended'
+  /**
+   * `redraft`: the customer wrote while the reply was being drafted, so it was
+   * thrown away unsent and the turn is queued again to answer everything at once.
+   */
+  skipped?: 'no-messages' | 'human' | 'no-conversation' | 'suspended' | 'redraft'
   /**
    * The turn failed but answered anyway, with the fallback reply. The job does
    * not throw — the reply still has to go out — so this is how the failure
@@ -227,6 +232,36 @@ export class ProcessTurnJobHandler {
         },
       })
 
+      const answeredMessageIds = [...consumedMessageIds, ...steering.injectedMessageIds]
+      const latestInbound = await this.conversations.unprocessedInbound(tenantId, conversationId)
+      const lateMessages = latestInbound.filter(
+        (message) => !answeredMessageIds.includes(message.id),
+      )
+      const oldestUnansweredMs = Math.min(
+        ...unprocessedMessages.map((message) => message.receivedAt.getTime()),
+      )
+
+      // Nothing is stored and the messages stay unread, so the next turn drains
+      // this one's messages together with the late ones and answers them once.
+      if (
+        shouldRedraftTurn({
+          lateMessageCount: lateMessages.length,
+          calledTools: turnResult.calledTools,
+          error: turnResult.error,
+          oldestUnansweredAt: new Date(oldestUnansweredMs),
+        })
+      ) {
+        await this.trace.finishRun(tenantId, run.runId, {
+          status: 'skipped',
+          error: null,
+          inputTokens: turnResult.inputTokens,
+          outputTokens: turnResult.outputTokens,
+          answeredCalls: turnResult.answeredCalls,
+        })
+
+        return { skipped: 'redraft' }
+      }
+
       // A message that steered this turn was read and answered by it. Left
       // unprocessed, the turn queued behind this one answered it again: on
       // 2026-11-15 the customer got "un asesor te escribe" and, a minute later,
@@ -234,7 +269,7 @@ export class ProcessTurnJobHandler {
       const outboundMessageId = await this.conversations.finishTurn(
         tenantId,
         conversationId,
-        [...consumedMessageIds, ...steering.injectedMessageIds],
+        answeredMessageIds,
         turnResult.reply,
       )
 
