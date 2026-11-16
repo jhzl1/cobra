@@ -227,10 +227,14 @@ export class ProcessTurnJobHandler {
         },
       })
 
+      // A message that steered this turn was read and answered by it. Left
+      // unprocessed, the turn queued behind this one answered it again: on
+      // 2026-11-15 the customer got "un asesor te escribe" and, a minute later,
+      // "registramos tu pago" for the same text.
       const outboundMessageId = await this.conversations.finishTurn(
         tenantId,
         conversationId,
-        consumedMessageIds,
+        [...consumedMessageIds, ...steering.injectedMessageIds],
         turnResult.reply,
       )
 
