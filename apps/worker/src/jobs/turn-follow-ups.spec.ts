@@ -26,6 +26,27 @@ describe('followUpsFor', () => {
     })
   })
 
+  /**
+   * The reply to a held receipt went unsent because the turn returned no id.
+   * Now it does, and the send is flagged so the job delivers it even though the
+   * same turn handed the conversation to a person.
+   */
+  it('flags the reply of a handoff so it goes out to a held conversation', () => {
+    const [followUp] = followUpsFor(payload, {
+      outboundMessageId: 'm-1',
+      reply: 'Necesitamos revisar tu comprobante manualmente.',
+      isHandoff: true,
+    })
+
+    expect(followUp?.queue).toBe(QUEUES.sendMessage)
+    expect(followUp?.payload).toEqual({
+      tenantId: payload.tenantId,
+      conversationId: payload.conversationId,
+      messageId: 'm-1',
+      isHandoffNotice: true,
+    })
+  })
+
   it('re-queues the turn while the burst window is open, and sends nothing yet', () => {
     const [followUp] = followUpsFor(payload, { deferForMs: 1500 })
 
