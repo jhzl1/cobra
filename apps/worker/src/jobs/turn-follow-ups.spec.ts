@@ -64,6 +64,14 @@ describe('followUpsFor', () => {
     expect(followUp?.payload['windowStartedAt']).toBe('2026-09-15T12:00:00.000Z')
   })
 
+  it('queues the turn again when its reply was thrown away for a late message', () => {
+    const [followUp, ...rest] = followUpsFor(payload, { skipped: 'redraft' })
+
+    expect(rest).toEqual([])
+    expect(followUp?.queue).toBe(QUEUES.processTurn)
+    expect(followUp?.options?.singletonKey).toBe(payload.conversationId)
+  })
+
   it('does nothing when the turn answered nothing', () => {
     expect(followUpsFor(payload, { skipped: 'human' })).toEqual([])
     expect(followUpsFor(payload, { reply: null, outboundMessageId: null })).toEqual([])

@@ -69,6 +69,12 @@ export interface TurnResult {
   error: string | null
   /** One per model call that returned, in order, including those of a failed turn. */
   answeredCalls: AnsweredCall[]
+  /**
+   * Every tool the model called, in order, including those steering skipped. The
+   * worker reads it to tell a turn that only looked something up from one that
+   * changed something outside the conversation.
+   */
+  calledTools: string[]
 }
 
 export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
@@ -116,6 +122,7 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
 
   const llmStep = await deps.steps.start({ kind: 'llm', name: 'agent', input: { maxSteps } })
   const answeredCalls: AnsweredCall[] = []
+  const calledTools: string[] = []
 
   try {
     const result = await generateText({
@@ -132,6 +139,8 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
       timeout: timeoutMs,
       onStepEnd: (step) => {
         answeredCalls.push(toAnsweredCall(step))
+
+        for (const call of step.toolCalls) calledTools.push(call.toolName)
       },
       /**
        * Where a message that arrived mid-turn joins the conversation: right
@@ -163,6 +172,7 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
       outputTokens: result.usage.outputTokens ?? null,
       error: null,
       answeredCalls,
+      calledTools,
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -176,6 +186,7 @@ export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
       outputTokens: null,
       error: message,
       answeredCalls,
+      calledTools,
     }
   }
 }

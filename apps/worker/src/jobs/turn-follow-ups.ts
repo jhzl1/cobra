@@ -59,5 +59,21 @@ export const followUpsFor = (payload: ProcessTurnPayload, outcome: TurnOutcome):
     ]
   }
 
+  /**
+   * The reply was thrown away because the customer wrote while it was being
+   * drafted. The late message queued its own turn, which normally picks
+   * everything up; this makes sure, and `stately` turns a duplicate into a
+   * no-op. No `windowStartedAt`: the messages are already past their window.
+   */
+  if (outcome.skipped === 'redraft') {
+    return [
+      {
+        queue: QUEUES.processTurn,
+        payload: { tenantId: payload.tenantId, conversationId: payload.conversationId },
+        options: { singletonKey: payload.conversationId },
+      },
+    ]
+  }
+
   return []
 }
