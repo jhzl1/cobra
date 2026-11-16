@@ -1,24 +1,18 @@
 import { useForm } from '@tanstack/react-form'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { z } from 'zod'
 import {
   APPLICABLE_ALERT_REASONS,
+  type AlertReason,
   type HeldReceipt,
   type PaymentMethodSummary,
   applyHeldReceiptSchema,
+  dismissHeldReceiptSchema,
 } from '@cobra/contracts'
 import { HeldReceiptDialog, HeldReceiptTable, useHeldReceipts } from '~/components/HeldReceipts'
 import { Pager } from '~/components/Pager'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '~/components/ui/alert-dialog'
+import { remainingWindowMs } from '~/components/ServiceWindow'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Field } from '~/components/ui/field'
@@ -32,6 +26,7 @@ import {
   SelectValue,
 } from '~/components/ui/select'
 import { Spinner } from '~/components/ui/spinner'
+import { Textarea } from '~/components/ui/textarea'
 import { api } from '~/lib/api'
 import { applyServerErrors, fieldError } from '~/lib/form'
 import { queryKeys } from '~/lib/queryClient'
@@ -119,11 +114,15 @@ export const PendingPage = ({ tenantId, page }: { tenantId: string; page: number
         />
       )}
 
-      <DismissDialog
-        tenantId={tenantId}
-        receipt={receiptToDismiss}
-        onClose={() => setReceiptToDismiss(null)}
-      />
+      {/* Keyed per receipt: the note starts from this receipt's reason. */}
+      {receiptToDismiss && (
+        <DismissDialog
+          key={receiptToDismiss.id}
+          tenantId={tenantId}
+          receipt={receiptToDismiss}
+          onClose={() => setReceiptToDismiss(null)}
+        />
+      )}
     </div>
   )
 }
@@ -292,60 +291,121 @@ const ApplyDialog = ({
   )
 }
 
+/**
+ * Dismissing tells the customer why. They sent a payment and were told a
+ * person would write, so a silent dismissal leaves them waiting for nobody.
+ *
+ * Outside WhatsApp's 24-hour window the note cannot be delivered, and the
+ * dialog says so instead of asking for one.
+ */
 const DismissDialog = ({
   tenantId,
   receipt,
   onClose,
 }: {
   tenantId: string
-  receipt: HeldReceipt | null
+  receipt: HeldReceipt
   onClose: () => void
 }) => {
   const queryClient = useQueryClient()
+  const [failure, setFailure] = useState<string | null>(null)
+  const canWrite = remainingWindowMs(receipt.lastInboundAt) > 0
 
-  const dismiss = useMutation({
-    mutationFn: async (receiptId: string) => {
-      await api.post(`/tenants/${tenantId}/held-receipts/${receiptId}/dismiss`)
-    },
-    onSuccess: async () => {
+  const form = useForm({
+    defaultValues: { note: canWrite ? DISMISS_NOTE_BY_REASON[receipt.alertReason] : '' },
+    // Out of the window there is no field, so nothing to validate.
+    validators: canWrite ? { onChange: requiredNoteSchema } : {},
+    onSubmit: async ({ value }) => {
+      setFailure(null)
+
+      try {
+        await api.post(`/tenants/${tenantId}/held-receipts/${receipt.id}/dismiss`, {
+          note: canWrite ? value.note : undefined,
+        })
+      } catch (error) {
+        const [unmatched] = applyServerErrors(form, error)
+
+        setFailure(unmatched ?? (error as Error).message)
+        throw error
+      }
+
       await queryClient.invalidateQueries({ queryKey: queryKeys.heldReceipts(tenantId) })
       onClose()
     },
   })
 
   return (
-    <AlertDialog
-      open={!!receipt}
-      onOpenChange={(open) => {
-        if (!open) {
-          dismiss.reset()
-          onClose()
-        }
-      }}
+    <FormDialog
+      open
+      onClose={onClose}
+      title="Descartar comprobante"
+      description="No se registra ningún pago. El comprobante sale de Pendientes y la conversación vuelve al agente."
+      submitLabel={canWrite ? 'Descartar y enviar nota' : 'Descartar'}
+      form={form}
+      error={failure}
     >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Descartar comprobante</AlertDialogTitle>
-          <AlertDialogDescription>
-            No se registra ningún pago. El comprobante sale de Pendientes y la conversación vuelve
-            al agente. Si el cliente necesita una respuesta, escríbele antes desde la conversación.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        {dismiss.error && <p className="text-sm text-destructive">{dismiss.error.message}</p>}
-
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(event) => {
-              event.preventDefault()
-              if (receipt) dismiss.mutate(receipt.id)
-            }}
-          >
-            Descartar
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      {canWrite ? (
+        <form.Field name="note">
+          {(field) => (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="dismiss-note" className="gap-0">
+                Nota para el cliente
+                <span className="text-destructive" aria-hidden="true">
+                  *
+                </span>
+              </Label>
+              <Textarea
+                id="dismiss-note"
+                rows={5}
+                value={field.state.value}
+                aria-invalid={!!fieldError(field)}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+              {fieldError(field) ? (
+                <p className="text-xs text-destructive">{fieldError(field)}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Le llega por WhatsApp como mensaje tuyo. Explica por qué no se registró su pago y
+                  qué puede hacer.
+                </p>
+              )}
+            </div>
+          )}
+        </form.Field>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Pasaron más de 24 horas desde el último mensaje del cliente, y WhatsApp no deja escribirle
+          sin una plantilla aprobada. Se descarta sin enviarle nota.
+        </p>
+      )}
+    </FormDialog>
   )
+}
+
+/** Inside the window the note is what the customer gets, so it cannot be empty. */
+const requiredNoteSchema = dismissHeldReceiptSchema.extend({
+  note: z
+    .string()
+    .trim()
+    .min(1, 'Escribe la nota que le llega al cliente')
+    .max(1000, 'La nota no puede pasar de 1000 caracteres'),
+})
+
+/**
+ * Where each dismissal note starts, by the reason the receipt was held. The
+ * operator edits it before sending; it only saves typing the same sentence.
+ * Same tone as the agent: serious, no exclamation marks.
+ */
+const DISMISS_NOTE_BY_REASON: Record<AlertReason, string> = {
+  not_a_voucher:
+    'Revisamos la imagen que enviaste y no corresponde a un comprobante de pago. Si ya realizaste el pago, envíanos la foto del comprobante por este medio.',
+  older_than_7_days:
+    'Revisamos tu comprobante y no pudimos registrarlo porque tiene más de 7 días. Si corresponde a un pago reciente, envíanos el comprobante correcto por este medio.',
+  destination_not_ours:
+    'Revisamos tu comprobante y el pago no llegó a ninguna de nuestras cuentas de recaudo, así que no pudimos registrarlo. Verifica la cuenta a la que transferiste y escríbenos por este medio.',
+  reference_already_used:
+    'Revisamos tu comprobante y ya había sido registrado antes, así que no lo volvimos a aplicar. Si se trata de un pago distinto, envíanos el comprobante que corresponde.',
+  unreadable_date:
+    'Revisamos tu comprobante y no pudimos leer la fecha del pago, así que no lo registramos. Envíanos una foto donde se vean completas la fecha y la referencia.',
 }
