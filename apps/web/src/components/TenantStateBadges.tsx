@@ -12,7 +12,7 @@ export const TenantStateBadges = ({
 }) => (
   <span className="flex flex-wrap items-center gap-1.5">
     <Badge variant={tenant.status === 'active' ? 'success' : 'default'}>
-      {tenant.status === 'active' ? 'Agente encendido' : 'Agente apagado'}
+      {tenant.status === 'active' ? 'Agente activo' : 'Agente inactivo'}
     </Badge>
     {tenant.dryRun && <Badge variant="info">Modo de prueba</Badge>}
   </span>

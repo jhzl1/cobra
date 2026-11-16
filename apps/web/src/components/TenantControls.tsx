@@ -37,44 +37,44 @@ const copyOf = (change: Change, tenant: TenantSummary): ChangeCopy => {
   switch (change) {
     case 'agent-off':
       return {
-        title: `Apagar el agente de ${tenant.companyName}`,
+        title: `Desactivar el agente de ${tenant.companyName}`,
         paragraphs: [
-          'Los mensajes de WhatsApp que lleguen a esta empresa se descartan: no se guardan y nadie los responde. Desde el panel tampoco se puede escribir.',
-          'Lo que llegue mientras el agente esté apagado no se recupera al encenderlo. El histórico y la configuración no se tocan.',
+          'Los mensajes de WhatsApp que reciba esta empresa se descartarán: no se almacenan ni se responden. Tampoco será posible enviar mensajes desde el panel.',
+          'Los mensajes recibidos mientras el agente esté desactivado no se recuperan al activarlo. El historial y la configuración se conservan.',
         ],
-        confirmLabel: 'Apagar el agente',
+        confirmLabel: 'Desactivar el agente',
         isDangerous: false,
       }
     case 'agent-on':
       return {
-        title: `Encender el agente de ${tenant.companyName}`,
+        title: `Activar el agente de ${tenant.companyName}`,
         paragraphs: [
-          'La empresa vuelve a recibir mensajes de WhatsApp y el agente responde los que lleguen desde ahora. Lo que llegó mientras estuvo apagado no se recupera.',
+          'La empresa vuelve a recibir mensajes de WhatsApp y el agente atenderá los que lleguen a partir de ahora. Los mensajes recibidos mientras estuvo desactivado no se recuperan.',
           tenant.dryRun
-            ? 'Sigue en modo de prueba: sus respuestas se quedan en el panel.'
-            : 'El modo de prueba está desactivado: sus respuestas les llegan a los clientes y lo que registre queda en Wisphub.',
+            ? 'La empresa sigue en modo de prueba: las respuestas del agente solo se muestran en el panel.'
+            : 'El modo de prueba está desactivado: las respuestas se envían a los clientes y los pagos se registran en Wisphub.',
         ],
-        confirmLabel: 'Encender el agente',
+        confirmLabel: 'Activar el agente',
         isDangerous: false,
       }
     case 'dry-run-on':
       return {
         title: `Activar el modo de prueba en ${tenant.companyName}`,
         paragraphs: [
-          'El agente sigue leyendo los mensajes y respondiendo, pero sus respuestas se quedan en el panel.',
-          'No le llega nada a los clientes ni al teléfono del administrador, y no se registra nada en Wisphub: ni pagos ni saldo a favor. Desde el panel tampoco se puede escribir.',
+          'El agente sigue procesando y respondiendo los mensajes, pero sus respuestas solo se muestran en el panel.',
+          'No se envía ningún mensaje a los clientes ni al teléfono del administrador, y no se registran pagos ni saldos a favor en Wisphub. Tampoco será posible enviar mensajes desde el panel.',
         ],
         confirmLabel: 'Activar el modo de prueba',
         isDangerous: false,
       }
     case 'dry-run-off': {
       const paragraphs = [
-        'El agente empieza a trabajar de verdad: les responde a los clientes por WhatsApp, le escribe al teléfono del administrador y registra pagos y saldo a favor en Wisphub.',
-        'Lo que registre en Wisphub no se deshace desde aquí. Las respuestas que estén por salir en ese momento también se envían.',
+        'El agente comenzará a operar con clientes reales: responderá por WhatsApp, enviará alertas al teléfono del administrador y registrará pagos y saldos a favor en Wisphub.',
+        'Los registros en Wisphub no pueden revertirse desde aquí. Las respuestas pendientes de envío en ese momento también se enviarán.',
       ]
 
       if (tenant.status === 'suspended') {
-        paragraphs.push('El agente está apagado: esto aplica en cuanto lo enciendas.')
+        paragraphs.push('El agente está desactivado: este cambio aplicará en cuanto lo actives.')
       }
 
       return {
@@ -137,17 +137,17 @@ export const TenantControls = ({ tenant }: { tenant: TenantSummary }) => {
       <CardHeader>
         <CardTitle>Ajustes de la plataforma</CardTitle>
         <CardDescription>
-          Solo se cambian desde aquí: el equipo de la empresa no puede tocarlos.
+          Solo pueden modificarse desde aquí; el equipo de la empresa no tiene acceso a ellos.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col divide-y">
         <SettingRow
           title="Agente"
-          description="Apagado, los mensajes de WhatsApp de esta empresa se descartan y desde el panel no se puede escribir."
+          description="Mientras esté desactivado, los mensajes de WhatsApp de esta empresa se descartan y no es posible enviar mensajes desde el panel."
           state={
             <Badge variant={isActive ? 'success' : 'default'}>
-              {isActive ? 'Encendido' : 'Apagado'}
+              {isActive ? 'Activo' : 'Inactivo'}
             </Badge>
           }
           action={
@@ -156,14 +156,14 @@ export const TenantControls = ({ tenant }: { tenant: TenantSummary }) => {
               variant="secondary"
               onClick={() => openDialog(isActive ? 'agent-off' : 'agent-on')}
             >
-              {isActive ? 'Apagar' : 'Encender'}
+              {isActive ? 'Desactivar' : 'Activar'}
             </Button>
           }
         />
 
         <SettingRow
           title="Modo de prueba"
-          description="El agente lee y responde, pero solo en el panel: nada les llega a los clientes ni al administrador, y nada se registra en Wisphub."
+          description="El agente procesa y responde, pero solo en el panel: no se envían mensajes a los clientes ni al administrador, y no se registra nada en Wisphub."
           state={
             <Badge variant={tenant.dryRun ? 'info' : 'default'}>
               {tenant.dryRun ? 'Activado' : 'Desactivado'}

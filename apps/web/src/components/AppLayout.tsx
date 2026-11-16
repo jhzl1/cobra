@@ -137,7 +137,7 @@ const AlertControls = () => {
         <Button
           size="icon-sm"
           variant="ghost"
-          title="Avisarme con una notificación del sistema cuando llegue un mensaje"
+          title="Recibir una notificación del sistema cuando llegue un mensaje"
           aria-label="Activar las notificaciones"
           onClick={() => {
             void askForNotifications().then(() => setPermission(Notification.permission))
@@ -156,8 +156,12 @@ const AlertControls = () => {
       <Button
         size="icon-sm"
         variant="ghost"
-        title={isSoundOn ? 'Silenciar el aviso' : 'Sonar cuando llegue un mensaje'}
-        aria-label={isSoundOn ? 'Silenciar el aviso' : 'Activar el sonido'}
+        title={
+          isSoundOn
+            ? 'Silenciar el sonido de mensajes nuevos'
+            : 'Reproducir un sonido cuando llegue un mensaje'
+        }
+        aria-label={isSoundOn ? 'Silenciar el sonido' : 'Activar el sonido'}
         onClick={() => {
           setIsSoundOn((on) => {
             // Turning it on plays it once: it is the only way to know what it

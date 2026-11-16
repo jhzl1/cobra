@@ -33,7 +33,7 @@ export const ReceiptImage = ({
       <button
         type="button"
         onClick={() => setIsFullSizeOpen(true)}
-        title="Ver el comprobante completo"
+        title="Ampliar el comprobante"
         className="mb-1 block cursor-zoom-in overflow-hidden rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         <img src={url} alt="Comprobante" className="max-h-64" onLoad={onLoad} />
@@ -85,7 +85,7 @@ export const ReceiptPreview = ({ url }: { url: string | null }) => {
     return (
       <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-border p-4">
         <p className="text-center text-sm text-muted-foreground">
-          La imagen del comprobante no quedó guardada.
+          La imagen del comprobante no está disponible.
         </p>
       </div>
     )

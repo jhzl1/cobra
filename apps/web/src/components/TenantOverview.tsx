@@ -54,7 +54,7 @@ export const TenantOverview = ({ tenant }: { tenant: TenantSummary }) => {
           {numbers.isLoading && <Spinner />}
           {activeNumbers.length
             ? activeNumbers.map((number) => <ActiveNumber key={number.id} number={number} />)
-            : !numbers.isLoading && <Empty>Sin números conectados</Empty>}
+            : !numbers.isLoading && <Empty>No hay números conectados</Empty>}
           {retiredNumbers.map((number) => (
             <div key={number.id} className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>
@@ -71,11 +71,13 @@ export const TenantOverview = ({ tenant }: { tenant: TenantSummary }) => {
             ? members.data.map((member) => (
                 <Row
                   key={member.userId}
-                  label={member.email ?? 'Cuenta sin correo'}
+                  label={member.email ?? 'Cuenta sin correo electrónico'}
                   value={new Date(member.joinedAt).toLocaleDateString('es-CO')}
                 />
               ))
-            : !members.isLoading && <Empty>Sin miembros. Nadie puede entrar a esta empresa.</Empty>}
+            : !members.isLoading && (
+                <Empty>No hay miembros. Nadie puede acceder a esta empresa.</Empty>
+              )}
         </Section>
       </CardContent>
     </Card>

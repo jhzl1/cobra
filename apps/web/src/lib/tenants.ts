@@ -23,11 +23,11 @@ export const sendBlockedReason = (
   tenant: Pick<TenantSummary, 'status' | 'dryRun'>,
 ): string | null => {
   if (tenant.status === 'suspended') {
-    return 'El agente de esta empresa está apagado: no se puede escribir desde el panel.'
+    return 'El agente de esta empresa está desactivado. No es posible enviar mensajes desde el panel.'
   }
 
   if (tenant.dryRun) {
-    return 'La empresa está en modo de prueba: nada sale por WhatsApp, tampoco lo que escribas aquí.'
+    return 'La empresa está en modo de prueba. Ningún mensaje se envía por WhatsApp, incluidos los que escribas aquí.'
   }
 
   return null

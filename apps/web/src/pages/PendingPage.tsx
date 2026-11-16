@@ -61,8 +61,9 @@ export const PendingPage = ({ tenantId, page }: { tenantId: string; page: number
             ) : null}
           </CardTitle>
           <CardDescription>
-            El agente no los registró por el motivo que aparece en cada uno, y la conversación quedó
-            en manos de una persona. Al aplicar o descartar, la conversación vuelve al agente.
+            El agente no registró estos comprobantes por el motivo indicado en cada uno, y la
+            conversación quedó a cargo de un asesor. Al aplicarlos o descartarlos, la conversación
+            vuelve al agente.
           </CardDescription>
         </CardHeader>
 
@@ -143,7 +144,7 @@ const ReceiptActions = ({
     <div className="flex flex-wrap items-center justify-end gap-2">
       {!isApplicable && (
         <p className="text-xs text-muted-foreground">
-          No hay pago que aplicar: la imagen no es un comprobante.
+          No hay un pago para aplicar: la imagen no corresponde a un comprobante.
         </p>
       )}
       <Button size="sm" variant="secondary" disabled={isApplying} onClick={onDismiss}>
@@ -209,8 +210,8 @@ const ApplyDialog = ({
       open
       onClose={onClose}
       title="Aplicar pago"
-      description="Se registra en Wisphub con las mismas reglas del agente: una factura a la vez y el excedente como saldo a favor. Si el cliente no debe nada, todo queda como saldo a favor. Al confirmarse, al cliente le llega la confirmación por WhatsApp."
-      submitLabel="Aplicar"
+      description="El pago se registra en Wisphub con las mismas reglas que aplica el agente: una factura a la vez y el excedente como saldo a favor. Si el cliente no tiene deuda, el monto completo queda como saldo a favor. Una vez registrado, el cliente recibe la confirmación por WhatsApp."
+      submitLabel="Aplicar pago"
       form={form}
       error={failure ?? (paymentMethods.error ? paymentMethods.error.message : null)}
     >
@@ -218,7 +219,7 @@ const ApplyDialog = ({
         {(field) => (
           <Field
             label="Documento del cliente"
-            hint="El número de documento con el que el cliente está en Wisphub. Si el pago cubre varias cuentas, sepáralos con coma."
+            hint="Número de documento con el que el cliente está registrado en Wisphub. Si el pago cubre varias cuentas, sepáralos con comas."
             inputMode="numeric"
             required
             value={field.state.value}
@@ -233,7 +234,7 @@ const ApplyDialog = ({
         {(field) => (
           <Field
             label="Monto"
-            hint="Viene de lo que se leyó en el comprobante. Corrígelo si la lectura se equivocó."
+            hint="Valor leído del comprobante. Corrígelo si no coincide con la imagen."
             type="number"
             min={1}
             step={1}
@@ -263,7 +264,9 @@ const ApplyDialog = ({
             >
               <SelectTrigger id="held-receipt-account" className="w-full">
                 <SelectValue
-                  placeholder={paymentMethods.isLoading ? 'Cargando cuentas…' : 'Elige una'}
+                  placeholder={
+                    paymentMethods.isLoading ? 'Cargando cuentas…' : 'Selecciona una cuenta'
+                  }
                 />
               </SelectTrigger>
               <SelectContent>
@@ -280,8 +283,8 @@ const ApplyDialog = ({
               <p className="text-xs text-destructive">{fieldError(field)}</p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                A cuál de las cuentas de la empresa llegó el dinero. Wisphub lo registra con su
-                forma de pago.
+                Cuenta de la empresa que recibió el dinero. Wisphub registra el pago con la forma de
+                pago asociada.
               </p>
             )}
           </div>
@@ -339,7 +342,7 @@ const DismissDialog = ({
       open
       onClose={onClose}
       title="Descartar comprobante"
-      description="No se registra ningún pago. El comprobante sale de Pendientes y la conversación vuelve al agente."
+      description="No se registra ningún pago. El comprobante se retira de Pendientes y la conversación vuelve al agente."
       submitLabel={canWrite ? 'Descartar y enviar nota' : 'Descartar'}
       form={form}
       error={failure}
@@ -366,8 +369,8 @@ const DismissDialog = ({
                 <p className="text-xs text-destructive">{fieldError(field)}</p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Le llega por WhatsApp como mensaje tuyo. Explica por qué no se registró su pago y
-                  qué puede hacer.
+                  El cliente la recibe por WhatsApp como un mensaje tuyo. Indica por qué no se
+                  registró el pago y cuáles son los pasos a seguir.
                 </p>
               )}
             </div>
@@ -375,8 +378,8 @@ const DismissDialog = ({
         </form.Field>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Pasaron más de 24 horas desde el último mensaje del cliente, y WhatsApp no deja escribirle
-          sin una plantilla aprobada. Se descarta sin enviarle nota.
+          Han pasado más de 24 horas desde el último mensaje del cliente y WhatsApp solo permite
+          contactarlo con una plantilla aprobada. El comprobante se descartará sin enviar una nota.
         </p>
       )}
     </FormDialog>
@@ -388,8 +391,8 @@ const requiredNoteSchema = dismissHeldReceiptSchema.extend({
   note: z
     .string()
     .trim()
-    .min(1, 'Escribe la nota que le llega al cliente')
-    .max(1000, 'La nota no puede pasar de 1000 caracteres'),
+    .min(1, 'Escribe la nota para el cliente')
+    .max(1000, 'La nota no puede superar los 1000 caracteres'),
 })
 
 /**
@@ -401,11 +404,11 @@ const DISMISS_NOTE_BY_REASON: Record<AlertReason, string> = {
   not_a_voucher:
     'Revisamos la imagen que enviaste y no corresponde a un comprobante de pago. Si ya realizaste el pago, envíanos la foto del comprobante por este medio.',
   older_than_7_days:
-    'Revisamos tu comprobante y no pudimos registrarlo porque tiene más de 7 días. Si corresponde a un pago reciente, envíanos el comprobante correcto por este medio.',
+    'Revisamos tu comprobante y no fue posible registrarlo porque tiene más de 7 días. Si corresponde a un pago reciente, envíanos el comprobante correcto por este medio.',
   destination_not_ours:
-    'Revisamos tu comprobante y el pago no llegó a ninguna de nuestras cuentas de recaudo, así que no pudimos registrarlo. Verifica la cuenta a la que transferiste y escríbenos por este medio.',
+    'Revisamos tu comprobante y el pago no corresponde a ninguna de nuestras cuentas de recaudo, por lo que no fue posible registrarlo. Verifica la cuenta a la que realizaste la transferencia y escríbenos por este medio.',
   reference_already_used:
-    'Revisamos tu comprobante y ya había sido registrado antes, así que no lo volvimos a aplicar. Si se trata de un pago distinto, envíanos el comprobante que corresponde.',
+    'Revisamos tu comprobante y este ya había sido registrado, por lo que no se aplicó nuevamente. Si se trata de un pago distinto, envíanos el comprobante correspondiente.',
   unreadable_date:
-    'Revisamos tu comprobante y no pudimos leer la fecha del pago, así que no lo registramos. Envíanos una foto donde se vean completas la fecha y la referencia.',
+    'Revisamos tu comprobante y no fue posible identificar la fecha del pago, por lo que no se registró. Envíanos una foto en la que se vean completas la fecha y la referencia.',
 }

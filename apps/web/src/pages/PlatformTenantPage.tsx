@@ -247,9 +247,7 @@ const ReadOnlyConversations = ({
               }
             />
           ) : (
-            <p className="p-4 text-sm text-muted-foreground">
-              Todavía no ha llegado ninguna conversación.
-            </p>
+            <p className="p-4 text-sm text-muted-foreground">Aún no hay conversaciones.</p>
           )}
         </div>
       </section>
@@ -265,7 +263,7 @@ const ReadOnlyConversations = ({
           <ConversationPanel conversation={selectedConversation} isReadOnly />
         ) : (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-sm text-muted-foreground">Elige una conversación de la lista</p>
+            <p className="text-sm text-muted-foreground">Selecciona una conversación de la lista</p>
           </div>
         )}
       </section>
@@ -276,7 +274,7 @@ const ReadOnlyConversations = ({
             <Timeline runs={runs.data ?? []} />
           ) : (
             <p className="p-4 text-sm text-muted-foreground">
-              Los pasos aparecen al abrir una conversación.
+              Selecciona una conversación para ver los pasos del agente.
             </p>
           )}
         </div>
@@ -325,7 +323,7 @@ const Executions = ({ tenantId }: { tenantId: string }) => {
           <JobRunTable
             runs={jobRuns.data ?? []}
             emptyText={
-              isOnlyErrors ? 'Ninguna ejecución ha fallado' : 'El worker no ha corrido nada todavía'
+              isOnlyErrors ? 'No hay ejecuciones con error' : 'Aún no hay ejecuciones registradas'
             }
           />
         )}

@@ -33,11 +33,13 @@ import { queryKeys } from '~/lib/queryClient'
 const ROLE_COPY: Record<ModelRole, { label: string; requirement: string }> = {
   agent: {
     label: 'Conversación con el cliente',
-    requirement: 'Solo aparecen modelos que pueden usar herramientas, como registrar un pago.',
+    requirement:
+      'Solo se muestran modelos compatibles con herramientas, como el registro de pagos.',
   },
   vision: {
     label: 'Lectura de comprobantes',
-    requirement: 'Solo aparecen modelos que leen imágenes y devuelven datos estructurados.',
+    requirement:
+      'Solo se muestran modelos capaces de leer imágenes y devolver datos estructurados.',
   },
 }
 
@@ -130,9 +132,9 @@ export const ModelSettingsCard = () => {
       <CardHeader>
         <CardTitle>Modelos</CardTitle>
         <CardDescription>
-          Los usan todas las empresas. Un cambio aplica desde el siguiente mensaje que llegue, sin
-          desplegar nada. Probar un modelo nuevo con una empresa en modo de prueba evita que un
-          cliente real lo estrene.
+          Aplican a todas las empresas. Los cambios rigen desde el siguiente mensaje recibido, sin
+          necesidad de desplegar. Se recomienda probar un modelo nuevo con una empresa en modo de
+          prueba antes de usarlo con clientes reales.
         </CardDescription>
       </CardHeader>
 
@@ -142,7 +144,7 @@ export const ModelSettingsCard = () => {
             <TableRow>
               <TableHead>Tarea</TableHead>
               <TableHead>Modelo</TableHead>
-              <TableHead>Cambiado</TableHead>
+              <TableHead>Última modificación</TableHead>
               <TableHead> </TableHead>
             </TableRow>
           </TableHeader>
@@ -159,7 +161,9 @@ export const ModelSettingsCard = () => {
                   <TableCell className="font-medium">{labelOf(row)}</TableCell>
                   <TableCell className="font-mono text-xs">
                     {row.modelId ?? (
-                      <span className="font-sans text-muted-foreground">Sin respaldo</span>
+                      <span className="font-sans text-muted-foreground">
+                        Sin modelo de respaldo
+                      </span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -178,7 +182,7 @@ export const ModelSettingsCard = () => {
                         </Button>
                       )}
                       <Button size="sm" variant="secondary" onClick={() => setEditingKey(row.key)}>
-                        {row.modelId ? 'Cambiar' : 'Elegir'}
+                        {row.modelId ? 'Cambiar' : 'Seleccionar'}
                       </Button>
                     </div>
                   </TableCell>
@@ -250,8 +254,8 @@ const ChangeModelDialog = ({ row, onClose }: { row: ModelRow; onClose: () => voi
     ? `Modelo de respaldo para la ${copy.label.toLowerCase()}`
     : `Modelo para ${copy.label.toLowerCase()}`
   const purpose = row.isFallback
-    ? 'Se usa solo cuando ningún proveedor del modelo principal responde, en todas las empresas.'
-    : 'Cambia el modelo en todas las empresas desde el siguiente mensaje.'
+    ? 'Se usa en todas las empresas solo cuando ningún proveedor del modelo principal responde.'
+    : 'El cambio aplica a todas las empresas desde el siguiente mensaje.'
 
   return (
     <FormDialog
@@ -281,9 +285,11 @@ const ChangeModelDialog = ({ row, onClose }: { row: ModelRow; onClose: () => voi
               onBlur={field.handleBlur}
               disabled={catalog.isLoading || !options.length}
               placeholder={
-                catalog.isLoading ? 'Consultando a OpenRouter…' : 'Escribe “claude” o “gemini”'
+                catalog.isLoading
+                  ? 'Consultando a OpenRouter…'
+                  : 'Busca por nombre, por ejemplo “claude” o “gemini”'
               }
-              emptyText="Ningún modelo compatible coincide con eso"
+              emptyText="Ningún modelo compatible coincide con la búsqueda"
               aria-invalid={!!fieldError(field)}
             />
 

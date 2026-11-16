@@ -10,8 +10,8 @@ import { supabase } from '~/lib/supabase'
 // Not in @cobra/contracts: signing in never reaches our API, it goes straight
 // to Supabase Auth, so there is no server schema to share.
 const signInSchema = z.object({
-  email: z.email('Escribe un correo válido'),
-  password: z.string().min(1, 'Escribe tu contraseña'),
+  email: z.email('Ingresa un correo electrónico válido'),
+  password: z.string().min(1, 'Ingresa tu contraseña'),
 })
 
 export const LoginPage = () => {
@@ -37,7 +37,7 @@ export const LoginPage = () => {
     // to start the redirect lands here.
     if (oauthError) {
       setIsRedirectingToGoogle(false)
-      setError('No se pudo abrir Google. Intenta de nuevo en un momento.')
+      setError('No fue posible conectar con Google. Inténtalo de nuevo en unos minutos.')
     }
   }
 
@@ -49,7 +49,7 @@ export const LoginPage = () => {
 
       const { error: signInError } = await supabase.auth.signInWithPassword(value)
 
-      if (signInError) setError('Correo o contraseña incorrectos')
+      if (signInError) setError('El correo o la contraseña no son correctos.')
     },
   })
 
@@ -73,7 +73,7 @@ export const LoginPage = () => {
             <form.Field name="email">
               {(field) => (
                 <Field
-                  label="Correo"
+                  label="Correo electrónico"
                   type="email"
                   autoComplete="email"
                   required
@@ -105,7 +105,7 @@ export const LoginPage = () => {
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
                 <Button type="submit" loading={isSubmitting}>
-                  Entrar
+                  Iniciar sesión
                 </Button>
               )}
             </form.Subscribe>
@@ -150,10 +150,10 @@ const readGoogleRedirectError = async (): Promise<string | null> => {
   const details = 'details' in error ? (error.details as { code?: string } | null) : null
 
   if (details?.code === 'signup_disabled') {
-    return 'Ese correo de Google no tiene acceso a Wispay. Pídele acceso a un administrador.'
+    return 'Esta cuenta de Google no tiene acceso a Wispay. Solicita acceso a un administrador de tu empresa.'
   }
 
-  return 'No se pudo entrar con Google. Intenta de nuevo.'
+  return 'No fue posible iniciar sesión con Google. Inténtalo de nuevo.'
 }
 
 const GoogleIcon = () => (

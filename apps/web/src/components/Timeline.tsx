@@ -31,8 +31,8 @@ const STATUS_TONE: Record<Status, string> = {
 
 const STATUS_LABEL: Record<Status, string> = {
   running: 'en curso',
-  done: 'listo',
-  error: 'falló',
+  done: 'completado',
+  error: 'con error',
   skipped: 'omitido',
 }
 
@@ -69,7 +69,7 @@ export const Timeline = ({ runs }: { runs: AgentRun[] }) => {
   if (!runs.length) {
     return (
       <p className="p-4 text-sm text-muted-foreground">
-        Todavía no hay turnos en esta conversación.
+        Esta conversación aún no registra turnos del agente.
       </p>
     )
   }
@@ -90,7 +90,7 @@ export const Timeline = ({ runs }: { runs: AgentRun[] }) => {
               <span className="flex flex-1 items-baseline gap-3 font-mono text-xs">
                 <span className="text-foreground">{clock(run.startedAt)}</span>
                 <span className={STATUS_TONE[run.status]}>
-                  {run.trigger === 'manual_replay' ? 'reenviado · ' : ''}
+                  {run.trigger === 'manual_replay' ? 'reprocesado · ' : ''}
                   {STATUS_LABEL[run.status]}
                 </span>
                 {elapsed !== null && (
@@ -152,7 +152,7 @@ const Step = ({ step }: { step: AgentStep }) => {
           {/* The browser's own triangle hidden, for the chevron the turn rows use. */}
           <summary className="flex cursor-pointer list-none items-center gap-1 text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground [&::-webkit-details-marker]:hidden">
             <ChevronRightIcon className="size-3 transition-transform group-open:rotate-90" />
-            argumentos y resultado
+            entrada y salida
           </summary>
           <pre className="mt-1.5 max-h-72 overflow-auto rounded-md border bg-background p-2 text-[11px] leading-relaxed">
             {JSON.stringify({ input: step.input, output: step.output, error: step.error }, null, 2)}

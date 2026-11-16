@@ -20,8 +20,8 @@ interface State {
  * the customer was left without an answer.
  */
 const stateOf = (conversation: ConversationSummary): State => {
-  if (conversation.lastRunFailed) return { label: 'Falló', tone: 'text-destructive' }
-  if (conversation.status === 'human') return { label: 'Operador', tone: 'text-warning' }
+  if (conversation.lastRunFailed) return { label: 'Con error', tone: 'text-destructive' }
+  if (conversation.status === 'human') return { label: 'Asesor', tone: 'text-warning' }
   if (conversation.status === 'closed')
     return { label: 'Cerrada', tone: 'text-disabled-foreground' }
 

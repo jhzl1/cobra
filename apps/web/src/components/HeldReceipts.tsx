@@ -102,7 +102,7 @@ export const HeldReceiptTable = ({
             <div className="flex items-center gap-2">
               <Badge variant="warning">{ALERT_REASON_TEXT[receipt.alertReason]}</Badge>
               {receipt.resolution === 'applying' && (
-                <Spinner className="size-3" aria-label="Aplicando en Wisphub" />
+                <Spinner className="size-3" aria-label="Registrando en Wisphub" />
               )}
             </div>
           </TableCell>
@@ -163,7 +163,7 @@ export const HeldReceiptDialog = ({
                 {receipt.resolution === 'applying' && (
                   <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Spinner className="size-3" />
-                    Aplicando en Wisphub…
+                    Registrando en Wisphub…
                   </span>
                 )}
               </div>
@@ -178,15 +178,15 @@ export const HeldReceiptDialog = ({
                   value={receipt.paidAt ? formatDateTime(receipt.paidAt) : null}
                 />
                 <Detail label="Referencia" value={receipt.references.join(', ') || null} />
-                <Detail label="Medio" value={receipt.destinationMethod} />
-                <Detail label="Cuenta destino" value={receipt.destinationAccount} />
+                <Detail label="Medio de pago" value={receipt.destinationMethod} />
+                <Detail label="Cuenta de destino" value={receipt.destinationAccount} />
                 <Detail
-                  label="Seguridad de la lectura"
+                  label="Confianza de la lectura"
                   value={
                     receipt.confidence === null ? null : `${Math.round(receipt.confidence * 100)} %`
                   }
                 />
-                <Detail label="Lo que se leyó" value={receipt.description} />
+                <Detail label="Descripción" value={receipt.description} />
               </dl>
 
               {receipt.resolutionError && (
@@ -205,7 +205,7 @@ export const HeldReceiptDialog = ({
 const Detail = ({ label, value }: { label: string; value: string | null }) => (
   <>
     <dt className="text-muted-foreground">{label}</dt>
-    <dd className="min-w-0 break-words">{value ?? 'No se leyó'}</dd>
+    <dd className="min-w-0 break-words">{value ?? 'No identificado'}</dd>
   </>
 )
 
