@@ -86,16 +86,16 @@ export const PlatformPage = ({ tab, page }: Props) => {
         <TabsTrigger value="admins">Administradores</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="companies" className="p-4">
+      <TabsContent value="companies" className="p-4 md:p-6">
         <TenantsCard page={page} />
       </TabsContent>
-      <TabsContent value="errors" className="p-4">
+      <TabsContent value="errors" className="p-4 md:p-6">
         <ErrorsCard page={page} />
       </TabsContent>
-      <TabsContent value="models" className="p-4">
+      <TabsContent value="models" className="p-4 md:p-6">
         <ModelSettingsCard />
       </TabsContent>
-      <TabsContent value="admins" className="p-4">
+      <TabsContent value="admins" className="p-4 md:p-6">
         <GrantsCard />
       </TabsContent>
     </Tabs>
