@@ -25,7 +25,23 @@ describe('ResetStaleContextsJobHandler', () => {
       p_tenant_id: TENANT_ID,
       p_idle: '48 hours',
     })
-    expect(result).toEqual({ reset: 3 })
+    expect(result.reset).toBe(3)
+  })
+
+  /**
+   * A conversation a person took and forgot stayed silent for good: the customer
+   * who came back to pay the next invoice got no answer at all.
+   */
+  it('gives back to the agent the held conversations nobody wrote in for 24 hours', async () => {
+    const { handler, rpc } = handlerFor({ data: 2, error: null })
+
+    const result = await handler.run({ tenantId: TENANT_ID })
+
+    expect(rpc).toHaveBeenCalledWith('release_idle_handoffs', {
+      p_tenant_id: TENANT_ID,
+      p_idle: '24 hours',
+    })
+    expect(result.released).toBe(2)
   })
 
   it('fails the job when the database refuses, so pg-boss retries it', async () => {

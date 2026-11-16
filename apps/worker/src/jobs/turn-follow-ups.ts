@@ -53,6 +53,7 @@ export const followUpsFor = (payload: ProcessTurnPayload, outcome: TurnOutcome):
           tenantId: payload.tenantId,
           conversationId: payload.conversationId,
           messageId: outcome.outboundMessageId,
+          ...(outcome.isHandoff ? { isHandoffNotice: true } : {}),
         },
       },
     ]

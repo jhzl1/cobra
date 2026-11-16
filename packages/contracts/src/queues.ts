@@ -67,6 +67,13 @@ export const sendMessagePayloadSchema = z.object({
   tenantId: z.uuid(),
   conversationId: z.uuid(),
   messageId: z.uuid(),
+  /**
+   * The agent's last word before the system handed the conversation to a
+   * person — the reply to a held receipt. The send job discards agent replies
+   * once a person holds the conversation, and without this flag it would
+   * discard the one telling the customer that a person is coming.
+   */
+  isHandoffNotice: z.boolean().optional(),
 })
 
 export type SendMessagePayload = z.infer<typeof sendMessagePayloadSchema>

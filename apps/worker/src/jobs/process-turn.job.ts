@@ -35,6 +35,8 @@ export interface TurnOutcome {
    * and risks running its tools twice, while retrying the send costs nothing.
    */
   outboundMessageId?: string | null
+  /** The turn handed the conversation to a person; its reply says so. */
+  isHandoff?: boolean
   skipped?: 'no-messages' | 'human' | 'no-conversation' | 'suspended'
   /**
    * The turn failed but answered anyway, with the fallback reply. The job does
@@ -144,6 +146,12 @@ export class ProcessTurnJobHandler {
        * The customer reads the same fixed sentence whatever the rule was, and the
        * reason goes to the administrator. Letting the model near a rejected
        * receipt is how it ends up explaining our validation rules to a customer.
+       *
+       * The conversation then passes to a person, because the sentence promises
+       * one. On 2026-11-15 the customer wrote their document a minute after a
+       * held receipt, and the agent — which knows nothing of the hold — asked
+       * them to send the receipt again. The nightly maintenance gives it back
+       * to the agent if nobody writes in it.
        */
       if (rejectedReceipt) {
         const step = await run.recorder.start({
@@ -163,7 +171,12 @@ export class ProcessTurnJobHandler {
           )
 
         await run.recorder.finish(step, { status: 'done', output: { reply: MANUAL_REVIEW_REPLY } })
-        await this.conversations.finishTurn(
+
+        // Before the reply is stored: a message the customer sends right after
+        // must already find the conversation held, not start an agent turn.
+        await this.conversations.handOffToPerson(tenantId, conversationId)
+
+        const outboundMessageId = await this.conversations.finishTurn(
           tenantId,
           conversationId,
           consumedMessageIds,
@@ -171,7 +184,9 @@ export class ProcessTurnJobHandler {
         )
         await this.trace.finishRun(tenantId, run.runId, { status: 'done' })
 
-        return { reply: MANUAL_REVIEW_REPLY }
+        // The id is what queues the send. Without it the reply was stored as
+        // pending and never went out, and the customer heard nothing.
+        return { reply: MANUAL_REVIEW_REPLY, outboundMessageId, isHandoff: true }
       }
 
       const startedAt = new Date()

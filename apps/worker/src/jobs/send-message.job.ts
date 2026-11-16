@@ -46,9 +46,10 @@ export class SendMessageJobHandler {
      * The status is checked here, immediately before sending, and not when the
      * turn started: if the operator took the conversation while the agent was
      * thinking, the bot's answer is discarded rather than delivered on top of
-     * theirs.
+     * theirs. The handoff notice is the exception: the system handed the
+     * conversation over itself, and this is the message saying so.
      */
-    if (message['author'] === 'agent') {
+    if (message['author'] === 'agent' && !payload.isHandoffNotice) {
       const status = await this.conversations.loadStatus(tenantId, conversationId)
 
       if (status === 'human') {

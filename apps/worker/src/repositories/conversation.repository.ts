@@ -153,6 +153,36 @@ export class ConversationRepository {
     if (error) throw error
   }
 
+  /**
+   * Parks the agent, the same state "Tomar el control" leaves behind, with
+   * nobody assigned: whoever answers first takes it. `human_since` is stamped by
+   * a trigger in @cobra/db.
+   */
+  async handOffToPerson(tenantId: string, conversationId: string): Promise<void> {
+    const { error } = await this.supabase
+      .scope(tenantId)
+      .update('conversations', { status: 'human', assigned_to: null })
+      .eq('id', conversationId)
+
+    if (error) throw error
+  }
+
+  /**
+   * Gives back to the agent the conversations of the tenant held by a person in
+   * which no operator wrote for `idle` (a Postgres interval). Returns how many.
+   * See `release_idle_handoffs` in @cobra/db.
+   */
+  async releaseIdleHandoffs(tenantId: string, idle: string): Promise<number> {
+    const { data, error } = await this.supabase.unscoped.rpc('release_idle_handoffs', {
+      p_tenant_id: tenantId,
+      p_idle: idle,
+    })
+
+    if (error) throw error
+
+    return (data as number | null) ?? 0
+  }
+
   /** After a payment lands, the agent's memory starts here. The panel keeps it all. */
   async resetContext(tenantId: string, conversationId: string): Promise<void> {
     const { error } = await this.supabase
