@@ -138,6 +138,15 @@ export const paymentMethodSchema = z.object({
 
 export type PaymentMethodInput = z.infer<typeof paymentMethodSchema>
 
+/** A collection account as `GET /tenants/:tenantId/payment-methods` lists it. */
+export interface PaymentMethodSummary {
+  id: string
+  zone: string | null
+  entityName: string
+  paymentAddress: string
+  wisphubId: string | null
+}
+
 /**
  * What a company still needs before its bot answers anyone.
  *

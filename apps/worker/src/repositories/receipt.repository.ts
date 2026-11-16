@@ -260,6 +260,63 @@ export class ReceiptRepository {
 
     return !!data
   }
+
+  /** A held receipt an operator asked to apply, or null when it was not held. */
+  async loadHeld(
+    tenantId: string,
+    receiptId: string,
+  ): Promise<{
+    conversationId: string
+    references: string[]
+    mediaId: string | null
+    resolution: string | null
+  } | null> {
+    const { data, error } = await this.supabase
+      .scope(tenantId)
+      .select('receipts', 'conversation_id, reference, media_id, resolution')
+      .eq('id', receiptId)
+      .not('alert_reason', 'is', null)
+      .maybeSingle()
+
+    if (error) throw error
+    if (!data) return null
+
+    const row = data as Record<string, unknown>
+
+    return {
+      conversationId: row['conversation_id'] as string,
+      references: (row['reference'] as string[] | null) ?? [],
+      mediaId: (row['media_id'] as string | null) ?? null,
+      resolution: (row['resolution'] as string | null) ?? null,
+    }
+  }
+
+  /** Wisphub registered it: the receipt leaves "Pendientes". */
+  async markApplied(tenantId: string, receiptId: string): Promise<void> {
+    const { error } = await this.supabase
+      .scope(tenantId)
+      .update('receipts', {
+        resolution: 'applied',
+        resolution_error: null,
+        resolved_at: new Date().toISOString(),
+      })
+      .eq('id', receiptId)
+
+    if (error) throw error
+  }
+
+  /**
+   * Back to pending, with the reason the operator reads next to it. Not left in
+   * `applying`, which would keep the buttons disabled for good.
+   */
+  async failApplying(tenantId: string, receiptId: string, reason: string): Promise<void> {
+    const { error } = await this.supabase
+      .scope(tenantId)
+      .update('receipts', { resolution: null, resolution_error: reason, resolved_by: null })
+      .eq('id', receiptId)
+
+    if (error) throw error
+  }
 }
 
 const hasLiveAttempt = (row: Record<string, unknown>): boolean => {

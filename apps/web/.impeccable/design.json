@@ -4,37 +4,315 @@
   "title": "Design System: Cobra",
   "extensions": {
     "colorMeta": {
-      "console-white": { "role": "primary", "displayName": "Blanco de consola", "canonical": "#ededed", "tonalRamp": ["#262626", "#3a3a3a", "#636363", "#8a8a8a", "#9a9a9a", "#c4c4c4", "#ededed", "#f7f7f7"] },
-      "ground": { "role": "neutral", "displayName": "Fondo", "canonical": "#0a0a0a", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
-      "pane": { "role": "neutral", "displayName": "Panel", "canonical": "#111111", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
-      "popover": { "role": "neutral", "displayName": "Popover", "canonical": "#161616", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
-      "raised": { "role": "neutral", "displayName": "Elevado", "canonical": "#181818", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
-      "accent-wash": { "role": "neutral", "displayName": "Lavado", "canonical": "#1c1c1c", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
-      "secondary-hover": { "role": "neutral", "displayName": "Secundario en hover", "canonical": "#222222", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
-      "secondary-active": { "role": "neutral", "displayName": "Secundario presionado", "canonical": "#2c2c2c", "tonalRamp": ["#0a0a0a", "#111111", "#161616", "#181818", "#1c1c1c", "#222222", "#262626", "#2c2c2c"] },
-      "seam": { "role": "neutral", "displayName": "Costura", "canonical": "#262626", "tonalRamp": ["#111111", "#181818", "#1c1c1c", "#262626", "#2c2c2c", "#3a3a3a", "#4a4a4a", "#636363"] },
-      "field-edge": { "role": "neutral", "displayName": "Borde de campo", "canonical": "#3a3a3a", "tonalRamp": ["#181818", "#262626", "#2c2c2c", "#3a3a3a", "#4a4a4a", "#636363", "#6b6b6b", "#8a8a8a"] },
-      "control-edge": { "role": "neutral", "displayName": "Borde de control", "canonical": "#636363", "tonalRamp": ["#262626", "#3a3a3a", "#4a4a4a", "#636363", "#6b6b6b", "#8a8a8a", "#9a9a9a", "#c4c4c4"] },
-      "disabled-text": { "role": "neutral", "displayName": "Texto deshabilitado", "canonical": "#6b6b6b", "tonalRamp": ["#262626", "#3a3a3a", "#4a4a4a", "#636363", "#6b6b6b", "#8a8a8a", "#9a9a9a", "#c4c4c4"] },
-      "focus-ring": { "role": "neutral", "displayName": "Anillo de foco", "canonical": "#8a8a8a", "tonalRamp": ["#262626", "#3a3a3a", "#636363", "#6b6b6b", "#8a8a8a", "#9a9a9a", "#c4c4c4", "#ededed"] },
-      "quiet-text": { "role": "neutral", "displayName": "Texto en reposo", "canonical": "#9a9a9a", "tonalRamp": ["#262626", "#3a3a3a", "#636363", "#8a8a8a", "#9a9a9a", "#b0b0b0", "#c4c4c4", "#ededed"] },
-      "state-done": { "role": "tertiary", "displayName": "Listo", "canonical": "#7ee787", "tonalRamp": ["#0f2a13", "#1a4520", "#26602e", "#3a8c45", "#56b862", "#7ee787", "#a6f0ac", "#d2f8d5"] },
-      "state-running": { "role": "tertiary", "displayName": "En curso", "canonical": "#79c0ff", "tonalRamp": ["#0c2238", "#14385c", "#1f5285", "#2f72b3", "#4f9be0", "#79c0ff", "#a6d5ff", "#d3eaff"] },
-      "state-operator": { "role": "tertiary", "displayName": "Operador", "canonical": "#ffa657", "tonalRamp": ["#331c06", "#55300c", "#7a4614", "#a8621f", "#d9823a", "#ffa657", "#ffc48f", "#ffe2c7"] },
-      "state-failed": { "role": "tertiary", "displayName": "Falló", "canonical": "#ff7b72", "tonalRamp": ["#3a0f0c", "#5c1915", "#852520", "#b3372f", "#e0564c", "#ff7b72", "#ffa8a1", "#ffd4d0"] }
+      "console-white": {
+        "role": "primary",
+        "displayName": "Blanco de consola",
+        "canonical": "#ededed",
+        "tonalRamp": [
+          "#262626",
+          "#3a3a3a",
+          "#636363",
+          "#8a8a8a",
+          "#9a9a9a",
+          "#c4c4c4",
+          "#ededed",
+          "#f7f7f7"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Fondo",
+        "canonical": "#0a0a0a",
+        "tonalRamp": [
+          "#0a0a0a",
+          "#111111",
+          "#161616",
+          "#181818",
+          "#1c1c1c",
+          "#222222",
+          "#262626",
+          "#2c2c2c"
+        ]
+      },
+      "pane": {
+        "role": "neutral",
+        "displayName": "Panel",
+        "canonical": "#111111",
+        "tonalRamp": [
+          "#0a0a0a",
+          "#111111",
+          "#161616",
+          "#181818",
+          "#1c1c1c",
+          "#222222",
+          "#262626",
+          "#2c2c2c"
+        ]
+      },
+      "popover": {
+        "role": "neutral",
+        "displayName": "Popover",
+        "canonical": "#161616",
+        "tonalRamp": [
+          "#0a0a0a",
+          "#111111",
+          "#161616",
+          "#181818",
+          "#1c1c1c",
+          "#222222",
+          "#262626",
+          "#2c2c2c"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Elevado",
+        "canonical": "#181818",
+        "tonalRamp": [
+          "#0a0a0a",
+          "#111111",
+          "#161616",
+          "#181818",
+          "#1c1c1c",
+          "#222222",
+          "#262626",
+          "#2c2c2c"
+        ]
+      },
+      "accent-wash": {
+        "role": "neutral",
+        "displayName": "Lavado",
+        "canonical": "#1c1c1c",
+        "tonalRamp": [
+          "#0a0a0a",
+          "#111111",
+          "#161616",
+          "#181818",
+          "#1c1c1c",
+          "#222222",
+          "#262626",
+          "#2c2c2c"
+        ]
+      },
+      "secondary-hover": {
+        "role": "neutral",
+        "displayName": "Secundario en hover",
+        "canonical": "#222222",
+        "tonalRamp": [
+          "#0a0a0a",
+          "#111111",
+          "#161616",
+          "#181818",
+          "#1c1c1c",
+          "#222222",
+          "#262626",
+          "#2c2c2c"
+        ]
+      },
+      "secondary-active": {
+        "role": "neutral",
+        "displayName": "Secundario presionado",
+        "canonical": "#2c2c2c",
+        "tonalRamp": [
+          "#0a0a0a",
+          "#111111",
+          "#161616",
+          "#181818",
+          "#1c1c1c",
+          "#222222",
+          "#262626",
+          "#2c2c2c"
+        ]
+      },
+      "seam": {
+        "role": "neutral",
+        "displayName": "Costura",
+        "canonical": "#262626",
+        "tonalRamp": [
+          "#111111",
+          "#181818",
+          "#1c1c1c",
+          "#262626",
+          "#2c2c2c",
+          "#3a3a3a",
+          "#4a4a4a",
+          "#636363"
+        ]
+      },
+      "field-edge": {
+        "role": "neutral",
+        "displayName": "Borde de campo",
+        "canonical": "#3a3a3a",
+        "tonalRamp": [
+          "#181818",
+          "#262626",
+          "#2c2c2c",
+          "#3a3a3a",
+          "#4a4a4a",
+          "#636363",
+          "#6b6b6b",
+          "#8a8a8a"
+        ]
+      },
+      "control-edge": {
+        "role": "neutral",
+        "displayName": "Borde de control",
+        "canonical": "#636363",
+        "tonalRamp": [
+          "#262626",
+          "#3a3a3a",
+          "#4a4a4a",
+          "#636363",
+          "#6b6b6b",
+          "#8a8a8a",
+          "#9a9a9a",
+          "#c4c4c4"
+        ]
+      },
+      "disabled-text": {
+        "role": "neutral",
+        "displayName": "Texto deshabilitado",
+        "canonical": "#6b6b6b",
+        "tonalRamp": [
+          "#262626",
+          "#3a3a3a",
+          "#4a4a4a",
+          "#636363",
+          "#6b6b6b",
+          "#8a8a8a",
+          "#9a9a9a",
+          "#c4c4c4"
+        ]
+      },
+      "focus-ring": {
+        "role": "neutral",
+        "displayName": "Anillo de foco",
+        "canonical": "#8a8a8a",
+        "tonalRamp": [
+          "#262626",
+          "#3a3a3a",
+          "#636363",
+          "#6b6b6b",
+          "#8a8a8a",
+          "#9a9a9a",
+          "#c4c4c4",
+          "#ededed"
+        ]
+      },
+      "quiet-text": {
+        "role": "neutral",
+        "displayName": "Texto en reposo",
+        "canonical": "#9a9a9a",
+        "tonalRamp": [
+          "#262626",
+          "#3a3a3a",
+          "#636363",
+          "#8a8a8a",
+          "#9a9a9a",
+          "#b0b0b0",
+          "#c4c4c4",
+          "#ededed"
+        ]
+      },
+      "state-done": {
+        "role": "tertiary",
+        "displayName": "Listo",
+        "canonical": "#7ee787",
+        "tonalRamp": [
+          "#0f2a13",
+          "#1a4520",
+          "#26602e",
+          "#3a8c45",
+          "#56b862",
+          "#7ee787",
+          "#a6f0ac",
+          "#d2f8d5"
+        ]
+      },
+      "state-running": {
+        "role": "tertiary",
+        "displayName": "En curso",
+        "canonical": "#79c0ff",
+        "tonalRamp": [
+          "#0c2238",
+          "#14385c",
+          "#1f5285",
+          "#2f72b3",
+          "#4f9be0",
+          "#79c0ff",
+          "#a6d5ff",
+          "#d3eaff"
+        ]
+      },
+      "state-operator": {
+        "role": "tertiary",
+        "displayName": "Operador",
+        "canonical": "#ffa657",
+        "tonalRamp": [
+          "#331c06",
+          "#55300c",
+          "#7a4614",
+          "#a8621f",
+          "#d9823a",
+          "#ffa657",
+          "#ffc48f",
+          "#ffe2c7"
+        ]
+      },
+      "state-failed": {
+        "role": "tertiary",
+        "displayName": "Falló",
+        "canonical": "#ff7b72",
+        "tonalRamp": [
+          "#3a0f0c",
+          "#5c1915",
+          "#852520",
+          "#b3372f",
+          "#e0564c",
+          "#ff7b72",
+          "#ffa8a1",
+          "#ffd4d0"
+        ]
+      }
     },
     "typographyMeta": {
-      "title": { "displayName": "Title", "purpose": "Nombre del contacto en la cabecera del chat y marca de la barra; los h1-h3 heredan Display." },
-      "name": { "displayName": "Name", "purpose": "Nombre del contacto en cada fila de la lista; 600 cuando hay mensajes sin leer." },
-      "body": { "displayName": "Body", "purpose": "Texto de las burbujas, pestañas y mensajes vacíos." },
-      "label": { "displayName": "Label", "purpose": "Título en mayúsculas de la franja de cada panel; no es un antetítulo." },
-      "data": { "displayName": "Data", "purpose": "Horas, teléfonos, duraciones, contadores y el registro del agente, en mono tabular." },
-      "data-meta": { "displayName": "Data meta", "purpose": "Autor y hora bajo cada burbuja; JSON de argumentos y resultado." }
+      "title": {
+        "displayName": "Title",
+        "purpose": "Nombre del contacto en la cabecera del chat y marca de la barra; los h1-h3 heredan Display."
+      },
+      "name": {
+        "displayName": "Name",
+        "purpose": "Nombre del contacto en cada fila de la lista; 600 cuando hay mensajes sin leer."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texto de las burbujas, pestañas y mensajes vacíos."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Título en mayúsculas de la franja de cada panel; no es un antetítulo."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Horas, teléfonos, duraciones, contadores y el registro del agente, en mono tabular."
+      },
+      "data-meta": {
+        "displayName": "Data meta",
+        "purpose": "Autor y hora bajo cada burbuja; JSON de argumentos y resultado."
+      }
     },
     "shadows": [],
     "motion": [
-      { "name": "state-swap", "value": "color, background-color 100ms", "purpose": "Cambio de estado y hover de filas: un cambio de color, sin fundidos ni entradas." },
-      { "name": "control-transition", "value": "all 150ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Hover y active de botones (transition por defecto de Tailwind)." }
+      {
+        "name": "state-swap",
+        "value": "color, background-color 100ms",
+        "purpose": "Cambio de estado y hover de filas: un cambio de color, sin fundidos ni entradas."
+      },
+      {
+        "name": "control-transition",
+        "value": "all 150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Hover y active de botones (transition por defecto de Tailwind)."
+      }
     ],
     "breakpoints": [
       { "name": "md", "value": "768px" },
@@ -128,12 +406,36 @@
       "Plano: tono y costura en vez de sombra."
     ],
     "rules": [
-      { "name": "The Colour Is State Rule", "body": "Ningún color aparece si no dice un estado. Los grises no llevan tono; un azul de marca, un gradiente o un acento decorativo rompen la lectura de la lista.", "section": "colors" },
-      { "name": "The State Is A Word Rule", "body": "Un estado es una palabra coloreada (y a lo sumo un punto de 8px del mismo color), una sola vez por fila. Los tintes se usan como texto; como relleno van al 15% (etiquetas) o 15/25/40% (botón destructivo), nunca sólidos.", "section": "colors" },
-      { "name": "The One White Rule", "body": "El relleno blanco es la acción primaria y sale una vez por pantalla. La burbuja saliente es gris elevado, no blanca.", "section": "colors" },
-      { "name": "The Mono For Every Number Rule", "body": "Hora, monto, teléfono, duración, versión y contador van en Red Hat Mono con `tabular-nums`. Un número en sans no se alinea con el de la fila de abajo.", "section": "typography" },
-      { "name": "The Weight Not Colour Rule", "body": "Lo no leído sube el nombre a 600 y lleva la previsualización y la hora a contraste pleno, hasta que se abre. El contador de pestañas es mono en negrita, sin globo ni color.", "section": "typography" },
-      { "name": "The Seam Not Shadow Rule", "body": "Dos superficies se separan con una costura de 1px o un escalón de tono, nunca con sombra ni con margen entre tarjetas.", "section": "elevation" }
+      {
+        "name": "The Colour Is State Rule",
+        "body": "Ningún color aparece si no dice un estado. Los grises no llevan tono; un azul de marca, un gradiente o un acento decorativo rompen la lectura de la lista.",
+        "section": "colors"
+      },
+      {
+        "name": "The State Is A Word Rule",
+        "body": "Un estado es una palabra coloreada (y a lo sumo un punto de 8px del mismo color), una sola vez por fila. Los tintes se usan como texto; como relleno van al 15% (etiquetas) o 15/25/40% (botón destructivo), nunca sólidos.",
+        "section": "colors"
+      },
+      {
+        "name": "The One White Rule",
+        "body": "El relleno blanco es la acción primaria y sale una vez por pantalla. La burbuja saliente es gris elevado, no blanca.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono For Every Number Rule",
+        "body": "Hora, monto, teléfono, duración, versión y contador van en Red Hat Mono con `tabular-nums`. Un número en sans no se alinea con el de la fila de abajo.",
+        "section": "typography"
+      },
+      {
+        "name": "The Weight Not Colour Rule",
+        "body": "Lo no leído sube el nombre a 600 y lleva la previsualización y la hora a contraste pleno, hasta que se abre. El contador de pestañas es mono en negrita, sin globo ni color.",
+        "section": "typography"
+      },
+      {
+        "name": "The Seam Not Shadow Rule",
+        "body": "Dos superficies se separan con una costura de 1px o un escalón de tono, nunca con sombra ni con margen entre tarjetas.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do separar paneles con una costura de 1px (#262626) y escalones de tono; navegar cambia el contenido, no la disposición.",

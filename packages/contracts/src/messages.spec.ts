@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ZodType } from 'zod'
 import { sendMessageSchema } from './conversations'
 import { updatePlatformSettingSchema } from './platform-settings'
+import { applyHeldReceiptSchema, dismissHeldReceiptSchema } from './receipts'
 import { grantRoleSchema } from './roles'
 import {
   createTenantSchema,
@@ -50,6 +51,13 @@ describe('validation messages', () => {
       { entityName: '', paymentAddress: '', zone: 'z'.repeat(81), wisphubId: 'w'.repeat(41) },
     ],
     ['empty message', sendMessageSchema, { body: '' }],
+    [
+      'held receipt without data',
+      applyHeldReceiptSchema,
+      { documents: 'abc', amount: 0, paymentMethodId: '' },
+    ],
+    ['held receipt amount as text', applyHeldReceiptSchema, { amount: '50000' }],
+    ['dismissal note too long', dismissHeldReceiptSchema, { note: 'n'.repeat(1001) }],
     ['dry-run as text', updateTenantDryRunSchema, { dryRun: 'true' }],
     ['no model', updatePlatformSettingSchema('agent_model'), { value: '  ' }],
     ['model as a number', updatePlatformSettingSchema('vision_model'), { value: 4000 }],

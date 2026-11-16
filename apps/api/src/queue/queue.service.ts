@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } fro
 import { ConfigService } from '@nestjs/config'
 import PgBoss from 'pg-boss'
 import {
+  type ApplyHeldReceiptPayload,
   type ProcessReceiptPayload,
   type ProcessTurnPayload,
   QUEUES,
@@ -65,6 +66,14 @@ export class QueueService implements OnModuleInit, OnApplicationShutdown {
 
   enqueueSend(job: SendMessagePayload): Promise<string | null> {
     return this.boss.send(QUEUES.sendMessage, job)
+  }
+
+  /**
+   * One job per receipt: `singletonKey` collapses a double submit that slipped
+   * past the `applying` guard into a single payment.
+   */
+  enqueueApplyHeldReceipt(job: ApplyHeldReceiptPayload): Promise<string | null> {
+    return this.boss.send(QUEUES.applyHeldReceipt, job, { singletonKey: job.receiptId })
   }
 
   /**

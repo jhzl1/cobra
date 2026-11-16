@@ -6,6 +6,7 @@ import { z } from 'zod'
 import {
   type CredentialProvider,
   type CredentialSummary,
+  type PaymentMethodSummary,
   type WhatsappNumber,
   type WisphubNamedEntity,
   createTenantSchema,
@@ -56,14 +57,6 @@ import { api } from '~/lib/api'
 import { applyServerErrors, fieldError } from '~/lib/form'
 import { invalidateTenantLists, queryKeys } from '~/lib/queryClient'
 import type { TenantSummary } from '~/lib/tenants'
-
-interface PaymentMethodRow {
-  id: string
-  zone: string | null
-  entityName: string
-  paymentAddress: string
-  wisphubId: string | null
-}
 
 export const SettingsPage = ({ tenantId }: { tenantId: string }) => (
   <div className="flex flex-col gap-4 p-4">
@@ -667,7 +660,7 @@ const PaymentMethodsCard = ({ tenantId }: { tenantId: string }) => {
   const methods = useQuery({
     queryKey: queryKeys.paymentMethods(tenantId),
     queryFn: async () => {
-      const { data } = await api.get<PaymentMethodRow[]>(`/tenants/${tenantId}/payment-methods`)
+      const { data } = await api.get<PaymentMethodSummary[]>(`/tenants/${tenantId}/payment-methods`)
 
       return data
     },

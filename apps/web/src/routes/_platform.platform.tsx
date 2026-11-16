@@ -16,7 +16,7 @@ export const Route = createFileRoute('/_platform/platform')({
     const { tab, page } = Route.useSearch()
 
     return (
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <PlatformPage tab={tab ?? 'companies'} page={page ?? 1} />
       </div>
     )

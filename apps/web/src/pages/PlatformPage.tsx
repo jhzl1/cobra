@@ -8,18 +8,17 @@ import {
 } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { PlusIcon } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   type Page,
   type PlatformError,
   type PlatformRoleGrant,
   createTenantSchema,
   grantRoleSchema,
-  pageSearchOf,
 } from '@cobra/contracts'
 import { JobRunTable } from '~/components/JobRunTable'
 import { ModelSettingsCard } from '~/components/ModelSettingsCard'
-import { Pager, pageCountOf } from '~/components/Pager'
+import { Pager } from '~/components/Pager'
 import { TenantStateBadges } from '~/components/TenantStateBadges'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -43,6 +42,7 @@ import {
   TableRow,
 } from '~/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
+import { usePageInUrl } from '~/hooks/usePageInUrl'
 import { api } from '~/lib/api'
 import { applyServerErrors, fieldError } from '~/lib/form'
 import { invalidateTenantLists, queryKeys } from '~/lib/queryClient'
@@ -86,16 +86,16 @@ export const PlatformPage = ({ tab, page }: Props) => {
         <TabsTrigger value="admins">Administradores</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="companies" className="p-4">
+      <TabsContent value="companies" className="p-4 md:p-6">
         <TenantsCard page={page} />
       </TabsContent>
-      <TabsContent value="errors" className="p-4">
+      <TabsContent value="errors" className="p-4 md:p-6">
         <ErrorsCard page={page} />
       </TabsContent>
-      <TabsContent value="models" className="p-4">
+      <TabsContent value="models" className="p-4 md:p-6">
         <ModelSettingsCard />
       </TabsContent>
-      <TabsContent value="admins" className="p-4">
+      <TabsContent value="admins" className="p-4 md:p-6">
         <GrantsCard />
       </TabsContent>
     </Tabs>
@@ -109,13 +109,7 @@ export const tabSearchOf = (value: unknown): Exclude<PlatformTab, 'companies'> |
 const isPlatformTab = (value: unknown): value is PlatformTab =>
   PLATFORM_TABS.includes(value as PlatformTab)
 
-/**
- * One page of a platform list, and the move to another. Each move is a history
- * entry, so the browser's back button returns to the previous page.
- *
- * A page past the end — a shared link to a list that has since shrunk, or a
- * hand-typed `?page=99` — is replaced by the last page, without a new entry.
- */
+/** One page of a platform list, and the move to another, kept in the URL. */
 const usePlatformPage = <T,>({
   queryKey,
   path,
@@ -125,8 +119,6 @@ const usePlatformPage = <T,>({
   path: string
   page: number
 }) => {
-  const navigate = useNavigate({ from: '/platform' })
-
   const list = useQuery({
     queryKey,
     queryFn: async () => {
@@ -138,18 +130,9 @@ const usePlatformPage = <T,>({
     placeholderData: keepPreviousData,
   })
 
-  const goToPage = useCallback(
-    (next: number, replace = false) =>
-      void navigate({ search: (previous) => ({ ...previous, page: pageSearchOf(next) }), replace }),
-    [navigate],
-  )
-
   // The placeholder is the previous page's answer; only a fresh one says where the end is.
-  const lastPage = list.data && !list.isPlaceholderData ? pageCountOf(list.data.total) : null
-
-  useEffect(() => {
-    if (lastPage !== null && page > lastPage) goToPage(lastPage, true)
-  }, [page, lastPage, goToPage])
+  const total = list.data && !list.isPlaceholderData ? list.data.total : null
+  const goToPage = usePageInUrl({ page, total })
 
   return { list, goToPage }
 }
