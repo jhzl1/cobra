@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button } from '~/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -7,22 +8,23 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 
+interface ReceiptProps {
+  url: string
+  receivedAt: string
+}
+
 /**
- * A receipt's image, and a way to actually read it.
+ * A receipt's image as a thumbnail, and a way to actually read it.
  *
  * As a thumbnail a bank transfer is illegible — the amount and the reference
  * are the whole point of looking. The full-size view is what lets the operator
- * check what was read off it, in the conversation and in "Pendientes" alike.
+ * check what was read off it.
  */
 export const ReceiptImage = ({
   url,
   receivedAt,
   onLoad,
-}: {
-  url: string
-  receivedAt: string
-  onLoad?: () => void
-}) => {
+}: ReceiptProps & { onLoad?: () => void }) => {
   const [isFullSizeOpen, setIsFullSizeOpen] = useState(false)
 
   return (
@@ -36,24 +38,58 @@ export const ReceiptImage = ({
         <img src={url} alt="Comprobante" className="max-h-64" onLoad={onLoad} />
       </button>
 
-      <Dialog open={isFullSizeOpen} onOpenChange={setIsFullSizeOpen}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Comprobante</DialogTitle>
-            <DialogDescription>
-              Recibido el {new Date(receivedAt).toLocaleString('es-CO', { hour12: true })}
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* `object-contain` and a viewport cap: a tall receipt photographed
-              from a phone is otherwise cropped exactly where the reference is. */}
-          <img
-            src={url}
-            alt="Comprobante"
-            className="max-h-[75vh] w-full rounded-lg object-contain"
-          />
-        </DialogContent>
-      </Dialog>
+      <FullSizeReceipt
+        url={url}
+        receivedAt={receivedAt}
+        open={isFullSizeOpen}
+        onOpenChange={setIsFullSizeOpen}
+      />
     </>
   )
 }
+
+/**
+ * The same full-size view, behind a button instead of a thumbnail: for a list
+ * of receipts, where a column of images would push the data each one is judged
+ * by out of sight.
+ */
+export const ViewReceiptButton = ({ url, receivedAt }: ReceiptProps) => {
+  const [isFullSizeOpen, setIsFullSizeOpen] = useState(false)
+
+  return (
+    <>
+      <Button size="sm" variant="ghost" onClick={() => setIsFullSizeOpen(true)}>
+        Ver comprobante
+      </Button>
+
+      <FullSizeReceipt
+        url={url}
+        receivedAt={receivedAt}
+        open={isFullSizeOpen}
+        onOpenChange={setIsFullSizeOpen}
+      />
+    </>
+  )
+}
+
+const FullSizeReceipt = ({
+  url,
+  receivedAt,
+  open,
+  onOpenChange,
+}: ReceiptProps & { open: boolean; onOpenChange: (open: boolean) => void }) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="sm:max-w-3xl">
+      <DialogHeader>
+        <DialogTitle>Comprobante</DialogTitle>
+        <DialogDescription>
+          Recibido el {new Date(receivedAt).toLocaleString('es-CO', { hour12: true })}
+        </DialogDescription>
+      </DialogHeader>
+
+      {/* `object-contain` and a viewport cap: a tall receipt photographed
+          from a phone is otherwise cropped exactly where the reference is. */}
+      <img src={url} alt="Comprobante" className="max-h-[75vh] w-full rounded-lg object-contain" />
+    </DialogContent>
+  </Dialog>
+)

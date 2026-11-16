@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ALERT_REASON_TEXT, type HeldReceipt, type Page } from '@cobra/contracts'
-import { ReceiptImage } from '~/components/ReceiptImage'
+import { ViewReceiptButton } from '~/components/ReceiptImage'
 import { Badge } from '~/components/ui/badge'
 import { Spinner } from '~/components/ui/spinner'
 import { usePageInUrl } from '~/hooks/usePageInUrl'
@@ -43,7 +43,8 @@ export const useHeldReceipts = ({ tenantId, page }: { tenantId: string; page: nu
 }
 
 /**
- * One held receipt: the image, why it was held, and everything read off it.
+ * One held receipt: why it was held, and everything read off it. The image
+ * opens on request, so the list reads as data and not as a wall of photos.
  *
  * The reason comes first and in words: it is what the operator has to judge,
  * and the customer never sees it — they only got the fixed sentence.
@@ -56,15 +57,7 @@ export const HeldReceiptCard = ({
   /** What can be done with it, if anything, from where it is shown. */
   children?: React.ReactNode
 }) => (
-  <article className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row">
-    <div className="shrink-0">
-      {receipt.imageUrl ? (
-        <ReceiptImage url={receipt.imageUrl} receivedAt={receipt.receivedAt} />
-      ) : (
-        <p className="w-40 text-xs text-muted-foreground">La imagen no quedó guardada.</p>
-      )}
-    </div>
-
+  <article className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
     <div className="flex min-w-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="warning">{ALERT_REASON_TEXT[receipt.alertReason]}</Badge>
@@ -74,6 +67,13 @@ export const HeldReceiptCard = ({
             Aplicando en Wisphub…
           </span>
         )}
+        <div className="ml-auto">
+          {receipt.imageUrl ? (
+            <ViewReceiptButton url={receipt.imageUrl} receivedAt={receipt.receivedAt} />
+          ) : (
+            <p className="text-xs text-muted-foreground">La imagen no quedó guardada.</p>
+          )}
+        </div>
       </div>
 
       <div>
