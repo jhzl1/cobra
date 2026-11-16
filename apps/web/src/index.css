@@ -68,6 +68,30 @@
   --ring: #8a8a8a;
 }
 
+/*
+ * A turn the agent is still running. `flow` runs light down the rail of the step
+ * in progress; `blink` is the caret of the sentence saying what it is doing.
+ */
+@theme {
+  --animate-flow: flow 1.2s linear infinite;
+  --animate-blink: blink 1s steps(1) infinite;
+
+  @keyframes flow {
+    from {
+      transform: translateY(-100%);
+    }
+    to {
+      transform: translateY(250%);
+    }
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
 @theme inline {
   --font-sans: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Red Hat Display Variable', ui-sans-serif, system-ui, sans-serif;
@@ -123,6 +147,15 @@
   body {
     @apply bg-background font-sans text-foreground antialiased;
     caret-color: var(--foreground);
+  }
+
+  /*
+   * A column the height of the screen, so a screen that fills the space left
+   * with `flex-1` has space to fill. The global spinner shows before any layout
+   * exists, while the session is checked, and without this it sat at the top.
+   */
+  #root {
+    @apply flex min-h-dvh flex-col;
   }
 
   ::selection {

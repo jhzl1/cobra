@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LoadingImage } from '~/components/LoadingImage'
 import { FullSizeReceipt } from './components/FullSizeReceipt'
 
 interface ReceiptImageProps {
@@ -25,7 +26,13 @@ export const ReceiptImage = ({ url, receivedAt, onLoad }: ReceiptImageProps) => 
         title="Ampliar el comprobante"
         className="mb-1 block cursor-zoom-in overflow-hidden rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
-        <img src={url} alt="Comprobante" className="max-h-64" onLoad={onLoad} />
+        <LoadingImage
+          src={url}
+          alt="Comprobante"
+          unavailableText="La imagen no está disponible."
+          imageClassName="max-h-64"
+          onLoad={onLoad}
+        />
       </button>
 
       <FullSizeReceipt

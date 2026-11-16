@@ -1,3 +1,4 @@
+import { LoadingImage } from '~/components/LoadingImage'
 import {
   Dialog,
   DialogContent,
@@ -24,7 +25,13 @@ export const FullSizeReceipt = ({ url, receivedAt, open, onOpenChange }: FullSiz
 
       {/* `object-contain` and a viewport cap: a tall receipt photographed
           from a phone is otherwise cropped exactly where the reference is. */}
-      <img src={url} alt="Comprobante" className="max-h-[75vh] w-full rounded-lg object-contain" />
+      <LoadingImage
+        src={url}
+        alt="Comprobante"
+        unavailableText="La imagen del comprobante no está disponible."
+        className="min-h-48 w-full"
+        imageClassName="max-h-[75vh] w-full object-contain"
+      />
     </DialogContent>
   </Dialog>
 )
