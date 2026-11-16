@@ -348,13 +348,13 @@ después.
    desempate por `entity_name`.
 5. **Validar**, cinco reglas excluyentes en este orden — el orden importa:
 
-   | #   | Condición                                   | `alertReason`                            |
-   | --- | ------------------------------------------- | ---------------------------------------- |
-   | 1   | `isVoucher == false`                        | La imagen no es un comprobante de pago   |
-   | 2   | fecha legible pero de más de 7 días         | Comprobante con más de 7 días            |
-   | 3   | cuenta destino no está en `payment_methods` | Cuenta destino no es de la empresa       |
-   | 4   | referencia ya usada                         | Comprobante ya registrado antes          |
-   | 5   | fecha ilegible                              | No se pudo leer la fecha del comprobante |
+   | #   | Condición                                   | `alertReason`                                  |
+   | --- | ------------------------------------------- | ---------------------------------------------- |
+   | 1   | `isVoucher == false`                        | La imagen no es un comprobante de pago         |
+   | 2   | fecha legible pero de más de 7 días         | Comprobante con más de 7 días de antigüedad    |
+   | 3   | cuenta destino no está en `payment_methods` | La cuenta de destino no pertenece a la empresa |
+   | 4   | referencia ya usada                         | Comprobante registrado previamente             |
+   | 5   | fecha ilegible                              | No se pudo leer la fecha del comprobante       |
 
    Cualquier rechazo **saltea el agente**: responde el texto fijo al cliente
    (_"Necesitamos revisar tu comprobante manualmente. Un asesor te escribe por aquí en breve."_)
