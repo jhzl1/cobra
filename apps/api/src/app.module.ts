@@ -8,6 +8,7 @@ import { CryptoModule } from './crypto/crypto.module'
 import { ConversationsModule } from './domains/conversations/conversations.module'
 import { HealthController } from './domains/health/health.controller'
 import { HeldReceiptsModule } from './domains/held-receipts/held-receipts.module'
+import { PaymentsModule } from './domains/payments/payments.module'
 import { PlatformModule } from './domains/platform/platform.module'
 import { TenantsModule } from './domains/tenants/tenants.module'
 import { QueueModule } from './queue/queue.module'
@@ -31,6 +32,7 @@ import { WhatsappModule } from './webhooks/whatsapp.module'
     TenantsModule,
     ConversationsModule,
     HeldReceiptsModule,
+    PaymentsModule,
     WhatsappModule,
   ],
   controllers: [HealthController],
