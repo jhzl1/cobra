@@ -40,11 +40,11 @@ describe('DualhookClient', () => {
   it('addresses a username customer in `recipient`, never in `to`', async () => {
     const fetchImpl = fakeFetch(Response.json({ messages: [{ id: 'wamid.SENT' }] }))
 
-    await clientWith(fetchImpl).sendText({ userId: 'CO.1445129810307666' }, 'Hola')
+    await clientWith(fetchImpl).sendText({ userId: 'CO.1234567890123456' }, 'Hola')
 
     const body = JSON.parse(String(requestOf(fetchImpl).init?.body))
 
-    expect(body).toMatchObject({ recipient: 'CO.1445129810307666', type: 'text' })
+    expect(body).toMatchObject({ recipient: 'CO.1234567890123456', type: 'text' })
     expect(body).not.toHaveProperty('to')
   })
 

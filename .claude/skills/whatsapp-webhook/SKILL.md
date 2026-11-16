@@ -119,7 +119,7 @@ los jobs, no en el cliente: `DualhookClient` no sabe del modo, y no debe.
 
 Meta está migrando de números a usernames. Cuando el remitente tiene username, el
 webhook no trae `from` ni `wa_id`: trae `from_user_id` y `user_id`
-(`CO.1036773249265400`).
+(`CO.1234567890123456`).
 
 Por eso `contacts.person_id` es texto y guarda lo que llegó, y `phone` queda en
 null. Nunca presentes ese identificador interno como teléfono: el agente lo trata

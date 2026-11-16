@@ -7,7 +7,7 @@ create table public.contacts (
    * Meta's identifier for the person. Today that is the `wa_id` from
    * `contacts[0]`, which is a phone number. Meta is migrating identity to
    * usernames, and when the sender has one the webhook carries `user_id`
-   * (`CO.1036773249265400`) and no `wa_id` at all — so this column is text and
+   * (`CO.1234567890123456`) and no `wa_id` at all — so this column is text and
    * holds whichever one arrived, never a parsed phone number.
    */
   person_id    text not null,

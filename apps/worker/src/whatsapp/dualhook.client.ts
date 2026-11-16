@@ -21,7 +21,7 @@ export interface DualhookClientOptions {
  * Who a message goes to.
  *
  * A customer with a WhatsApp username shares no phone number: Meta hands over a
- * business-scoped id (`CO.1445129810307666`) instead, and that id only goes in
+ * business-scoped id (`CO.1234567890123456`) instead, and that id only goes in
  * the `recipient` field. Sent in `to`, Meta answers 131026 "Message
  * undeliverable" or Dualhook a 400, and the customer hears nothing — which is
  * what happened to every reply to such a customer until the two were told apart.
