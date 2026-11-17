@@ -1,6 +1,7 @@
 import { PencilIcon, PlusIcon, PowerIcon, PowerOffIcon, Trash2Icon } from 'lucide-react'
 import { useState } from 'react'
 import type { PaymentMethodSummary } from '@cobra/contracts'
+import { IconButton } from '~/components/IconButton'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import {
@@ -82,36 +83,30 @@ export const PaymentMethodsCard = ({ tenantId }: PaymentMethodsCardProps) => {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
+                      <IconButton
+                        label="Editar"
                         aria-label={`Editar la cuenta ${method.paymentAddress}`}
-                        title="Editar"
                         onClick={() => setMethodToEdit(method)}
                       >
                         <PencilIcon />
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
+                      </IconButton>
+                      <IconButton
+                        label={method.isActive ? 'Desactivar' : 'Activar'}
                         aria-label={`${method.isActive ? 'Desactivar' : 'Activar'} la cuenta ${method.paymentAddress}`}
-                        title={method.isActive ? 'Desactivar' : 'Activar'}
                         disabled={changeStatus.isPending}
                         onClick={() =>
                           changeStatus.mutate({ methodId: method.id, isActive: !method.isActive })
                         }
                       >
                         {method.isActive ? <PowerOffIcon /> : <PowerIcon />}
-                      </Button>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
+                      </IconButton>
+                      <IconButton
+                        label="Eliminar"
                         aria-label={`Eliminar la cuenta ${method.paymentAddress}`}
-                        title="Eliminar"
                         onClick={() => setMethodToDelete(method)}
                       >
                         <Trash2Icon />
-                      </Button>
+                      </IconButton>
                     </div>
                   </TableCell>
                 </TableRow>

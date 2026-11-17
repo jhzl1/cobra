@@ -1,6 +1,7 @@
+import { PencilIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
 import type { PlatformSettingKey } from '@cobra/contracts'
-import { Button } from '~/components/ui/button'
+import { IconButton } from '~/components/IconButton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Spinner } from '~/components/ui/spinner'
 import {
@@ -47,7 +48,7 @@ export const ModelSettingsCard = () => {
               <TableHead>Tarea</TableHead>
               <TableHead className="w-72">Modelo</TableHead>
               <TableHead className="w-52">Última modificación</TableHead>
-              <TableHead className="w-52"> </TableHead>
+              <TableHead className="w-24"> </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -72,20 +73,22 @@ export const ModelSettingsCard = () => {
                     {row.updatedAt ? new Date(row.updatedAt).toLocaleString('es-CO') : '—'}
                   </TableCell>
                   <TableCell>
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-1">
                       {row.isFallback && row.modelId && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
+                        <IconButton
+                          label="Quitar el modelo de respaldo"
                           disabled={removeFallback.isPending}
                           onClick={() => removeFallback.mutate({ key: row.key, value: null })}
                         >
-                          Quitar
-                        </Button>
+                          <XIcon />
+                        </IconButton>
                       )}
-                      <Button size="sm" variant="secondary" onClick={() => setEditingKey(row.key)}>
-                        {row.modelId ? 'Cambiar' : 'Seleccionar'}
-                      </Button>
+                      <IconButton
+                        label={row.modelId ? 'Cambiar el modelo' : 'Seleccionar un modelo'}
+                        onClick={() => setEditingKey(row.key)}
+                      >
+                        <PencilIcon />
+                      </IconButton>
                     </div>
                   </TableCell>
                 </TableRow>

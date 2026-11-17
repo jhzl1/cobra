@@ -1,7 +1,8 @@
 import { Link } from '@tanstack/react-router'
+import { MessageSquareIcon } from 'lucide-react'
 import type { JobRun } from '@cobra/contracts'
+import { IconButton } from '~/components/IconButton'
 import { Badge } from '~/components/ui/badge'
-import { Button } from '~/components/ui/button'
 import {
   Table,
   TableBody,
@@ -36,7 +37,7 @@ export const JobRunTable = ({ runs, showCompany = false, emptyText }: JobRunTabl
           <TableHead className="w-28">Intento</TableHead>
           <TableHead className="w-52">Estado</TableHead>
           <TableHead>Error</TableHead>
-          <TableHead className="w-40"> </TableHead>
+          <TableHead className="w-16"> </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -67,15 +68,15 @@ export const JobRunTable = ({ runs, showCompany = false, emptyText }: JobRunTabl
                 <TableCell>
                   {run.conversationId && (
                     <div className="flex justify-end">
-                      <Button asChild size="sm" variant="ghost">
+                      <IconButton asChild label="Ver la conversación">
                         <Link
                           to="/platform/tenants/$companyId"
                           params={{ companyId: run.tenantId }}
                           search={{ tab: 'conversations', conversationId: run.conversationId }}
                         >
-                          Ver conversación
+                          <MessageSquareIcon />
                         </Link>
-                      </Button>
+                      </IconButton>
                     </div>
                   )}
                 </TableCell>
