@@ -5,6 +5,7 @@ import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
 import {
   type HandoffInput,
   conversationSearchSchema,
+  cursorSchema,
   handoffSchema,
   sendMessageSchema,
 } from '@cobra/contracts'
@@ -25,17 +26,28 @@ export class ConversationsController {
     @SupabaseCtx() ctx: SupabaseContext,
     @Query('tenantId', ParseUUIDPipe) tenantId: string,
     @Query('search', new ZodValidationPipe(conversationSearchSchema)) search?: string,
+    @Query('cursor', new ZodValidationPipe(cursorSchema)) cursor?: string,
   ) {
-    return this.conversations.list(ctx.supabase, { tenantId, search })
+    return this.conversations.list(ctx.supabase, { tenantId, search, cursor })
   }
 
-  @Get(':conversationId/messages')
-  @ApiOperation({ summary: 'Historial completo de la conversación' })
-  listMessages(
+  @Get(':conversationId')
+  @ApiOperation({ summary: 'Una conversación, como la muestra la bandeja' })
+  findOne(
     @SupabaseCtx() ctx: SupabaseContext,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
   ) {
-    return this.conversations.listMessages(ctx.supabase, conversationId)
+    return this.conversations.findSummary(ctx.supabase, conversationId)
+  }
+
+  @Get(':conversationId/messages')
+  @ApiOperation({ summary: 'Mensajes de la conversación, de los más recientes hacia atrás' })
+  listMessages(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Query('cursor', new ZodValidationPipe(cursorSchema)) cursor?: string,
+  ) {
+    return this.conversations.listMessages(ctx.supabase, { conversationId, cursor })
   }
 
   @Post(':conversationId/messages')

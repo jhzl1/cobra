@@ -10,16 +10,24 @@ import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import {
   type AgentRun,
   type AgentStep,
+  CONVERSATION_PAGE_SIZE,
+  type ConversationPage,
   type ConversationSummary,
+  type CursorPage,
+  MESSAGE_PAGE_SIZE,
   type HandoffInput,
   type Message,
   type MessageAuthor,
   SERVICE_WINDOW_MS,
 } from '@cobra/contracts'
+import { decodeCursor, encodeCursor } from '~/common/cursor'
 import { QueueService } from '~/queue/queue.service'
 import { SupabaseService } from '~/supabase/supabase.service'
 
 const SIGNED_URL_TTL_SECONDS = 600
+
+const CONVERSATION_SUMMARY_COLUMNS = `id, status, assigned_to, last_message_at, last_inbound_at,
+   contacts!inner (id, person_id, phone, display_name, username)`
 
 export const SUSPENDED_MESSAGE =
   'El agente de esta empresa está desactivado y no se envían mensajes por WhatsApp. Para responder, debe activarse desde la página de la empresa en la plataforma.'
@@ -40,24 +48,25 @@ export class ConversationsService {
   ) {}
 
   /**
-   * The inbox. Reads through the caller's client, so RLS is what limits it to
-   * their tenants — there is no tenant filter written here to get wrong.
+   * The inbox, a page at a time. Reads through the caller's client, so RLS is
+   * what limits it to their tenants — there is no tenant filter written here to
+   * get wrong.
    *
    * With `search`, only the conversations whose customer matches it by name,
    * WhatsApp username or phone. It runs here and not in the panel because the
-   * inbox holds the latest hundred, and a customer who wrote last week is
-   * exactly the one an operator goes looking for.
+   * panel only holds the pages it has scrolled through, and a customer who wrote
+   * last week is exactly the one an operator goes looking for.
+   *
+   * By cursor, not page number: see `cursorSchema`. The total is counted on the
+   * first page only — the rest would pay for the same count again.
    */
   async list(
     client: SupabaseClient,
-    { tenantId, search }: { tenantId: string; search?: string },
-  ): Promise<ConversationSummary[]> {
+    { tenantId, search, cursor }: { tenantId: string; search?: string; cursor?: string },
+  ): Promise<ConversationPage> {
     let query = client
       .from('conversations')
-      .select(
-        `id, status, assigned_to, last_message_at, last_inbound_at,
-         contacts!inner (id, person_id, phone, display_name, username)`,
-      )
+      .select(CONVERSATION_SUMMARY_COLUMNS, { count: cursor ? undefined : 'exact' })
       .eq('tenant_id', tenantId)
       .neq('status', 'closed')
 
@@ -65,61 +74,107 @@ export class ConversationsService {
 
     if (contactFilter) query = query.or(contactFilter, { referencedTable: 'contacts' })
 
-    const { data, error } = await query
+    if (cursor) {
+      const after = decodeCursor(cursor)
+
+      // Newest first with the conversations that never had a message last, so
+      // what comes after a dated row is: older, the same instant with a lower
+      // id, or undated.
+      query = after.at
+        ? query.or(
+            `last_message_at.lt."${after.at}",and(last_message_at.eq."${after.at}",id.lt.${after.id}),last_message_at.is.null`,
+          )
+        : query.is('last_message_at', null).lt('id', after.id)
+    }
+
+    // One more than the page, to know whether there is a next one without
+    // counting again.
+    const { data, error, count } = await query
       .order('last_message_at', { ascending: false, nullsFirst: false })
-      .limit(100)
+      .order('id', { ascending: false })
+      .limit(CONVERSATION_PAGE_SIZE + 1)
 
     if (error) throw this.toHttpError(error)
 
-    const ids = data.map((row) => row.id as string)
-    const [previews, idsWithFailedRun] = await Promise.all([
-      this.lastMessagePreviews(client, ids),
-      this.conversationsWithFailedRun(client, ids),
-    ])
+    const rows = data.slice(0, CONVERSATION_PAGE_SIZE)
+    const last = rows.at(-1)
+    const hasMore = data.length > CONVERSATION_PAGE_SIZE
+    const nextCursor =
+      hasMore && last
+        ? encodeCursor({
+            at: (last.last_message_at as string | null) ?? null,
+            id: last.id as string,
+          })
+        : null
 
-    return data.map((row) => {
-      const contact = (Array.isArray(row.contacts) ? row.contacts[0] : row.contacts) as
-        Record<string, string | null> | undefined
+    const items = await this.summarize(client, rows)
 
-      return {
-        id: row.id as string,
-        status: row.status as ConversationSummary['status'],
-        assignedTo: (row.assigned_to as string | null) ?? null,
-        contact: {
-          id: (contact?.['id'] as string) ?? '',
-          personId: (contact?.['person_id'] as string) ?? '',
-          phone: (contact?.['phone'] as string | null) ?? null,
-          displayName: (contact?.['display_name'] as string | null) ?? null,
-          username: (contact?.['username'] as string | null) ?? null,
-        },
-        lastMessageAt: (row.last_message_at as string | null) ?? null,
-        lastInboundAt: (row.last_inbound_at as string | null) ?? null,
-        lastMessagePreview: previews.get(row.id as string)?.body ?? null,
-        lastMessageAuthor: previews.get(row.id as string)?.author ?? null,
-        lastRunFailed: idsWithFailedRun.has(row.id as string),
-      }
-    })
+    return { items, nextCursor, total: cursor ? null : (count ?? items.length) }
   }
 
   /**
-   * The conversation, loaded over HTTP and then subscribed to — never only
-   * subscribed to. Realtime retains its messages between 72 hours and four days
-   * and is not the source of truth.
+   * One conversation, for a link that points at one the inbox has not loaded:
+   * a notification, a shared URL, or simply one past the pages scrolled.
    */
-  async listMessages(client: SupabaseClient, conversationId: string): Promise<Message[]> {
+  async findSummary(client: SupabaseClient, conversationId: string): Promise<ConversationSummary> {
     const { data, error } = await client
+      .from('conversations')
+      .select(CONVERSATION_SUMMARY_COLUMNS)
+      .eq('id', conversationId)
+      .maybeSingle()
+
+    if (error) throw this.toHttpError(error)
+    if (!data) throw new NotFoundException('No se encontró la conversación')
+
+    const [summary] = await this.summarize(client, [data])
+
+    return summary as ConversationSummary
+  }
+
+  /**
+   * The conversation's messages, newest page first, each page in reading order.
+   *
+   * Loaded over HTTP and then subscribed to — never only subscribed to.
+   * Realtime retains its messages between 72 hours and four days and is not the
+   * source of truth. A page is also the number of image URLs signed per
+   * request, which is what made opening a long conversation slow.
+   */
+  async listMessages(
+    client: SupabaseClient,
+    { conversationId, cursor }: { conversationId: string; cursor?: string },
+  ): Promise<CursorPage<Message>> {
+    let query = client
       .from('messages')
       .select(
         'id, conversation_id, direction, author, type, body, storage_path, delivery_state, delivery_error, sent_at, received_at',
       )
       .eq('conversation_id', conversationId)
-      .order('received_at')
-      .limit(500)
+
+    if (cursor) {
+      const before = decodeCursor(cursor)
+
+      query = query.or(
+        `received_at.lt."${before.at}",and(received_at.eq."${before.at}",id.lt.${before.id})`,
+      )
+    }
+
+    const { data, error } = await query
+      .order('received_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(MESSAGE_PAGE_SIZE + 1)
 
     if (error) throw this.toHttpError(error)
 
-    return Promise.all(
-      data.map(async (row) => ({
+    const rows = data.slice(0, MESSAGE_PAGE_SIZE)
+    const oldest = rows.at(-1)
+    const hasMore = data.length > MESSAGE_PAGE_SIZE
+    const nextCursor =
+      hasMore && oldest
+        ? encodeCursor({ at: oldest.received_at as string, id: oldest.id as string })
+        : null
+
+    const items = await Promise.all(
+      rows.toReversed().map(async (row) => ({
         id: row.id as string,
         conversationId: row.conversation_id as string,
         direction: row.direction as Message['direction'],
@@ -133,6 +188,8 @@ export class ConversationsService {
         receivedAt: row.received_at as string,
       })),
     )
+
+    return { items, nextCursor }
   }
 
   /**
@@ -279,6 +336,45 @@ export class ConversationsService {
     if (error) throw this.toHttpError(error)
 
     return (data ?? []).map(toAgentRun)
+  }
+
+  /** The rows as the inbox shows them, with the two lookups done once for the whole page. */
+  private async summarize(
+    client: SupabaseClient,
+    rows: Record<string, unknown>[],
+  ): Promise<ConversationSummary[]> {
+    const ids = rows.map((row) => row['id'] as string)
+    const [previews, idsWithFailedRun] = await Promise.all([
+      this.lastMessagePreviews(client, ids),
+      this.conversationsWithFailedRun(client, ids),
+    ])
+
+    return rows.map((row) => {
+      const id = row['id'] as string
+      const contacts = row['contacts']
+      const contact = (Array.isArray(contacts) ? contacts[0] : contacts) as
+        | Record<string, string | null>
+        | undefined
+      const preview = previews.get(id)
+
+      return {
+        id,
+        status: row['status'] as ConversationSummary['status'],
+        assignedTo: (row['assigned_to'] as string | null) ?? null,
+        contact: {
+          id: (contact?.['id'] as string) ?? '',
+          personId: (contact?.['person_id'] as string) ?? '',
+          phone: (contact?.['phone'] as string | null) ?? null,
+          displayName: (contact?.['display_name'] as string | null) ?? null,
+          username: (contact?.['username'] as string | null) ?? null,
+        },
+        lastMessageAt: (row['last_message_at'] as string | null) ?? null,
+        lastInboundAt: (row['last_inbound_at'] as string | null) ?? null,
+        lastMessagePreview: preview?.body ?? null,
+        lastMessageAuthor: preview?.author ?? null,
+        lastRunFailed: idsWithFailedRun.has(id),
+      }
+    })
   }
 
   private async findConversationOrThrow(client: SupabaseClient, conversationId: string) {
