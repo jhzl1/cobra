@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react'
-import { ALERT_REASON_TEXT, type HeldReceipt } from '@cobra/contracts'
+import {
+  ALERT_REASON_TEXT,
+  HELD_RECEIPT_RESOLUTION_TEXT,
+  type HeldReceipt,
+} from '@cobra/contracts'
 import { DetailItem } from '~/components/DetailItem'
 import { ReceiptPreview } from '~/components/ReceiptPreview'
 import { Badge } from '~/components/ui/badge'
@@ -81,6 +85,19 @@ export const HeldReceiptDialog = ({ receipt, onClose, children }: HeldReceiptDia
                   }
                 />
                 <DetailItem label="Descripción" value={receipt.description} />
+                {/* Only once it left the open list: while it is open, nobody decided yet. */}
+                {receipt.resolvedAt && (
+                  <>
+                    <DetailItem
+                      label="Resultado"
+                      value={
+                        receipt.resolution ? HELD_RECEIPT_RESOLUTION_TEXT[receipt.resolution] : null
+                      }
+                    />
+                    <DetailItem label="Resuelto por" value={receipt.resolvedByEmail} />
+                    <DetailItem label="Resuelto el" value={formatDateTime(receipt.resolvedAt)} />
+                  </>
+                )}
               </dl>
 
               {receipt.resolutionError && (

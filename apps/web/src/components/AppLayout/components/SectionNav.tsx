@@ -1,6 +1,7 @@
 import { Link, useMatchRoute } from '@tanstack/react-router'
 import { useInbox } from '~/contexts/InboxContext/useInbox'
 import { useCurrentTenantQuery } from '~/hooks/queries/useCurrentTenantQuery'
+import { useOpenHeldReceiptCountQuery } from '~/hooks/queries/useOpenHeldReceiptCountQuery'
 import { cn } from '~/lib/utils'
 import { TENANT_SECTIONS } from '../helpers'
 
@@ -15,6 +16,7 @@ export const SectionNav = () => {
   const { unreadCount } = useInbox()
   const matchRoute = useMatchRoute()
   const tenant = currentTenantQuery.data
+  const openReceiptCount = useOpenHeldReceiptCountQuery(tenant?.id ?? null)
 
   if (!tenant) return null
 
@@ -49,6 +51,12 @@ export const SectionNav = () => {
               <span className="font-mono text-xs font-semibold text-foreground">
                 {unreadCount}
                 <span className="sr-only"> sin leer</span>
+              </span>
+            )}
+            {section.to === '/$tenantId/pending' && !!openReceiptCount.data && (
+              <span className="font-mono text-xs font-semibold text-foreground">
+                {openReceiptCount.data}
+                <span className="sr-only"> por resolver</span>
               </span>
             )}
           </Link>

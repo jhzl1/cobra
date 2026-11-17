@@ -1,3 +1,4 @@
+import { PageLoadingBar } from '~/components/PageLoadingBar'
 import { Pager } from '~/components/Pager'
 import { Spinner } from '~/components/ui/spinner'
 import { usePageInUrl } from '~/hooks/usePageInUrl'
@@ -21,13 +22,14 @@ export const ErrorRunsList = ({ page }: ErrorRunsListProps) => {
   }
 
   return (
-    <>
+    <div>
+      <PageLoadingBar isLoading={errors.isPlaceholderData} />
       <JobRunTable
         runs={errors.data?.items ?? []}
         showCompany
         emptyText="No hay ejecuciones con error"
       />
       <Pager page={page} total={errors.data?.total ?? 0} onPageChange={goToPage} />
-    </>
+    </div>
   )
 }

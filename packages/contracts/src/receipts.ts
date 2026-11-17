@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { pageQuerySchema } from './api'
 // Side effect: zod answers in Spanish. Imported per module, not only from
 // index, so importing this file directly cannot skip it.
 import './locale'
@@ -110,7 +111,33 @@ export const heldReceiptResolutionSchema = z.enum(['applying', 'applied', 'dismi
 
 export type HeldReceiptResolution = z.infer<typeof heldReceiptResolutionSchema>
 
-/** A held receipt as "Pendientes" shows it. */
+export const HELD_RECEIPT_RESOLUTION_TEXT: Record<HeldReceiptResolution, string> = {
+  applying: 'Registrando en Wisphub',
+  applied: 'Aplicado',
+  dismissed: 'Descartado',
+}
+
+/**
+ * Which held receipts a list shows: `open` still waits for an operator (one
+ * being applied included, since it can fail and come back); `resolved` was
+ * applied or dismissed, and is kept as the record of who did what.
+ */
+export const heldReceiptStatusSchema = z.enum(['open', 'resolved'])
+
+export type HeldReceiptStatus = z.infer<typeof heldReceiptStatusSchema>
+
+export const heldReceiptsQuerySchema = pageQuerySchema.extend({
+  status: heldReceiptStatusSchema.default('open'),
+})
+
+export type HeldReceiptsQuery = z.infer<typeof heldReceiptsQuerySchema>
+
+/** How many held receipts wait for an operator, for the count beside the section. */
+export interface OpenHeldReceiptCount {
+  total: number
+}
+
+/** A held receipt as "Comprobantes pendientes" shows it. */
 export interface HeldReceipt {
   id: string
   conversationId: string
@@ -137,6 +164,13 @@ export interface HeldReceipt {
   lastInboundAt: string | null
   resolution: HeldReceiptResolution | null
   resolutionError: string | null
+  /**
+   * The operator who applied or dismissed it, by the email they sign in with.
+   * Null while nobody has, and for an account that no longer exists.
+   */
+  resolvedByEmail: string | null
+  /** When it was dismissed, or when Wisphub confirmed the payment. */
+  resolvedAt: string | null
 }
 
 /**

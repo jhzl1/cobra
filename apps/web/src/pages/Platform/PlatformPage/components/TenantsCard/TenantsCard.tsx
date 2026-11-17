@@ -1,5 +1,6 @@
 import { PlusIcon } from 'lucide-react'
 import { useState } from 'react'
+import { PageLoadingBar } from '~/components/PageLoadingBar'
 import { Pager } from '~/components/Pager'
 import { Button } from '~/components/ui/button'
 import {
@@ -44,6 +45,7 @@ export const TenantsCard = ({ page }: TenantsCardProps) => {
       </CardHeader>
 
       <CardContent>
+        <PageLoadingBar isLoading={tenants.isPlaceholderData} />
         <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow>

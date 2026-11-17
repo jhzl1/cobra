@@ -26,7 +26,7 @@ const route = getRouteApi('/_app/_platform/platform_/tenants/$companyId')
  */
 export const PlatformTenantPage = () => {
   const { companyId: tenantId } = route.useParams()
-  const { tab, conversationId, page, from, to } = route.useSearch()
+  const { tab, conversationId, page, from, to, status } = route.useSearch()
   const navigate = route.useNavigate()
   const tenant = useTenantQuery(tenantId)
 
@@ -67,7 +67,7 @@ export const PlatformTenantPage = () => {
       >
         <TabsList variant="line" className="md:px-6">
           <TabsTrigger value="conversations">Conversaciones</TabsTrigger>
-          <TabsTrigger value="pending">Pendientes</TabsTrigger>
+          <TabsTrigger value="pending">Comprobantes pendientes</TabsTrigger>
           <TabsTrigger value="payments">Pagos registrados</TabsTrigger>
           <TabsTrigger value="executions">Ejecuciones</TabsTrigger>
           <TabsTrigger value="settings">Configuración</TabsTrigger>
@@ -78,7 +78,7 @@ export const PlatformTenantPage = () => {
         </TabsContent>
 
         <TabsContent value="pending" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-          <ReadOnlyHeldReceipts tenantId={tenantId} page={page} />
+          <ReadOnlyHeldReceipts tenantId={tenantId} status={status} page={page} />
         </TabsContent>
 
         <TabsContent value="payments" className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">

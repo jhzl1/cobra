@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
+import type { HeldReceiptStatus } from '@cobra/contracts'
 
 // Each list's pages share its prefix, so invalidating the prefix reaches all of them.
 const PLATFORM_ERRORS = ['platform', 'errors'] as const
@@ -44,8 +45,18 @@ export const queryKeys = {
     from: string
     to: string
   }) => ['tenants', tenantId, 'payments', from, to, page] as const,
-  heldReceiptPage: (tenantId: string, page: number) =>
-    ['tenants', tenantId, 'held-receipts', page] as const,
+  heldReceiptPage: ({
+    tenantId,
+    status,
+    page,
+  }: {
+    tenantId: string
+    status: HeldReceiptStatus
+    page: number
+  }) => ['tenants', tenantId, 'held-receipts', status, page] as const,
+  // Under the held receipts' prefix, so applying or dismissing one refreshes it too.
+  openHeldReceiptCount: (tenantId: string) =>
+    ['tenants', tenantId, 'held-receipts', 'open-count'] as const,
   conversations: (tenantId: string) => ['conversations', tenantId] as const,
   // Under the inbox's prefix, so the live updates that refresh it refresh this too.
   conversationSearch: (tenantId: string, search: string) =>

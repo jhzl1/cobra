@@ -12,7 +12,7 @@ import { platformTenantSearchSchema } from '~/pages/Platform/PlatformTenantPage/
  */
 export const Route = createFileRoute('/_app/_platform/platform_/tenants/$companyId')({
   search: {
-    middlewares: [stripSearchParams({ page: 1, tab: 'conversations' })],
+    middlewares: [stripSearchParams({ page: 1, tab: 'conversations', status: 'open' })],
   },
   validateSearch: platformTenantSearchSchema,
   component: PlatformTenantPage,
