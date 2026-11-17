@@ -26,6 +26,12 @@ export const useTenantStream = (tenantId: string | null): void => {
       .channel(tenantTopic(tenantId), { config: { private: true } })
       .on('broadcast', { event: '*' }, () => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.conversations(tenantId) })
+        // Receipts do not broadcast, but holding one hands its conversation to a
+        // person, which does. Only the count: refetching the open list would
+        // re-sign a page of image URLs on every message.
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.openHeldReceiptCount(tenantId),
+        })
       })
       .subscribe()
 

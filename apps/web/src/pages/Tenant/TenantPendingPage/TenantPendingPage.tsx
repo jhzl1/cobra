@@ -2,7 +2,7 @@ import { getRouteApi } from '@tanstack/react-router'
 import { useState } from 'react'
 import type { HeldReceipt } from '@cobra/contracts'
 import { HeldReceiptDialog } from '~/components/HeldReceiptDialog'
-import { HeldReceiptsList } from '~/components/HeldReceiptsList'
+import { HeldReceiptsTabs } from '~/components/HeldReceiptsTabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { useHeldReceiptsQuery } from '~/hooks/queries/useHeldReceiptsQuery'
 import { ApplyDialog } from './components/ApplyDialog'
@@ -12,16 +12,16 @@ import { ReceiptActions } from './components/ReceiptActions'
 const route = getRouteApi('/_app/$tenantId/pending')
 
 /**
- * "Pendientes": the receipts the rules held back, for an operator to apply by
- * hand or dismiss.
+ * "Comprobantes pendientes": the receipts the rules held back, for an operator
+ * to apply by hand or dismiss, and the record of who did which.
  *
  * The customer was told a person would write; the administrator got the alert.
  * This is where that person does the work, with the reason in front of them.
  */
 export const TenantPendingPage = () => {
   const { tenantId } = route.useParams()
-  const { page } = route.useSearch()
-  const heldReceipts = useHeldReceiptsQuery(tenantId, page)
+  const { status, page } = route.useSearch()
+  const heldReceipts = useHeldReceiptsQuery({ tenantId, status, page })
   // By id, so the open dialog follows the list as it polls: "Aplicando…"
   // turns into the result without closing and reopening it.
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -35,24 +35,18 @@ export const TenantPendingPage = () => {
       <div className="flex flex-col gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>
-              Comprobantes retenidos
-              {heldReceipts.data ? (
-                <span className="ml-2 font-mono text-sm font-normal text-muted-foreground">
-                  {heldReceipts.data.total}
-                </span>
-              ) : null}
-            </CardTitle>
+            <CardTitle>Comprobantes pendientes</CardTitle>
             <CardDescription>
               El agente no registró estos comprobantes por el motivo indicado en cada uno, y la
               conversación quedó a cargo de un asesor. Al aplicarlos o descartarlos, la conversación
-              vuelve al agente.
+              vuelve al agente y el comprobante pasa al historial.
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="flex flex-col gap-3">
-            <HeldReceiptsList
+          <CardContent>
+            <HeldReceiptsTabs
               tenantId={tenantId}
+              status={status}
               page={page}
               onSelect={(receipt) => setSelectedId(receipt.id)}
             />
@@ -60,7 +54,8 @@ export const TenantPendingPage = () => {
         </Card>
 
         <HeldReceiptDialog receipt={selected} onClose={() => setSelectedId(null)}>
-          {selected && (
+          {/* A resolved receipt is a record: nothing left to apply or dismiss. */}
+          {selected && status === 'open' && (
             <ReceiptActions
               receipt={selected}
               onApply={() => {
