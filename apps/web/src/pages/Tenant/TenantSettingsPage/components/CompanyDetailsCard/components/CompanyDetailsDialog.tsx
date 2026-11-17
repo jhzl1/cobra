@@ -1,6 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { useState } from 'react'
-import { createTenantSchema } from '@cobra/contracts'
+import { tenantDetailsSchema } from '@cobra/contracts'
 import { Field } from '~/components/ui/field'
 import { FormDialog } from '~/components/ui/form-dialog'
 import type { TenantSummary } from '~/types/tenant'
@@ -22,9 +22,9 @@ export const CompanyDetailsDialog = ({ tenant, onClose }: CompanyDetailsDialogPr
       supportPhone: tenant.supportPhone,
       adminPhone: tenant.adminPhone,
     },
-    // The create schema and not the update one: every field stays required here,
-    // and the update schema's optional fields would let one be cleared.
-    validators: { onChange: createTenantSchema },
+    // The details schema and not the update one: every field stays required
+    // here, and the update schema's optional fields would let one be cleared.
+    validators: { onChange: tenantDetailsSchema },
     onSubmit: async ({ value }) => {
       setFailure(null)
 

@@ -7,7 +7,7 @@ import { paginationSearchSchema } from '~/lib/searchSchemas'
  * is what keeps the key optional in links.
  */
 export const platformTabSchema = z
-  .enum(['companies', 'errors', 'models', 'admins'])
+  .enum(['companies', 'errors', 'models', 'users'])
   .catch('companies')
   .default('companies')
 

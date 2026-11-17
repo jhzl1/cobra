@@ -1,1 +1,0 @@
-export { GrantsCard } from './GrantsCard'

@@ -11,4 +11,6 @@ export const loginSearchSchema = z.object({
     .refine((path) => path.startsWith('/') && !path.startsWith('//'))
     .optional()
     .catch(undefined),
+  /** Why the session ended, when the panel ended it: the account lost its access. */
+  reason: z.literal('no-access').optional().catch(undefined),
 })
