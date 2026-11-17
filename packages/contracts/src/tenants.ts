@@ -17,7 +17,8 @@ const phoneSchema = z
  * buys nothing an attacker does not already have. The API derives it from the
  * company name rather than asking someone to build one by hand.
  */
-export const createTenantSchema = z.object({
+/** What a company is, without how it starts: shared by creating and editing it. */
+export const tenantDetailsSchema = z.object({
   companyName: z
     .string()
     .min(2, 'Ingresa el nombre de la empresa')
@@ -26,9 +27,20 @@ export const createTenantSchema = z.object({
   adminPhone: phoneSchema,
 })
 
+/**
+ * A company is created with its first user. The administrator who creates it
+ * does not join it — an account is either the platform's or one company's — so
+ * without this the new company would have nobody who can sign in to it.
+ */
+export const createTenantSchema = tenantDetailsSchema.extend({
+  userEmail: z.email('Ingresa el correo del primer usuario de la empresa'),
+})
+
+export type TenantDetailsInput = z.infer<typeof tenantDetailsSchema>
+
 export type CreateTenantInput = z.infer<typeof createTenantSchema>
 
-export const updateTenantSchema = createTenantSchema.partial()
+export const updateTenantSchema = tenantDetailsSchema.partial()
 
 export const tenantStatusSchema = z.enum(['active', 'suspended'])
 

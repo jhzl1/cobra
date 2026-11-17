@@ -24,6 +24,22 @@ export const paginationSchema = z.object({
 export type Pagination = z.infer<typeof paginationSchema>
 
 /**
+ * Lists that change order while someone scrolls them — the inbox, a chat —
+ * go by cursor instead of page number. A conversation that receives a message
+ * jumps to the top, and with numbered pages the rows below it shift by one:
+ * the next page repeats a conversation or skips one.
+ *
+ * The cursor is opaque to the panel. It hands back exactly what it received.
+ */
+export const cursorSchema = z.string().max(200).optional()
+
+export interface CursorPage<T> {
+  items: T[]
+  /** Null when there is nothing further. */
+  nextCursor: string | null
+}
+
+/**
  * Lists that grow without bound (companies, errors) go by numbered pages, so a
  * page number can live in the panel's URL and be shared or reloaded.
  */

@@ -1,24 +1,9 @@
-import {
-  ConflictException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common'
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common'
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
-import type {
-  GrantRoleInput,
-  JobRun,
-  JobRunStatus,
-  Page,
-  PlatformError,
-  PlatformIdentity,
-  PlatformRoleGrant,
-} from '@cobra/contracts'
+import type { JobRun, JobRunStatus, Page, PlatformError, PlatformIdentity } from '@cobra/contracts'
+import { readAccountAccess } from '~/auth/account.guard'
 import { selectPage } from '~/common/pagination'
 import { SupabaseService } from '~/supabase/supabase.service'
-
-const UNIQUE_VIOLATION = '23505'
 
 /** One company's runs, newest first. Older history is not what that screen is for. */
 const JOB_RUNS_LIMIT = 200
@@ -50,76 +35,9 @@ export class PlatformService {
 
     if (error) throw this.toHttpError(error)
 
-    return { userId, email, isPlatformAdmin: !!data }
-  }
+    const { mustChangePassword } = await readAccountAccess(this.supabase.unscoped, userId)
 
-  /** Every grant, active and revoked. The history is the point of this table. */
-  async listGrants(): Promise<PlatformRoleGrant[]> {
-    const { data, error } = await this.supabase.unscoped
-      .from('user_roles')
-      .select('id, email, role, user_id, granted_at, revoked_at')
-      .order('granted_at', { ascending: false })
-
-    if (error) throw this.toHttpError(error)
-
-    return (data ?? []).map((row) => ({
-      id: row.id as string,
-      email: row.email as string,
-      role: row.role as PlatformRoleGrant['role'],
-      userId: (row.user_id as string | null) ?? null,
-      grantedAt: row.granted_at as string,
-      revokedAt: (row.revoked_at as string | null) ?? null,
-    }))
-  }
-
-  /**
-   * Grants by email, which is how someone can be authorised before they have an
-   * account: a trigger ties the grant to the identity on their first sign-in.
-   */
-  async grant(grantedBy: string, input: GrantRoleInput): Promise<PlatformRoleGrant> {
-    const { data, error } = await this.supabase.unscoped
-      .from('user_roles')
-      .insert({ email: input.email, role: input.role, granted_by: grantedBy })
-      .select('id, email, role, user_id, granted_at, revoked_at')
-      .single()
-
-    if (error) {
-      if (error.code === UNIQUE_VIOLATION) {
-        throw new ConflictException('Esta persona ya tiene el rol activo')
-      }
-      throw this.toHttpError(error)
-    }
-
-    // The grant may have arrived after the account existed, in which case the
-    // trigger on auth.users already fired and will never fire again.
-    await this.linkExistingUser(input.email)
-
-    return {
-      id: data.id as string,
-      email: data.email as string,
-      role: data.role as PlatformRoleGrant['role'],
-      userId: (data.user_id as string | null) ?? null,
-      grantedAt: data.granted_at as string,
-      revokedAt: null,
-    }
-  }
-
-  /** Revoking marks the row; it never deletes it. */
-  async revoke(grantId: string): Promise<{ revokedAt: string }> {
-    const revokedAt = new Date().toISOString()
-
-    const { data, error } = await this.supabase.unscoped
-      .from('user_roles')
-      .update({ revoked_at: revokedAt })
-      .eq('id', grantId)
-      .is('revoked_at', null)
-      .select('id')
-      .maybeSingle()
-
-    if (error) throw this.toHttpError(error)
-    if (!data) throw new NotFoundException('No se encontró un rol activo con ese identificador')
-
-    return { revokedAt }
+    return { userId, email, isPlatformAdmin: !!data, mustChangePassword }
   }
 
   /**
@@ -171,21 +89,6 @@ export class PlatformService {
     if (error) throw this.toHttpError(error)
 
     return data
-  }
-
-  private async linkExistingUser(email: string): Promise<void> {
-    const { data } = await this.supabase.unscoped.auth.admin.listUsers()
-    const user = data?.users.find(
-      (candidate) => candidate.email?.toLowerCase() === email.toLowerCase(),
-    )
-
-    if (!user) return
-
-    await this.supabase.unscoped
-      .from('user_roles')
-      .update({ user_id: user.id })
-      .eq('email', email.toLowerCase())
-      .is('user_id', null)
   }
 
   private toHttpError(error: PostgrestError): Error {

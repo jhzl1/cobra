@@ -1,9 +1,15 @@
+import { PlusIcon } from 'lucide-react'
+import { useState } from 'react'
+import type { TemporaryPassword } from '@cobra/contracts'
 import { Badge } from '~/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
+import { Button } from '~/components/ui/button'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Spinner } from '~/components/ui/spinner'
 import { useWhatsappNumbersQuery } from '~/hooks/queries/useWhatsappNumbersQuery'
+import { TemporaryPasswordDialog } from '~/pages/Platform/common/components/TemporaryPasswordDialog'
 import type { TenantSummary } from '~/types/tenant'
 import { ActiveNumberDetails } from './components/ActiveNumberDetails'
+import { CreateCompanyUserDialog } from './components/CreateCompanyUserDialog'
 import { OverviewEmpty } from './components/OverviewEmpty'
 import { OverviewRow } from './components/OverviewRow'
 import { OverviewSection } from './components/OverviewSection'
@@ -15,7 +21,8 @@ interface TenantOverviewProps {
 
 /**
  * What the platform gets to see about a company: its settings, its numbers and
- * who belongs to it. Read only.
+ * who belongs to it. Read only, except for adding a user: an account belongs to
+ * one company, and only the platform creates accounts.
  *
  * Credentials are deliberately absent. An administrator reaches every company
  * through `can_access_tenant`, so the API would answer — but the last four
@@ -23,6 +30,8 @@ interface TenantOverviewProps {
  * screen that shows them teaches that they are.
  */
 export const TenantOverview = ({ tenant }: TenantOverviewProps) => {
+  const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false)
+  const [issuedPassword, setIssuedPassword] = useState<TemporaryPassword | null>(null)
   const members = useTenantMembersQuery(tenant.id)
   const numbers = useWhatsappNumbersQuery(tenant.id)
 
@@ -33,6 +42,12 @@ export const TenantOverview = ({ tenant }: TenantOverviewProps) => {
     <Card>
       <CardHeader>
         <CardTitle>Empresa</CardTitle>
+        <CardAction>
+          <Button size="sm" onClick={() => setIsCreateUserDialogOpen(true)}>
+            <PlusIcon />
+            Nuevo usuario
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <OverviewSection title="Contacto">
@@ -55,7 +70,7 @@ export const TenantOverview = ({ tenant }: TenantOverviewProps) => {
           ))}
         </OverviewSection>
 
-        <OverviewSection title={`Miembros (${tenant.memberCount})`}>
+        <OverviewSection title={`Usuarios (${tenant.memberCount})`}>
           {members.isLoading && <Spinner />}
           {members.data?.length
             ? members.data.map((member) => (
@@ -66,10 +81,28 @@ export const TenantOverview = ({ tenant }: TenantOverviewProps) => {
                 />
               ))
             : !members.isLoading && (
-                <OverviewEmpty>No hay miembros. Nadie puede acceder a esta empresa.</OverviewEmpty>
+                <OverviewEmpty>
+                  No hay usuarios. Nadie de la empresa puede atender sus conversaciones.
+                </OverviewEmpty>
               )}
         </OverviewSection>
       </CardContent>
+
+      {isCreateUserDialogOpen && (
+        <CreateCompanyUserDialog
+          tenantId={tenant.id}
+          companyName={tenant.companyName}
+          onClose={() => setIsCreateUserDialogOpen(false)}
+          onCreated={setIssuedPassword}
+        />
+      )}
+
+      {issuedPassword && (
+        <TemporaryPasswordDialog
+          temporaryPassword={issuedPassword}
+          onClose={() => setIssuedPassword(null)}
+        />
+      )}
     </Card>
   )
 }

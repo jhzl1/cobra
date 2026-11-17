@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { getRouteApi } from '@tanstack/react-router'
+import { Link, getRouteApi } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { Button } from '~/components/ui/button'
@@ -19,10 +19,15 @@ const signInSchema = z.object({
 
 const route = getRouteApi('/login')
 
+const NO_ACCESS_MESSAGE =
+  'Tu cuenta ya no tiene acceso a Wispay. Si crees que es un error, contacta a un administrador de la plataforma.'
+
 export const LoginPage = () => {
   const search = route.useSearch()
   const navigate = route.useNavigate()
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(
+    search.reason === 'no-access' ? NO_ACCESS_MESSAGE : null,
+  )
   const [isRedirectingToGoogle, setIsRedirectingToGoogle] = useState(false)
 
   useEffect(() => {
@@ -55,6 +60,14 @@ export const LoginPage = () => {
       setError(null)
 
       const { error: signInError } = await supabase.auth.signInWithPassword(value)
+
+      // A blocked account is told so: "wrong password" would send it to ask for
+      // a new one, which would not let it in either.
+      if (signInError?.code === 'user_banned') {
+        setError(NO_ACCESS_MESSAGE)
+
+        return
+      }
 
       if (signInError) {
         setError('El correo o la contraseña no son correctos.')
@@ -112,6 +125,13 @@ export const LoginPage = () => {
                 />
               )}
             </form.Field>
+
+            <Link
+              to="/forgot-password"
+              className="-mt-2 self-end text-sm text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 

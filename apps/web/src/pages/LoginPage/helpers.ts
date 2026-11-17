@@ -22,5 +22,10 @@ export const readGoogleRedirectError = async (): Promise<string | null> => {
     return 'Esta cuenta de Google no tiene acceso a Wispay. Solicita acceso a un administrador de tu empresa.'
   }
 
+  // The account exists but was blocked: its access was revoked.
+  if (details?.code === 'user_banned') {
+    return 'Tu cuenta ya no tiene acceso a Wispay. Si crees que es un error, contacta a un administrador de la plataforma.'
+  }
+
   return 'No fue posible iniciar sesión con Google. Inténtalo de nuevo.'
 }

@@ -1,36 +1,37 @@
 import { useForm } from '@tanstack/react-form'
 import { useState } from 'react'
-import { grantRoleSchema } from '@cobra/contracts'
+import { type TemporaryPassword, createAccountSchema } from '@cobra/contracts'
 import { Field } from '~/components/ui/field'
 import { FormDialog } from '~/components/ui/form-dialog'
 import { applyServerErrors, fieldError } from '~/utils/form'
-import { useGrantRoleMutation } from '../hooks/mutations/useGrantRoleMutation'
+import { useCreateAdminMutation } from '../hooks/mutations/useCreateAdminMutation'
 
-interface GrantDialogProps {
+interface CreateAdminDialogProps {
   onClose: () => void
+  /** The password goes to a dialog of its own, so this one can close behind it. */
+  onCreated: (temporaryPassword: TemporaryPassword) => void
 }
 
-export const GrantDialog = ({ onClose }: GrantDialogProps) => {
+export const CreateAdminDialog = ({ onClose, onCreated }: CreateAdminDialogProps) => {
   const [failure, setFailure] = useState<string | null>(null)
-  const grantRole = useGrantRoleMutation()
+  const createAdmin = useCreateAdminMutation()
 
   const form = useForm({
     defaultValues: { email: '' },
-    // Only the address is asked for: ADMIN is the one platform role there is.
-    validators: { onChange: grantRoleSchema.pick({ email: true }) },
+    validators: { onChange: createAccountSchema },
     onSubmit: async ({ value }) => {
       setFailure(null)
 
       try {
-        await grantRole.mutateAsync(value.email)
+        const temporaryPassword = await createAdmin.mutateAsync(value.email)
+
+        onCreated(temporaryPassword)
+        onClose()
       } catch (error) {
         const [unmatched] = applyServerErrors(form, error)
 
         setFailure(unmatched ?? (error as Error).message)
-        throw error
       }
-
-      onClose()
     },
   })
 
@@ -38,9 +39,9 @@ export const GrantDialog = ({ onClose }: GrantDialogProps) => {
     <FormDialog
       open
       onClose={onClose}
-      title="Otorgar rol de administrador de la plataforma"
-      description="Quien reciba este rol podrá crear empresas, acceder a cualquiera de ellas y otorgar este mismo rol."
-      submitLabel="Otorgar"
+      title="Nuevo administrador de la plataforma"
+      description="Se crea la cuenta con una contraseña temporal que verás una sola vez. Quien la reciba podrá crear empresas, acceder a cualquiera de ellas y crear otros administradores."
+      submitLabel="Crear cuenta"
       form={form}
       error={failure}
     >
@@ -48,7 +49,7 @@ export const GrantDialog = ({ onClose }: GrantDialogProps) => {
         {(field) => (
           <Field
             label="Correo electrónico"
-            hint="Funciona incluso si la persona aún no tiene cuenta."
+            hint="No debe tener una cuenta en Wispay todavía."
             type="email"
             required
             value={field.state.value}

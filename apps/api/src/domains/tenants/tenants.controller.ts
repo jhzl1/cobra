@@ -16,6 +16,7 @@ import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
 import type { Request } from 'express'
 import {
+  type CreateTenantInput,
   type PaymentMethodInput,
   type PaymentMethodStatusInput,
   type UpdateTenantDryRunInput,
@@ -69,15 +70,15 @@ export class TenantsController {
    */
   @Post()
   @RequirePlatformAdmin()
-  @ApiOperation({ summary: 'Crear una empresa y quedar como miembro' })
+  @ApiOperation({ summary: 'Crear una empresa con su primer usuario' })
   create(
     @SupabaseCtx() ctx: SupabaseContext,
     @Body(new ZodValidationPipe(createTenantSchema)) body: unknown,
   ) {
-    return this.tenants.create(
-      readCallerId(ctx.userClaims),
-      body as Parameters<TenantsService['create']>[1],
-    )
+    return this.tenants.create({
+      input: body as CreateTenantInput,
+      createdBy: readCallerId(ctx.userClaims),
+    })
   }
 
   @Patch(':tenantId')

@@ -14,25 +14,6 @@ export const platformRoleSchema = z.enum(['ADMIN'])
 
 export type PlatformRole = z.infer<typeof platformRoleSchema>
 
-export const grantRoleSchema = z.object({
-  email: z.email('Ingresa un correo electrónico válido'),
-  role: platformRoleSchema.default('ADMIN'),
-})
-
-export type GrantRoleInput = z.infer<typeof grantRoleSchema>
-
-export const platformRoleGrantSchema = z.object({
-  id: z.uuid(),
-  email: z.string(),
-  role: platformRoleSchema,
-  /** Null until that person signs in for the first time. */
-  userId: z.uuid().nullable(),
-  grantedAt: z.string(),
-  revokedAt: z.string().nullable(),
-})
-
-export type PlatformRoleGrant = z.infer<typeof platformRoleGrantSchema>
-
 /**
  * What the panel asks for to know what to draw.
  *
@@ -45,6 +26,12 @@ export const platformIdentitySchema = z.object({
   userId: z.uuid(),
   email: z.string().nullable(),
   isPlatformAdmin: z.boolean(),
+  /**
+   * The current password was set by an administrator, who read it on screen.
+   * Until it is replaced the API refuses everything else, and the panel sends
+   * the person to replace it.
+   */
+  mustChangePassword: z.boolean(),
 })
 
 export type PlatformIdentity = z.infer<typeof platformIdentitySchema>

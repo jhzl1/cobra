@@ -4,6 +4,7 @@ import type { HeldReceiptStatus } from '@cobra/contracts'
 // Each list's pages share its prefix, so invalidating the prefix reaches all of them.
 const PLATFORM_ERRORS = ['platform', 'errors'] as const
 const PLATFORM_TENANTS = ['platform', 'tenant-pages'] as const
+const PLATFORM_USERS = ['platform', 'users'] as const
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,7 +20,11 @@ export const queryClient = new QueryClient({
 
 export const queryKeys = {
   platformIdentity: ['platform', 'me'] as const,
-  roleGrants: ['platform', 'roles'] as const,
+  // Every page and the request count share the prefix: issuing a password or
+  // creating an account changes both.
+  platformUsers: PLATFORM_USERS,
+  platformUserPage: (page: number) => [...PLATFORM_USERS, 'page', page] as const,
+  openResetRequestCount: [...PLATFORM_USERS, 'open-reset-requests'] as const,
   platformSettings: ['platform', 'settings'] as const,
   modelCatalog: ['platform', 'models'] as const,
   tenants: ['tenants'] as const,
@@ -61,6 +66,8 @@ export const queryKeys = {
   // Under the inbox's prefix, so the live updates that refresh it refresh this too.
   conversationSearch: (tenantId: string, search: string) =>
     ['conversations', tenantId, 'search', search] as const,
+  // Under the conversations' prefix, so a broadcast about one refreshes it.
+  conversation: (conversationId: string) => ['conversations', conversationId, 'summary'] as const,
   messages: (conversationId: string) => ['conversations', conversationId, 'messages'] as const,
   runs: (conversationId: string) => ['conversations', conversationId, 'runs'] as const,
   jobRuns: (tenantId: string, onlyErrors: boolean) =>

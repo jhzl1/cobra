@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as ChangePasswordRouteImport } from './routes/change-password'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppTenantIdRouteImport } from './routes/_app.$tenantId'
@@ -26,6 +28,16 @@ import { Route as AppPlatformPlatformTenantsCompanyIdRouteImport } from './route
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangePasswordRoute = ChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -98,6 +110,8 @@ const AppPlatformPlatformTenantsCompanyIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/change-password': typeof ChangePasswordRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/$tenantId': typeof AppTenantIdRouteWithChildren
   '/$tenantId/payments': typeof AppTenantIdPaymentsRoute
@@ -111,6 +125,8 @@ export interface FileRoutesByFullPath {
   '/platform/tenants/$companyId': typeof AppPlatformPlatformTenantsCompanyIdRoute
 }
 export interface FileRoutesByTo {
+  '/change-password': typeof ChangePasswordRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/': typeof AppIndexRoute
   '/$tenantId/payments': typeof AppTenantIdPaymentsRoute
@@ -126,6 +142,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/change-password': typeof ChangePasswordRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/_app/$tenantId': typeof AppTenantIdRouteWithChildren
   '/_app/_platform': typeof AppPlatformRouteWithChildren
@@ -144,6 +162,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/change-password'
+    | '/forgot-password'
     | '/login'
     | '/$tenantId'
     | '/$tenantId/payments'
@@ -157,6 +177,8 @@ export interface FileRouteTypes {
     | '/platform/tenants/$companyId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/change-password'
+    | '/forgot-password'
     | '/login'
     | '/'
     | '/$tenantId/payments'
@@ -171,6 +193,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/change-password'
+    | '/forgot-password'
     | '/login'
     | '/_app/$tenantId'
     | '/_app/_platform'
@@ -188,6 +212,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  ChangePasswordRoute: typeof ChangePasswordRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -198,6 +224,20 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/change-password': {
+      id: '/change-password'
+      path: '/change-password'
+      fullPath: '/change-password'
+      preLoaderRoute: typeof ChangePasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -350,6 +390,8 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  ChangePasswordRoute: ChangePasswordRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport

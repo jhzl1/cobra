@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
-import { Button } from '~/components/ui/button'
+import { ExternalLinkIcon } from 'lucide-react'
+import { IconButton } from '~/components/IconButton'
 import { Spinner } from '~/components/ui/spinner'
 import { TableCell, TableRow } from '~/components/ui/table'
 import { TenantStateBadges } from '~/pages/Platform/common/components/TenantStateBadges'
@@ -41,16 +42,16 @@ export const TenantRows = ({ page }: TenantRowsProps) => {
       <TableCell>{tenant.memberCount}</TableCell>
       <TableCell>
         <div className="flex justify-end">
-          <Button asChild size="sm" variant="ghost">
+          <IconButton asChild label="Abrir la empresa en otra pestaña">
             <Link
               to="/platform/tenants/$companyId"
               params={{ companyId: tenant.id }}
               target="_blank"
               rel="noopener noreferrer"
             >
-              Abrir
+              <ExternalLinkIcon />
             </Link>
-          </Button>
+          </IconButton>
         </div>
       </TableCell>
     </TableRow>

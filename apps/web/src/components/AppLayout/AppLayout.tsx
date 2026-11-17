@@ -1,7 +1,6 @@
 import { Link, Outlet } from '@tanstack/react-router'
-import { Button } from '~/components/ui/button'
 import { InboxProvider } from '~/contexts/InboxContext/InboxProvider'
-import { supabase } from '~/lib/supabase'
+import { AccountMenu } from './components/AccountMenu'
 import { AlertControls } from './components/AlertControls'
 import { SectionNav } from './components/SectionNav'
 
@@ -33,10 +32,7 @@ export const AppLayout = () => (
           <span className="hidden px-2 font-mono text-xs text-muted-foreground sm:inline">
             v{__APP_VERSION__}
           </span>
-          {/* The router's auth listener takes it to the login once the session is gone. */}
-          <Button size="sm" variant="ghost" onClick={() => void supabase.auth.signOut()}>
-            Salir
-          </Button>
+          <AccountMenu />
         </div>
       </header>
 

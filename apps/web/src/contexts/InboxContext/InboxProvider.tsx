@@ -18,6 +18,11 @@ const BASE_TITLE = 'Wispay'
  * It lives above the routes rather than inside the chat screen, because the
  * whole point is to notice a message while looking at something else — a
  * subscription that only exists on the conversation's own page cannot.
+ *
+ * It holds only the pages scrolled through. A customer writing moves their
+ * conversation to the top, onto the first page, so the alert and the unread
+ * count still see every new message; what they miss is an unread conversation
+ * older than the pages loaded.
  */
 export const InboxProvider = ({ children }: InboxProviderProps) => {
   const currentTenantQuery = useCurrentTenantQuery()
@@ -25,7 +30,7 @@ export const InboxProvider = ({ children }: InboxProviderProps) => {
   const [openConversationId, setOpenConversationId] = useState<string | null>(null)
   const conversationsQuery = useConversationsQuery(tenantId)
 
-  const conversations = conversationsQuery.data ?? []
+  const conversations = conversationsQuery.data?.conversations ?? []
   const { isUnread, unreadCount } = useUnread(conversations, openConversationId)
 
   useTenantStream(tenantId)
@@ -83,7 +88,11 @@ export const InboxProvider = ({ children }: InboxProviderProps) => {
     <InboxContext
       value={{
         conversations,
+        total: conversationsQuery.data?.total ?? null,
         isLoading: conversationsQuery.isLoading,
+        hasMore: conversationsQuery.hasNextPage,
+        isLoadingMore: conversationsQuery.isFetchingNextPage,
+        loadMore: () => void conversationsQuery.fetchNextPage(),
         isUnread,
         unreadCount,
         setOpenConversationId,
