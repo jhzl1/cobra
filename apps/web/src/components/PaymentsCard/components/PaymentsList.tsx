@@ -1,4 +1,5 @@
 import type { Payment } from '@cobra/contracts'
+import { PageLoadingBar } from '~/components/PageLoadingBar'
 import { Pager } from '~/components/Pager'
 import { Spinner } from '~/components/ui/spinner'
 import { usePageInUrl } from '~/hooks/usePageInUrl'
@@ -40,9 +41,10 @@ export const PaymentsList = ({ tenantId, page, range, onSelect }: PaymentsListPr
   }
 
   return (
-    <>
+    <div>
+      <PageLoadingBar isLoading={list.isPlaceholderData} />
       <PaymentTable payments={list.data.items} onSelect={onSelect} />
       <Pager page={page} total={list.data.total} onPageChange={goToPage} />
-    </>
+    </div>
   )
 }

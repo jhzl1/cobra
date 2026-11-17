@@ -90,6 +90,19 @@
       opacity: 0;
     }
   }
+
+  /* The next page of a table is on its way: a segment a third as wide as the
+     bar crosses it, from just outside the left edge to just outside the right. */
+  --animate-page-load: page-load 1s ease-in-out infinite;
+
+  @keyframes page-load {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(300%);
+    }
+  }
 }
 
 @theme inline {
