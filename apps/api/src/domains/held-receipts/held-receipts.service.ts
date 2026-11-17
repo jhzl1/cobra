@@ -13,6 +13,8 @@ import {
   type ApplyHeldReceiptInput,
   type HeldReceipt,
   type HeldReceiptResolution,
+  type HeldReceiptsQuery,
+  type OpenHeldReceiptCount,
   type Page,
   SERVICE_WINDOW_MS,
 } from '@cobra/contracts'
@@ -44,33 +46,56 @@ export class HeldReceiptsService {
   ) {}
 
   /**
-   * The held receipts nobody resolved yet, newest first, a page at a time: a
-   * company that just loaded its collection accounts can have hundreds held
-   * from before. Each row carries a signed image URL, so a page is also what
-   * bounds how many get signed per request.
+   * One page of held receipts, a page at a time: a company that just loaded its
+   * collection accounts can have hundreds held from before. Each row carries a
+   * signed image URL, so a page is also what bounds how many get signed per
+   * request.
+   *
+   * The open ones come newest first by arrival; the resolved ones by when they
+   * were resolved, because the history is read as "what did the team do last".
    */
-  async list(client: SupabaseClient, tenantId: string, page: number): Promise<Page<HeldReceipt>> {
+  async list({
+    client,
+    tenantId,
+    query,
+  }: {
+    client: SupabaseClient
+    tenantId: string
+    query: HeldReceiptsQuery
+  }): Promise<Page<HeldReceipt>> {
+    const isOpen = query.status === 'open'
+
     const { data, error } = await selectPage(
-      page,
-      ({ from, to }) =>
-        client
+      query.page,
+      ({ from, to }) => {
+        const held = client
           .from('receipts')
           .select(
             `id, conversation_id, alert_reason, amount, reference, paid_at, destination_method,
              destination_account, payment_method_id, confidence, raw_extraction, storage_path,
-             created_at, resolution, resolution_error,
+             created_at, resolution, resolution_error, resolved_by, resolved_at,
              conversations!inner (last_inbound_at, contacts!inner (display_name, phone))`,
             { count: 'exact' },
           )
           .eq('tenant_id', tenantId)
           .not('alert_reason', 'is', null)
-          .or('resolution.is.null,resolution.eq.applying')
-          .order('created_at', { ascending: false })
-          .range(from, to),
+
+        const filtered = isOpen
+          ? held
+              .or('resolution.is.null,resolution.eq.applying')
+              .order('created_at', { ascending: false })
+          : held
+              .in('resolution', ['applied', 'dismissed'])
+              .order('resolved_at', { ascending: false, nullsFirst: false })
+
+        return filtered.range(from, to)
+      },
       (row) => row,
     )
 
     if (error) throw this.toHttpError(error)
+
+    const emailByUserId = await this.findEmails(data.items.map((row) => row.resolved_by))
 
     const items = await Promise.all(
       data.items.map(async (row) => ({
@@ -91,10 +116,56 @@ export class HeldReceiptsService {
         lastInboundAt: lastInboundAtOf(row.conversations),
         resolution: (row.resolution as HeldReceiptResolution | null) ?? null,
         resolutionError: (row.resolution_error as string | null) ?? null,
+        resolvedByEmail: emailByUserId.get(row.resolved_by as string) ?? null,
+        resolvedAt: (row.resolved_at as string | null) ?? null,
       })),
     )
 
     return { items, total: data.total }
+  }
+
+  /**
+   * What the count beside the section reads. Only the number: the list would
+   * sign a page of image URLs to answer the same question.
+   */
+  async countOpen(client: SupabaseClient, tenantId: string): Promise<OpenHeldReceiptCount> {
+    const { count, error } = await client
+      .from('receipts')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .not('alert_reason', 'is', null)
+      .or('resolution.is.null,resolution.eq.applying')
+
+    if (error) throw this.toHttpError(error)
+
+    return { total: count ?? 0 }
+  }
+
+  /**
+   * Who resolved each receipt on the page, by email. The addresses live in
+   * auth, which no policy reaches, so they are read with the secret key — one
+   * call per distinct operator, since a page is mostly resolved by the same
+   * two or three people.
+   */
+  private async findEmails(userIds: unknown[]): Promise<Map<string, string>> {
+    const distinctIds = new Set<string>()
+
+    for (const userId of userIds) {
+      if (typeof userId === 'string') distinctIds.add(userId)
+    }
+
+    const emailByUserId = new Map<string, string>()
+
+    await Promise.all(
+      [...distinctIds].map(async (userId) => {
+        const { data } = await this.supabase.unscoped.auth.admin.getUserById(userId)
+        const email = data?.user?.email
+
+        if (email) emailByUserId.set(userId, email)
+      }),
+    )
+
+    return emailByUserId
   }
 
   /**
