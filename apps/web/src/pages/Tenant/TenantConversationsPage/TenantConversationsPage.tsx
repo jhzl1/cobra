@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Timeline } from '~/components/Timeline'
 import { Button } from '~/components/ui/button'
 import { useInbox } from '~/contexts/InboxContext/useInbox'
+import { useConversationQuery } from '~/hooks/queries/useConversationQuery'
 import { useConversationRunsQuery } from '~/hooks/queries/useConversationRunsQuery'
 import { useCurrentTenantQuery } from '~/hooks/queries/useCurrentTenantQuery'
 import { useConversationStream } from '~/hooks/useConversationStream'
@@ -51,11 +52,14 @@ export const TenantConversationsPage = () => {
    */
   useConversationStream(conversationId)
 
-  // A conversation found by searching can be older than the inbox's latest hundred.
+  // A conversation found by searching, or reached by a link, can be older than
+  // the pages the inbox has loaded; only then is it asked for on its own.
   const searchResults = useConversationSearchQuery(tenantId, search)
-  const selectedConversation = [...inbox.conversations, ...(searchResults.data ?? [])].find(
+  const listedConversation = [...inbox.conversations, ...(searchResults.data ?? [])].find(
     (conversation) => conversation.id === conversationId,
   )
+  const unlistedConversation = useConversationQuery(listedConversation ? null : conversationId)
+  const selectedConversation = listedConversation ?? unlistedConversation.data
 
   // Below the wide layout the agent's steps share the chat's column, so one of
   // the two is on screen at a time. Keyed by conversation: opening another one
@@ -72,9 +76,7 @@ export const TenantConversationsPage = () => {
         className={cn('min-h-0 flex-col border-r', conversationId ? 'hidden lg:flex' : 'flex')}
       >
         <PaneHeader title="Conversaciones">
-          {!inbox.isLoading && (
-            <span className="font-mono">{inbox.conversations.length} en total</span>
-          )}
+          {inbox.total !== null && <span className="font-mono">{inbox.total} en total</span>}
         </PaneHeader>
 
         <ConversationSearch search={search} />

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ConversationSummary } from '@cobra/contracts'
+import { LoadMoreSentinel } from '~/components/LoadMoreSentinel'
 import { ServiceWindow } from '~/components/ServiceWindow'
 import { Button } from '~/components/ui/button'
 import { Textarea } from '~/components/ui/textarea'
@@ -36,12 +37,33 @@ export const ConversationPanel = ({
 }: ConversationPanelProps) => {
   const [draft, setDraft] = useState('')
   const bottom = useRef<HTMLDivElement>(null)
+  const threadRef = useRef<HTMLDivElement>(null)
   const messages = useMessagesQuery(conversation.id)
   const runs = useConversationRunsQuery(conversation.id)
   const send = useSendMessageMutation(conversation.id)
   const handoff = useHandoffMutation(conversation.id)
 
   const isAgentThinking = isRunInProgress(runs.data?.[0])
+  const newestMessageId = messages.data?.at(-1)?.id ?? null
+  const oldestMessageId = messages.data?.at(0)?.id ?? null
+
+  /**
+   * Whether the operator is reading the end of the thread. Only then does a new
+   * message, or an image that finished loading, pull the view down: someone
+   * scrolled up into older messages would otherwise be yanked away from them.
+   */
+  const isPinnedToBottomRef = useRef(true)
+  // Distance from the bottom when older messages were asked for, to put the
+  // view back where it was once they are drawn above it.
+  const distanceFromBottomRef = useRef<number | null>(null)
+  // Older messages load only after the thread has landed at its end. Before
+  // that the top of the list is on screen and would ask for them right away.
+  const [landedConversationId, setLandedConversationId] = useState<string | null>(null)
+
+  useEffect(() => {
+    isPinnedToBottomRef.current = true
+    distanceFromBottomRef.current = null
+  }, [conversation.id])
 
   /**
    * Opening a conversation lands at the bottom, and a new message slides there.
@@ -52,14 +74,33 @@ export const ConversationPanel = ({
    * target that kept moving. Opening is a jump.
    */
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: 'auto' })
-  }, [conversation.id])
+    if (!newestMessageId || !isPinnedToBottomRef.current) return
 
-  useEffect(() => {
-    if (!messages.data?.length) return
+    const hasLanded = landedConversationId === conversation.id
 
-    bottom.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.data?.length, isAgentThinking])
+    bottom.current?.scrollIntoView({ behavior: hasLanded ? 'smooth' : 'auto' })
+
+    if (!hasLanded) setLandedConversationId(conversation.id)
+  }, [newestMessageId, isAgentThinking, conversation.id, landedConversationId])
+
+  // Before paint, so the older messages never show the view jumping to the top.
+  useLayoutEffect(() => {
+    const thread = threadRef.current
+    const distanceFromBottom = distanceFromBottomRef.current
+
+    if (!thread || distanceFromBottom === null) return
+
+    thread.scrollTop = thread.scrollHeight - distanceFromBottom
+    distanceFromBottomRef.current = null
+  }, [oldestMessageId])
+
+  const loadOlderMessages = () => {
+    const thread = threadRef.current
+
+    if (thread) distanceFromBottomRef.current = thread.scrollHeight - thread.scrollTop
+
+    void messages.fetchNextPage()
+  }
 
   const isServiceWindowClosed = remainingWindowMs(conversation.lastInboundAt) <= 0
   const isHuman = conversation.status === 'human'
@@ -113,14 +154,28 @@ export const ConversationPanel = ({
         )}
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-5 md:px-6">
+      <div
+        ref={threadRef}
+        className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-5 md:px-6"
+        onScroll={(event) => {
+          const thread = event.currentTarget
+          const distanceFromBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight
+
+          isPinnedToBottomRef.current = distanceFromBottom < 80
+        }}
+      >
+        {messages.hasNextPage && landedConversationId === conversation.id && (
+          <LoadMoreSentinel isLoading={messages.isFetchingNextPage} onVisible={loadOlderMessages} />
+        )}
         {messages.data?.map((message) => (
           <MessageBubble
             key={message.id}
             message={message}
             /* An image has no height until it has loaded, so the scroll that ran
                before it decoded lands above the last bubble. */
-            onMediaLoad={() => bottom.current?.scrollIntoView({ behavior: 'auto' })}
+            onMediaLoad={() => {
+              if (isPinnedToBottomRef.current) bottom.current?.scrollIntoView({ behavior: 'auto' })
+            }}
           />
         ))}
         {isAgentThinking && <ThinkingBubble />}

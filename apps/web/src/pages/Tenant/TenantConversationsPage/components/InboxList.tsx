@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { ConversationList } from '~/components/ConversationList'
+import { LoadMoreSentinel } from '~/components/LoadMoreSentinel'
 import { Button } from '~/components/ui/button'
 import { Spinner } from '~/components/ui/spinner'
 import { useInbox } from '~/contexts/InboxContext/useInbox'
@@ -39,12 +40,20 @@ export const InboxList = ({ tenantId, search, selectedId, onSelect }: InboxListP
     }
 
     return (
-      <ConversationList
-        conversations={searchResults.data}
-        isUnread={inbox.isUnread}
-        selectedId={selectedId}
-        onSelect={onSelect}
-      />
+      <>
+        <ConversationList
+          conversations={searchResults.data}
+          isUnread={inbox.isUnread}
+          selectedId={selectedId}
+          onSelect={onSelect}
+        />
+        {searchResults.hasNextPage && (
+          <LoadMoreSentinel
+            isLoading={searchResults.isFetchingNextPage}
+            onVisible={() => void searchResults.fetchNextPage()}
+          />
+        )}
+      </>
     )
   }
 
@@ -72,11 +81,16 @@ export const InboxList = ({ tenantId, search, selectedId, onSelect }: InboxListP
   }
 
   return (
-    <ConversationList
-      conversations={inbox.conversations}
-      isUnread={inbox.isUnread}
-      selectedId={selectedId}
-      onSelect={onSelect}
-    />
+    <>
+      <ConversationList
+        conversations={inbox.conversations}
+        isUnread={inbox.isUnread}
+        selectedId={selectedId}
+        onSelect={onSelect}
+      />
+      {inbox.hasMore && (
+        <LoadMoreSentinel isLoading={inbox.isLoadingMore} onVisible={inbox.loadMore} />
+      )}
+    </>
   )
 }

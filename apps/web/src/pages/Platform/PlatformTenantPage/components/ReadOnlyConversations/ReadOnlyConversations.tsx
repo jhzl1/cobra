@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { ConversationPanel } from '~/components/ConversationPanel'
 import { Timeline } from '~/components/Timeline'
+import { useConversationQuery } from '~/hooks/queries/useConversationQuery'
 import { useConversationRunsQuery } from '~/hooks/queries/useConversationRunsQuery'
 import { useConversationsQuery } from '~/hooks/queries/useConversationsQuery'
 import { useConversationStream } from '~/hooks/useConversationStream'
@@ -25,9 +26,12 @@ export const ReadOnlyConversations = ({ tenantId, conversationId }: ReadOnlyConv
   useTenantStream(tenantId)
   useConversationStream(conversationId)
 
-  const selectedConversation = conversations.data?.find(
+  // A link can point past the pages loaded; only then is it asked for on its own.
+  const listedConversation = conversations.data?.conversations.find(
     (conversation) => conversation.id === conversationId,
   )
+  const unlistedConversation = useConversationQuery(listedConversation ? null : conversationId)
+  const selectedConversation = listedConversation ?? unlistedConversation.data
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)_340px]">
