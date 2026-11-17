@@ -16,6 +16,7 @@ import type {
   PaymentMethodInput,
   RegisterWhatsappNumberInput,
   SaveCredentialInput,
+  TemporaryPassword,
   TenantMember,
   TenantSetup,
   TenantStatus,
@@ -30,6 +31,7 @@ import {
 } from '@cobra/contracts'
 import { selectPage } from '~/common/pagination'
 import { CredentialsCryptoService } from '~/crypto/credentials-crypto.service'
+import { AccountsService } from '~/domains/accounts/accounts.service'
 import { SupabaseService } from '~/supabase/supabase.service'
 
 const UNIQUE_VIOLATION = '23505'
@@ -73,6 +75,7 @@ export class TenantsService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly crypto: CredentialsCryptoService,
+    private readonly accounts: AccountsService,
   ) {}
 
   /**
@@ -195,30 +198,41 @@ export class TenantsService {
   }
 
   /**
-   * Creating a tenant and joining it are one operation.
+   * A company and its first user, in one operation.
    *
-   * It runs with the secret key because `tenants` has no insert policy: a
-   * caller with no membership anywhere cannot pass a policy that asks for
-   * membership. The caller's id comes from the verified token, never from the
-   * body.
+   * The administrator creating it does not join it: an account is either the
+   * platform's or one company's. Without a first user the company would exist
+   * with nobody able to sign in to answer its customers.
+   *
+   * It runs with the secret key because `tenants` has no insert policy. The
+   * creator's id comes from the verified token, never from the body.
    */
-  async create(userId: string, input: CreateTenantInput): Promise<Tenant> {
+  async create({
+    input,
+    createdBy,
+  }: {
+    input: CreateTenantInput
+    createdBy: string
+  }): Promise<{ tenant: Tenant; temporaryPassword: TemporaryPassword }> {
     const tenantRow = await this.insertWithDerivedSlug(input)
 
-    const membership = await this.supabase.unscoped
-      .from('tenant_members')
-      .insert({ tenant_id: tenantRow.id, user_id: userId })
+    try {
+      const temporaryPassword = await this.accounts.createCompanyUser({
+        tenantId: tenantRow.id as string,
+        email: input.userEmail,
+        issuedBy: createdBy,
+      })
 
-    if (membership.error) {
-      // Without the membership the tenant is invisible to everyone, including
-      // whoever just created it. Undo rather than leave it orphaned.
+      // The count is stated rather than read: the membership was inserted after
+      // the row came back, so the aggregate would say zero.
+      return { tenant: { ...toTenant(tenantRow), memberCount: 1 }, temporaryPassword }
+    } catch (failure) {
+      // A company nobody can sign in to is not worth keeping: undo it, and the
+      // administrator tries again with the email fixed.
       await this.supabase.unscoped.from('tenants').delete().eq('id', tenantRow.id)
-      throw this.toHttpError(membership.error)
-    }
 
-    // The count is stated rather than read: the membership above was inserted
-    // after the row came back, so the aggregate would say zero.
-    return { ...toTenant(tenantRow), memberCount: 1 }
+      throw failure
+    }
   }
 
   async update(

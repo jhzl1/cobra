@@ -3,8 +3,10 @@ import { ConfigModule } from '@nestjs/config'
 import { join } from 'node:path'
 // Provided here, not only in PlatformModule: TenantsController's gate needs it too.
 import { PlatformAdminGuard } from './auth/platform-admin.guard'
+import { AccountGuard } from './auth/account.guard'
 import { loadEnv } from './config/env'
 import { CryptoModule } from './crypto/crypto.module'
+import { AccountsModule } from './domains/accounts/accounts.module'
 import { ConversationsModule } from './domains/conversations/conversations.module'
 import { HealthController } from './domains/health/health.controller'
 import { HeldReceiptsModule } from './domains/held-receipts/held-receipts.module'
@@ -29,6 +31,7 @@ import { WhatsappModule } from './webhooks/whatsapp.module'
     CryptoModule,
     QueueModule,
     PlatformModule,
+    AccountsModule,
     TenantsModule,
     ConversationsModule,
     HeldReceiptsModule,
@@ -36,6 +39,6 @@ import { WhatsappModule } from './webhooks/whatsapp.module'
     WhatsappModule,
   ],
   controllers: [HealthController],
-  providers: [PlatformAdminGuard],
+  providers: [PlatformAdminGuard, AccountGuard],
 })
 export class AppModule {}

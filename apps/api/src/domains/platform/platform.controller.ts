@@ -1,23 +1,11 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Put,
-  Query,
-} from '@nestjs/common'
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type { SupabaseContext } from '@supabase/server'
 import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
 import {
-  type GrantRoleInput,
   type JobRunStatus,
   type PageQuery,
   type PlatformSettingKey,
-  grantRoleSchema,
   jobRunStatusSchema,
   pageQuerySchema,
   platformSettingKeySchema,
@@ -25,7 +13,7 @@ import {
 } from '@cobra/contracts'
 import { readCallerId } from '~/auth/caller'
 import { RequirePlatformAdmin } from '~/auth/require-platform-admin.decorator'
-import { RequireSession } from '~/auth/require-session.decorator'
+import { RequireSessionAllowingTemporaryPassword } from '~/auth/require-session.decorator'
 import { ZodValidationPipe } from '~/common/pipes/zod-validation.pipe'
 import { TenantsService } from '~/domains/tenants/tenants.service'
 import { PlatformSettingsService } from './platform-settings.service'
@@ -46,29 +34,12 @@ export class PlatformController {
    * non-administrator would make "are you an administrator?" impossible to ask.
    */
   @Get('me')
-  @RequireSession()
+  @RequireSessionAllowingTemporaryPassword()
   @ApiOperation({ summary: 'Quién soy y si administro la plataforma' })
   identity(@SupabaseCtx() ctx: SupabaseContext) {
     const claims = ctx.userClaims as { id?: string; email?: string } | null
 
     return this.platform.identity(readCallerId(ctx.userClaims), claims?.email ?? null)
-  }
-
-  @Get('roles')
-  @RequirePlatformAdmin()
-  @ApiOperation({ summary: 'Concesiones de rol, activas y revocadas' })
-  listGrants() {
-    return this.platform.listGrants()
-  }
-
-  @Post('roles')
-  @RequirePlatformAdmin()
-  @ApiOperation({ summary: 'Otorgar un rol de plataforma por correo' })
-  grant(
-    @SupabaseCtx() ctx: SupabaseContext,
-    @Body(new ZodValidationPipe(grantRoleSchema)) body: GrantRoleInput,
-  ) {
-    return this.platform.grant(readCallerId(ctx.userClaims), body)
   }
 
   /**
@@ -136,12 +107,5 @@ export class PlatformController {
       value: input.value,
       updatedBy: readCallerId(ctx.userClaims),
     })
-  }
-
-  @Delete('roles/:grantId')
-  @RequirePlatformAdmin()
-  @ApiOperation({ summary: 'Revocar una concesión, conservando su historia' })
-  revoke(@Param('grantId', ParseUUIDPipe) grantId: string) {
-    return this.platform.revoke(grantId)
   }
 }
