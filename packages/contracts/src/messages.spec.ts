@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { ZodType } from 'zod'
+import { changePasswordSchema, createAccountSchema, passwordResetRequestSchema } from './accounts'
 import { sendMessageSchema } from './conversations'
 import { updatePlatformSettingSchema } from './platform-settings'
 import { applyHeldReceiptSchema, dismissHeldReceiptSchema } from './receipts'
-import { grantRoleSchema } from './roles'
 import {
   createTenantSchema,
   paymentMethodSchema,
@@ -35,14 +35,22 @@ const messagesOf = (schema: ZodType, input: unknown): string[] => {
  */
 describe('validation messages', () => {
   const cases: Array<[string, ZodType, unknown]> = [
-    ['empty company', createTenantSchema, { companyName: '', supportPhone: '', adminPhone: '' }],
+    [
+      'empty company',
+      createTenantSchema,
+      { companyName: '', supportPhone: '', adminPhone: '', userEmail: '' },
+    ],
     [
       'malformed phones',
       createTenantSchema,
       { companyName: 'Acme', supportPhone: '15556640086x', adminPhone: '+57 300 123' },
     ],
     ['wrong types', createTenantSchema, { companyName: 42, supportPhone: null }],
-    ['bad address', grantRoleSchema, { email: 'jahaziel' }],
+    ['bad address', createAccountSchema, { email: 'jahaziel' }],
+    ['bad reset address', passwordResetRequestSchema, { email: '' }],
+    ['short password', changePasswordSchema, { password: 'corta' }],
+    ['password without special character', changePasswordSchema, { password: 'Larga12345' }],
+    ['long password', changePasswordSchema, { password: 'p'.repeat(73) }],
     ['short secret', saveCredentialSchema, { provider: 'dualhook', secret: 'corto' }],
     ['short number', registerWhatsappNumberSchema, { phoneNumberId: 'abc', displayNumber: 'no' }],
     [
