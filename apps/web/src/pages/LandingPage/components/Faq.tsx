@@ -32,6 +32,12 @@ export const Faq = () => {
         'Estamos desarrollando mecanismos para verificar que la imagen del comprobante no fue editada ni generada con IA. Hoy la validación tiene una confiabilidad superior al 90 %, pero no es infalible. Por eso el panel te da las herramientas para supervisar cada pago: revisar los comprobantes y los pagos registrados, y tomar el control de la conversación cuando algo no cuadre.',
     },
     {
+      id: 'bank-confirmation',
+      question: '¿Wispay confirma el pago con el banco?',
+      answer:
+        'No. Wispay no es una pasarela de pagos ni está integrado con bancos ni con plataformas de pago. El agente valida la información del comprobante que envía el cliente, pero no confirma con el banco que la transferencia se haya hecho.',
+    },
+    {
       id: 'advisor-reply',
       question: '¿Un asesor puede responderle directamente a un cliente?',
       answer:
