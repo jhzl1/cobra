@@ -28,13 +28,13 @@ Otras audiencias, confirmadas en el código pero secundarias:
 
 ## Product Purpose
 
-Cobra es un agente de cobros por WhatsApp, multi-cliente, para ISP que facturan en
+Wispay es un agente de cobros por WhatsApp, multi-cliente, para ISP que facturan en
 Wisphub. El cliente final del ISP escribe, manda su comprobante de pago, y el agente
 lo valida y registra el pago en Wisphub sin cobrar dos veces.
 
 Reemplaza un workflow de n8n de un solo cliente (53 nodos, 5 subflujos) que sigue
 vivo y es la línea base: el agente tiene que hacer exactamente lo mismo que hoy,
-sin funcionalidad nueva en el flujo de cobro. Lo que Cobra agrega es la plataforma
+sin funcionalidad nueva en el flujo de cobro. Lo que Wispay agrega es la plataforma
 alrededor: varios clientes sobre una instalación, cada uno con sus credenciales, y
 un panel para supervisar.
 
