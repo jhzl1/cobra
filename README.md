@@ -9,27 +9,29 @@ chat al bot.
 
 El plan completo, con la línea base medida contra n8n, está en [`PLAN.md`](./PLAN.md).
 
-## WhatsApp: Dualhook, con n8n en medio
+## WhatsApp: Dualhook
 
 El número se conecta por Dualhook, un Meta Tech Partner para coexistencia (el
 mismo número sigue funcionando en el celular físico).
 
 - **Entrada.** El Webhook Override de Dualhook hace que Meta entregue mensajes,
-  statuses y errores a un n8n propio, que reenvía el cuerpo idéntico a la ruta del
-  cliente en Cobra. El sobre es el de Meta, sin tocar. El handshake `GET` de Meta
-  lo contesta n8n.
+  statuses y errores directo a la ruta del cliente en Cobra, con el sobre de Meta
+  sin tocar. Al guardar la URL, Meta la comprueba con un `GET` y Cobra contesta
+  el `hub.challenge`; el Verify Token es el mismo token de la ruta.
 - **Sin firma.** Meta firma `X-Hub-Signature-256` con el app secret de Dualhook,
-  que no tenemos, así que no se puede validar. Lo único que autentica la entrada
-  es el token opaco de la URL: quien conozca esa URL y el `phone_number_id` del
-  cliente puede inyectar eventos. Es un riesgo aceptado mientras n8n siga en
-  medio; la corrección es un encabezado con un secreto compartido, antes de
-  producción.
+  que no tenemos, y no deja agregar un encabezado propio. Lo único que autentica
+  la entrada es el token opaco de la URL: quien la conozca puede inyectar eventos
+  a nombre de cualquier teléfono. Un comprobante no se puede falsificar así —la
+  imagen se baja por la Runtime API con la llave del cliente, y un `media_id`
+  inventado no existe—; lo que sí entra son textos que disparan turnos, echoes
+  que aparecen como mensajes del operador y statuses que marcan envíos como
+  fallidos. Es un riesgo aceptado: la URL vive solo en Dualhook y en el panel.
 - **Salida y media.** Por la Runtime API de Dualhook
   (`https://api.dualhook.com/v25.0`), con las mismas rutas y cuerpos que la Graph
   API de Meta y la llave `dh_live_` de cada cliente como bearer. Descargar media
   es una sola llamada: `GET /{media_id}/content` devuelve los bytes.
 - **Credencial.** La llave de Dualhook es una credencial del cliente
-  (`provider = 'dualhook'`), no una global del n8n.
+  (`provider = 'dualhook'`), no una global de la plataforma.
 
 ## Arquitectura
 
@@ -357,9 +359,8 @@ tabla, nunca el token.
 1. Cargar en el panel las tres credenciales del cliente: la llave de Dualhook
    (`dh_live_…`), la API key de OpenRouter y la de Wisphub.
 2. Registrar el `phone_number_id` en Configuración → Números.
-3. Copiar la URL del webhook que el panel genera y ponerla en el nodo de n8n que
-   reenvía a Cobra los eventos que llegan por el Webhook Override de Dualhook. El
-   cuerpo se reenvía tal cual llegó.
+3. Copiar la URL del webhook y el Verify Token que el panel genera y pegarlos en
+   el Webhook Override de la conexión del número en Dualhook.
 
-Esa URL es la única autenticación de la entrada: no se comparte fuera de n8n, y
+Esa URL es la única autenticación de la entrada: no se comparte fuera de Dualhook, y
 si se filtra se da de baja el número y se vuelve a registrar para generar otra.

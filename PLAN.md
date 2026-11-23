@@ -242,11 +242,12 @@ Réplica fiel del pipeline de n8n, con los bugs latentes corregidos.
 **Una ruta por cliente**, no un endpoint único:
 
 ```
+GET  /wh/wa/:tenantSlug/:webhookToken
 POST /wh/wa/:tenantSlug/:webhookToken
 ```
 
-El Webhook Override de Dualhook apunta a un n8n propio, que contesta el handshake `GET` de Meta y
-reenvía el cuerpo idéntico a esta ruta. Por eso Cobra solo recibe el `POST`.
+El Webhook Override de Dualhook apunta directo a esta ruta. Al guardarla, Meta la comprueba con el
+`GET` (el Verify Token es el mismo token de la ruta) y después entrega cada evento por `POST`.
 
 Resolver el tenant leyendo `metadata.phone_number_id` de un cuerpo no autenticado significa que
 cualquiera que adivine un `phone_number_id` inyecta mensajes en la conversación de cualquier
@@ -557,12 +558,17 @@ de `RegisterPayment` son densas y cada una salió de un incidente real en produc
 
 ## Riesgos abiertos
 
-**Aceptado (2026-10-27): el webhook no tiene firma.** Dualhook no entrega el app secret de la
-aplicación de Meta que firma los webhooks, así que `X-Hub-Signature-256` no se puede validar, y
-entre n8n y Cobra no hay autenticación propia. La única es el token opaco de la ruta: quien conozca
-esa URL y el `phone_number_id` del cliente puede inyectar eventos. Se acepta mientras n8n esté en
-medio; la corrección es un encabezado con un secreto compartido entre quien reenvía y Cobra, cuando
-n8n se retire o antes de producción, lo que pase primero.
+**Aceptado (2026-10-27, revisado 2026-11-23): el webhook no tiene firma.** Meta entrega directo a
+Cobra y firma `X-Hub-Signature-256` con el app secret de la aplicación de Dualhook, que Dualhook no
+entrega. Meta tampoco deja agregar un encabezado propio, así que el secreto compartido que se planeó
+mientras n8n reenviaba ya no tiene dónde ir. La única autenticación es el token opaco de la ruta.
+
+Quien conozca la URL puede inyectar eventos a nombre de cualquier teléfono, pero no un comprobante:
+la imagen se baja por la Runtime API de Dualhook con la llave del cliente, y un `media_id` inventado
+no existe. Lo que sí entra son textos que disparan turnos y gastan modelo, echoes que aparecen como
+mensajes del operador y statuses que marcan envíos como fallidos. Un texto falso no le saca al
+agente nada que no saque el mismo texto escrito desde un celular real; lo único que agrega es elegir
+a nombre de qué teléfono llega.
 
 Los demás, en orden de qué tan pronto muerden:
 
@@ -597,8 +603,8 @@ con un usuario de cada uno. Con las credenciales cargadas, comprobar desde el pa
 que no existe ninguna consulta que devuelva datos del B. Test de integración que lo intente contra
 la API con el token del A.
 
-**Fase 2** — apuntar el Webhook Override de un número de prueba al n8n, y su nodo de reenvío a la
-ruta del cliente de prueba.
+**Fase 2** — apuntar el Webhook Override de un número de prueba a la ruta del cliente de prueba en
+Cobra.
 Mandar un mensaje desde un celular real: aparece en el panel sin recargar. Responder desde el panel
 con la conversación en `human`: llega al celular. Mandar tres mensajes seguidos: aparecen los tres.
 

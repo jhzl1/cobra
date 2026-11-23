@@ -1,10 +1,10 @@
 ---
 name: whatsapp-webhook
-description: 'Trigger: webhook de WhatsApp, reenvío desde n8n, ingesta de mensajes, echoes, statuses, envío y media por la Runtime API de Dualhook. Lo que filtra todo lo que entra y lo que sale hacia el cliente.'
+description: 'Trigger: webhook de WhatsApp, Webhook Override de Dualhook, ingesta de mensajes, echoes, statuses, envío y media por la Runtime API de Dualhook. Lo que filtra todo lo que entra y lo que sale hacia el cliente.'
 license: Apache-2.0
 metadata:
   author: jhzl
-  version: '2.0'
+  version: '2.1'
   auto_invoke:
     - 'Tocar el webhook de WhatsApp o su ruta'
     - 'Cambiar cómo se resuelve el tenant de un evento entrante'
@@ -26,15 +26,15 @@ Dualhook es un Meta Tech Partner para coexistencia. Cobra no habla con
 `graph.facebook.com`.
 
 - **Entrada.** El Webhook Override de Dualhook hace que Meta entregue mensajes,
-  statuses y errores a la ruta del cliente, directo o a través de un n8n que
-  reenvía el **cuerpo idéntico**. El sobre es el de Meta (`object`,
+  statuses y errores **directo** a la ruta del cliente. No hay nada en medio:
+  n8n ya no reenvía. El sobre es el de Meta (`object`,
   `entry[].changes[].value`), así que `metaWebhookSchema` de `@cobra/contracts`
   sigue siendo el que manda.
-- **Verificación.** Directo, Meta comprueba la URL con un `GET` (`hub.mode`,
+- **Verificación.** Al guardar la URL, Meta la comprueba con un `GET` (`hub.mode`,
   `hub.verify_token`, `hub.challenge`) y Cobra le devuelve el `hub.challenge`
   pelado, fuera del sobre `{ success, data }`. El Verify Token es el
   `webhookToken` de la ruta: ya es el secreto de esa URL, y uno aparte sería otro
-  valor que guardar y mostrar. A través de n8n, el `GET` lo contesta n8n.
+  valor que guardar y mostrar.
 - **Salida y media.** Runtime API de Dualhook, `https://api.dualhook.com/v25.0`,
   mismas rutas y cuerpos que la Graph API (`POST /{phone_number_id}/messages`
   para texto, imagen y `status: 'read'`). El bearer es la llave `dh_live_` del
@@ -49,14 +49,17 @@ El cliente es `DualhookClient`; sus tests inyectan `fetchImpl` y no tocan la red
 ## Sin firma: riesgo aceptado
 
 Meta firma `X-Hub-Signature-256` con el app secret **de Dualhook**, que no
-tenemos, así que la firma no se valida y no existe app secret por cliente.
-Decisión del usuario (2026-10-27), escrita en el controller:
+tenemos, así que la firma no se valida y no existe app secret por cliente. Meta
+tampoco deja agregar un encabezado propio, así que un secreto compartido no tiene
+dónde ir. Decisión del usuario (2026-10-27, revisada 2026-11-23), escrita en el
+controller:
 
 - Lo único que autentica es el token opaco de la ruta. Quien conozca la URL de un
-  cliente y su `phone_number_id` puede inyectar eventos, y el agente registra
-  pagos con ellos.
-- Antes de producción la ruta necesita algo que solo el remitente real pueda
-  producir.
+  cliente puede inyectar eventos a nombre de cualquier teléfono.
+- Un comprobante no se puede falsificar así: la imagen se baja por la Runtime API
+  con la llave del cliente, y un `media_id` inventado no existe. Lo que sí entra
+  son textos que disparan turnos, echoes que aparecen como mensajes del operador
+  y statuses que marcan envíos como fallidos.
 
 No agregues una verificación de firma "por si acaso": falla para todo el tráfico.
 
@@ -99,8 +102,7 @@ filtra, se da de baja el número y se registra otra vez: eso genera otro token.
 
 ## Persistir y después responder
 
-Meta entrega _at-least-once_ y reintenta con backoff hasta 7 días si no recibe
-200, y cuando hay un n8n en medio le devuelve lo que Cobra contestó. De ahí:
+Meta entrega _at-least-once_ y reintenta con backoff hasta 7 días si no recibe 200. De ahí:
 
 - El 200 significa "guardado", no "recibido".
 - `unique(wamid)` es la defensa contra la re-entrega, y una colisión ahí **no es

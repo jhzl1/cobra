@@ -86,8 +86,8 @@ packages/db                     migraciones de Supabase
 
 ### Cómo viaja un mensaje
 
-1. n8n reenvía el cuerpo de Meta a `POST /wh/wa/:tenantSlug/:webhookToken`. La
-   API cruza el `phone_number_id` contra el tenant de la ruta (403 si no
+1. El Webhook Override de Dualhook hace que Meta entregue el evento directo a
+   `POST /wh/wa/:tenantSlug/:webhookToken`. La API cruza el `phone_number_id` contra el tenant de la ruta (403 si no
    coinciden), guarda el mensaje, responde 200 y encola. Primero persiste,
    después responde.
 2. Cada mensaje encola `process-turn` con `singletonKey` = la conversación. Una
