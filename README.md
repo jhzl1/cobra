@@ -1,4 +1,4 @@
-# Cobra
+# Wispay
 
 Agente de cobros por WhatsApp, multi-cliente, para ISP que facturan en Wisphub.
 
@@ -15,8 +15,8 @@ El número se conecta por Dualhook, un Meta Tech Partner para coexistencia (el
 mismo número sigue funcionando en el celular físico).
 
 - **Entrada.** El Webhook Override de Dualhook hace que Meta entregue mensajes,
-  statuses y errores directo a la ruta del cliente en Cobra, con el sobre de Meta
-  sin tocar. Al guardar la URL, Meta la comprueba con un `GET` y Cobra contesta
+  statuses y errores directo a la ruta del cliente en Wispay, con el sobre de Meta
+  sin tocar. Al guardar la URL, Meta la comprueba con un `GET` y Wispay contesta
   el `hub.challenge`; el Verify Token es el mismo token de la ruta.
 - **Sin firma.** Meta firma `X-Hub-Signature-256` con el app secret de Dualhook,
   que no tenemos, y no deja agregar un encabezado propio. Lo único que autentica
@@ -36,7 +36,7 @@ mismo número sigue funcionando en el celular físico).
 ## Arquitectura
 
 ```
-cobra/
+wispay/
 ├── apps/
 │   ├── api/       @cobra/api     — NestJS 11 (HTTP + webhook de WhatsApp)
 │   ├── worker/    @cobra/worker  — NestJS standalone, ESM, corre pg-boss
@@ -331,7 +331,7 @@ como archivos.
 
 Hay dos ejes de acceso y no se mezclan:
 
-- **ADMIN de plataforma** — opera Cobra. Crea empresas, otorga y revoca este mismo
+- **ADMIN de plataforma** — opera Wispay. Crea empresas, otorga y revoca este mismo
   rol, y entra a cualquier empresa.
 - **Miembro de una empresa** — entra a la suya y a ninguna otra. Adentro no hay
   jerarquía: todo miembro ve las conversaciones, hace handoff, carga credenciales
