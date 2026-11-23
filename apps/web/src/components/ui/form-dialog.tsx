@@ -65,7 +65,11 @@ export const FormDialog = ({
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
 
+        {/* noValidate: the zod schema answers each field in Spanish. Without it
+            the browser stops the submit first with its own bubble, in the
+            browser's language ("Please fill out this field"). */}
         <form
+          noValidate
           className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault()
