@@ -53,7 +53,7 @@ export const ChangePasswordPage = () => {
         return
       }
 
-      await navigate({ to: '/', replace: true })
+      await navigate({ to: '/panel', replace: true })
     },
   })
 
@@ -138,7 +138,7 @@ export const ChangePasswordPage = () => {
               </Button>
             ) : (
               <Button asChild variant="ghost">
-                <Link to="/">Cancelar</Link>
+                <Link to="/panel">Cancelar</Link>
               </Button>
             )}
           </form>

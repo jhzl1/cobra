@@ -73,6 +73,9 @@
  * in progress; `blink` is the caret of the sentence saying what it is doing.
  */
 @theme {
+  /* The landing page's motion: fast out of the gate, long settle. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
   --animate-flow: flow 1.2s linear infinite;
   --animate-blink: blink 1s steps(1) infinite;
 
@@ -185,5 +188,34 @@
   /* Times, amounts and phone numbers line up in columns. */
   .font-mono {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/*
+ * The landing page's entrances. Content marked `data-reveal` rises into place
+ * the first time it scrolls into view (`LandingPage` sets
+ * `data-revealed`). Only when the visitor has not asked for less motion:
+ * otherwise it is simply there.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  /* The section links glide on the landing page only; the panel scrolls its own panes. */
+  html:has([data-landing]) {
+    scroll-behavior: smooth;
+  }
+
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(6px);
+    transition:
+      opacity 0.9s var(--ease-out-expo),
+      transform 0.9s var(--ease-out-expo),
+      filter 0.9s var(--ease-out-expo);
+  }
+
+  [data-reveal][data-revealed] {
+    opacity: 1;
+    transform: none;
+    filter: none;
   }
 }

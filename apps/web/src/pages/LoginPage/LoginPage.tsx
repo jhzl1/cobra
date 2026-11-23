@@ -75,7 +75,7 @@ export const LoginPage = () => {
         return
       }
 
-      await navigate({ href: search.redirect ?? '/', replace: true })
+      await navigate({ href: search.redirect ?? '/panel', replace: true })
     },
   })
 
