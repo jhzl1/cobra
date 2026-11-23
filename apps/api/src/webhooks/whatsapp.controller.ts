@@ -9,16 +9,16 @@ import { WhatsappService } from './whatsapp.service'
  * One route per tenant, not a single endpoint.
  *
  * `/wh/wa/:tenantSlug/:webhookToken` — Dualhook's Webhook Override makes Meta
- * deliver here, either directly or through an n8n flow that forwards the
- * identical body. Directly, Meta first checks the URL with a GET; through n8n,
- * n8n answers that check and only the POST arrives.
+ * deliver here directly: first a GET to check the URL, then a POST per event.
  *
  * ACCEPTED RISK (user, 2026-10-27): nothing authenticates the caller beyond the
  * opaque token in the path. Meta signs with Dualhook's app secret, which we do
- * not have, so `X-Hub-Signature-256` cannot be verified. Anyone who knows a
- * tenant's URL and its phone_number_id can inject events — and the agent
- * registers payments off them. Before production the route needs something
- * only the real sender can produce.
+ * not have, and sends no header of ours, so neither `X-Hub-Signature-256` nor a
+ * shared secret can be checked. Anyone who knows a tenant's URL can inject
+ * events in any phone's name. A receipt cannot be forged that way — its image
+ * is downloaded through Dualhook with the tenant's key, and an invented media
+ * id does not exist — but texts start turns, echoes show up as operator
+ * messages and statuses mark sends as failed.
  *
  * Excluded from the docs on purpose: it is Meta's contract, not ours, and its
  * URL carries a secret.

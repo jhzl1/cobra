@@ -16,7 +16,7 @@ const bootstrap = async (): Promise<void> => {
 
   app.use(buildHelmet())
   app.setGlobalPrefix('api', {
-    // The webhook URL is pasted into n8n's forward node and is not part of our
+    // The webhook URL is pasted into Dualhook's Webhook Override and is not part of our
     // API surface, so it does not carry the prefix.
     exclude: [{ path: 'wh/wa/:tenantSlug/:webhookToken', method: -1 as never }],
   })
