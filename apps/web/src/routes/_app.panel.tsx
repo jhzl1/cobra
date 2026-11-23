@@ -5,7 +5,9 @@ import { NoTenantPage } from '~/pages/NoTenantPage'
 import { readLastTenantId } from '~/utils/lastTenant'
 
 /**
- * `/` is not a screen: it sends each person to where they work.
+ * `/panel` is not a screen: it sends each person to where they work. `/` is the
+ * public landing page, so every "back to the panel" link and every post-login
+ * redirect points here instead.
  *
  * An administrator always lands on the platform. They reach every company, so
  * the company opened last is always reachable too, and checking it first sent
@@ -14,7 +16,7 @@ import { readLastTenantId } from '~/utils/lastTenant'
  * then to the first company on the list. Only an account that belongs to no
  * company and administers nothing stays here.
  */
-export const Route = createFileRoute('/_app/')({
+export const Route = createFileRoute('/_app/panel')({
   beforeLoad: async ({ context }) => {
     const identity = await context.queryClient.query(platformIdentityQueryOptions())
 

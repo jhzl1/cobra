@@ -9,13 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppTenantIdRouteImport } from './routes/_app.$tenantId'
 import { Route as AppPlatformRouteImport } from './routes/_app._platform'
+import { Route as AppPanelRouteImport } from './routes/_app.panel'
 import { Route as AppTenantIdIndexRouteImport } from './routes/_app.$tenantId.index'
 import { Route as AppTenantIdPaymentsRouteImport } from './routes/_app.$tenantId.payments'
 import { Route as AppTenantIdPendingRouteImport } from './routes/_app.$tenantId.pending'
@@ -26,6 +27,11 @@ import { Route as AppTenantIdConversationsIndexRouteImport } from './routes/_app
 import { Route as AppTenantIdConversationsConversationIdRouteImport } from './routes/_app.$tenantId.conversations.$conversationId'
 import { Route as AppPlatformPlatformTenantsCompanyIdRouteImport } from './routes/_app._platform.platform_.tenants.$companyId'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -45,11 +51,6 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppTenantIdRoute = AppTenantIdRouteImport.update({
   id: '/$tenantId',
   path: '/$tenantId',
@@ -57,6 +58,11 @@ const AppTenantIdRoute = AppTenantIdRouteImport.update({
 } as any)
 const AppPlatformRoute = AppPlatformRouteImport.update({
   id: '/_platform',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPanelRoute = AppPanelRouteImport.update({
+  id: '/panel',
+  path: '/panel',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTenantIdIndexRoute = AppTenantIdIndexRouteImport.update({
@@ -109,11 +115,12 @@ const AppPlatformPlatformTenantsCompanyIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AppIndexRoute
+  '/': typeof IndexRoute
   '/change-password': typeof ChangePasswordRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/$tenantId': typeof AppTenantIdRouteWithChildren
+  '/panel': typeof AppPanelRoute
   '/$tenantId/payments': typeof AppTenantIdPaymentsRoute
   '/$tenantId/pending': typeof AppTenantIdPendingRoute
   '/$tenantId/settings': typeof AppTenantIdSettingsRoute
@@ -125,10 +132,11 @@ export interface FileRoutesByFullPath {
   '/platform/tenants/$companyId': typeof AppPlatformPlatformTenantsCompanyIdRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/change-password': typeof ChangePasswordRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/': typeof AppIndexRoute
+  '/panel': typeof AppPanelRoute
   '/$tenantId/payments': typeof AppTenantIdPaymentsRoute
   '/$tenantId/pending': typeof AppTenantIdPendingRoute
   '/$tenantId/settings': typeof AppTenantIdSettingsRoute
@@ -141,13 +149,14 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/change-password': typeof ChangePasswordRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/_app/$tenantId': typeof AppTenantIdRouteWithChildren
   '/_app/_platform': typeof AppPlatformRouteWithChildren
-  '/_app/': typeof AppIndexRoute
+  '/_app/panel': typeof AppPanelRoute
   '/_app/$tenantId/payments': typeof AppTenantIdPaymentsRoute
   '/_app/$tenantId/pending': typeof AppTenantIdPendingRoute
   '/_app/$tenantId/settings': typeof AppTenantIdSettingsRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/$tenantId'
+    | '/panel'
     | '/$tenantId/payments'
     | '/$tenantId/pending'
     | '/$tenantId/settings'
@@ -177,10 +187,11 @@ export interface FileRouteTypes {
     | '/platform/tenants/$companyId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/change-password'
     | '/forgot-password'
     | '/login'
-    | '/'
+    | '/panel'
     | '/$tenantId/payments'
     | '/$tenantId/pending'
     | '/$tenantId/settings'
@@ -192,13 +203,14 @@ export interface FileRouteTypes {
     | '/platform/tenants/$companyId'
   id:
     | '__root__'
+    | '/'
     | '/_app'
     | '/change-password'
     | '/forgot-password'
     | '/login'
     | '/_app/$tenantId'
     | '/_app/_platform'
-    | '/_app/'
+    | '/_app/panel'
     | '/_app/$tenantId/payments'
     | '/_app/$tenantId/pending'
     | '/_app/$tenantId/settings'
@@ -211,6 +223,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   ChangePasswordRoute: typeof ChangePasswordRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
@@ -219,6 +232,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -247,13 +267,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/': {
-      id: '/_app/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/$tenantId': {
       id: '/_app/$tenantId'
       path: '/$tenantId'
@@ -266,6 +279,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppPlatformRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/panel': {
+      id: '/_app/panel'
+      path: '/panel'
+      fullPath: '/panel'
+      preLoaderRoute: typeof AppPanelRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/$tenantId/': {
@@ -377,18 +397,19 @@ const AppPlatformRouteWithChildren = AppPlatformRoute._addFileChildren(
 interface AppRouteChildren {
   AppTenantIdRoute: typeof AppTenantIdRouteWithChildren
   AppPlatformRoute: typeof AppPlatformRouteWithChildren
-  AppIndexRoute: typeof AppIndexRoute
+  AppPanelRoute: typeof AppPanelRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppTenantIdRoute: AppTenantIdRouteWithChildren,
   AppPlatformRoute: AppPlatformRouteWithChildren,
-  AppIndexRoute: AppIndexRoute,
+  AppPanelRoute: AppPanelRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   ChangePasswordRoute: ChangePasswordRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,

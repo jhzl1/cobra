@@ -20,7 +20,7 @@ export const AppLayout = () => (
       <header className="flex h-13 shrink-0 items-center gap-2 border-b px-4">
         <h1 className="flex">
           <Link
-            to="/"
+            to="/panel"
             className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
           >
             <img src="/logo.svg" alt="Wispay" className="h-6 w-auto" />

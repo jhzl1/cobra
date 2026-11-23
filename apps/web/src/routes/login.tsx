@@ -9,7 +9,7 @@ export const Route = createFileRoute('/login')({
   beforeLoad: async ({ search }) => {
     const { data } = await supabase.auth.getSession()
 
-    if (data.session) throw redirect({ href: search.redirect ?? '/', replace: true })
+    if (data.session) throw redirect({ href: search.redirect ?? '/panel', replace: true })
   },
   component: LoginPage,
 })
