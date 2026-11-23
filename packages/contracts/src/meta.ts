@@ -8,8 +8,8 @@ import './locale'
  *
  * The number is connected through Dualhook, a Meta Tech Partner for
  * Coexistence. Its Webhook Override makes Meta deliver the message path
- * (messages, statuses, errors) in Meta's own raw envelope to a self-hosted n8n,
- * which forwards the identical body here. So these schemas describe Meta's
+ * (messages, statuses, errors) in Meta's own raw envelope straight here. So
+ * these schemas describe Meta's
  * payload, not Dualhook's — Dualhook never touches the inbound body.
  *
  * Everything below is deliberately permissive about fields we do not read:
