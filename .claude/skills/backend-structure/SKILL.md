@@ -66,7 +66,7 @@ razón.
 ```
 apps/api/src/
 ├── domains/{nombre}/    módulo que responde HTTP: controller, service, module
-├── webhooks/            lo que reenvía n8n desde Dualhook
+├── webhooks/            lo que Meta entrega por el Webhook Override de Dualhook
 ├── auth/ common/ config/ docs/ crypto/ queue/ supabase/   plomería
 └── main.ts app.module.ts
 

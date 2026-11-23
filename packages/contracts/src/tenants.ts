@@ -117,9 +117,9 @@ export const whatsappNumberSchema = z.object({
   phoneNumberId: z.string(),
   displayNumber: z.string(),
   /**
-   * The complete URL n8n forwards this number's events to. Built by the API and
+   * The complete URL Meta delivers this number's events to. Built by the API and
    * not in the panel: the panel knows the address it calls, which behind a
-   * tunnel is not the one n8n has to reach.
+   * tunnel is not the one Meta has to reach.
    */
   webhookUrl: z.string(),
   /** Set once the number is out of service. Its history stays. */
@@ -197,7 +197,7 @@ export const tenantSetupSchema = z.object({
    * of `isReady`: a company in dry-run is set up, it is just not live yet.
    */
   dryRun: z.boolean(),
-  /** Where n8n forwards the events. Null until a number is registered. */
+  /** Where Meta delivers the events. Null until a number is registered. */
   webhookUrl: z.string().nullable(),
 })
 
