@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // ESNext + Bundler, not Node16: `ai` v7 ships ESM only, and tsup bundles this
+    // package into a single ESM file, so the relative-import extensions that
+    // Node16 would demand never reach the output. The consumer of this package is
+    // @cobra/worker, which is ESM for the same reason.
+    "noEmit": true,
+    // Explicit: tsup's declaration pass does not inherit the automatic @types
+    // lookup, and without it AbortSignal is undeclared here.
+    "types": ["node"],
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["src", "tsup.config.ts", "vitest.config.ts"]
+}

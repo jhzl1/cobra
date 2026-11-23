@@ -1,0 +1,42 @@
+<!doctype html>
+<!--
+  translate="no": with Google Translate active the browser swaps text nodes
+  underneath React and the reconciler dies on removeChild.
+
+  class="dark": the colours already live in :root. The class is here so the
+  `dark:` utilities that shadcn's outline, destructive and ghost variants ship
+  with resolve. Removing it does not change the palette, it degrades those three
+  variants silently.
+-->
+<html lang="es" translate="no" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Wispay</title>
+    <meta
+      name="description"
+      content="Cobros por WhatsApp registrados en Wisphub. Un agente de IA valida cada comprobante y registra el pago, sin duplicados."
+    />
+    <!--
+      The preview WhatsApp, Slack and the rest draw for a pasted link. The panel
+      is one page, so every link shows this one. The image needs an absolute URL:
+      WhatsApp does not resolve a relative og:image and shows the link bare.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Wispay" />
+    <meta property="og:title" content="Wispay" />
+    <meta
+      property="og:description"
+      content="Cobros por WhatsApp registrados en Wisphub. Un agente de IA valida cada comprobante y registra el pago, sin duplicados."
+    />
+    <meta property="og:image" content="%VITE_PUBLIC_URL%/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="600" />
+    <meta property="og:image:height" content="600" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,840 @@
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common'
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
+import { randomBytes } from 'node:crypto'
+import type {
+  CreateTenantInput,
+  CredentialProvider,
+  CredentialSummary,
+  Page,
+  PaymentMethodInput,
+  RegisterWhatsappNumberInput,
+  SaveCredentialInput,
+  TemporaryPassword,
+  TenantMember,
+  TenantSetup,
+  TenantStatus,
+  UpdateTenantInput,
+  WhatsappNumber,
+} from '@cobra/contracts'
+import {
+  WISPHUB_BASE_URL,
+  type WisphubNamedEntity,
+  wisphubAuthHeader,
+  wisphubNamedEntityPageSchema,
+} from '@cobra/contracts'
+import { selectPage } from '~/common/pagination'
+import { CredentialsCryptoService } from '~/crypto/credentials-crypto.service'
+import { AccountsService } from '~/domains/accounts/accounts.service'
+import { SupabaseService } from '~/supabase/supabase.service'
+
+const UNIQUE_VIOLATION = '23505'
+
+/** How many suffixed slugs to try before giving up. */
+const SLUG_ATTEMPTS = 20
+
+/** Bounded: a paginating API that never says `next: null` must not hang a request. */
+const WISPHUB_MAX_PAGES = 20
+const WISPHUB_TIMEOUT_MS = 15_000
+
+/** Without all three the agent cannot read, think or register a payment. */
+const REQUIRED_PROVIDERS = ['dualhook', 'openrouter', 'wisphub'] as const
+
+const PROVIDER_LABEL: Record<(typeof REQUIRED_PROVIDERS)[number], string> = {
+  dualhook: 'Dualhook',
+  openrouter: 'OpenRouter',
+  wisphub: 'Wisphub',
+}
+
+const TENANT_COLUMNS =
+  'id, slug, company_name, support_phone, admin_phone, status, dry_run, tenant_members(count)'
+
+export interface Tenant {
+  id: string
+  slug: string
+  companyName: string
+  supportPhone: string
+  adminPhone: string
+  status: TenantStatus
+  /** Nothing leaves towards the customer, the administrator or Wisphub. */
+  dryRun: boolean
+  /** How many people belong to it. Zero means it is unreachable to everyone. */
+  memberCount: number
+}
+
+@Injectable()
+export class TenantsService {
+  private readonly logger = new Logger(TenantsService.name)
+
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly crypto: CredentialsCryptoService,
+    private readonly accounts: AccountsService,
+  ) {}
+
+  /**
+   * The caller's tenants, filtered by RLS rather than by a where clause here.
+   *
+   * `tenant_members(count)` rides along on the same policy: a member counts the
+   * company they belong to, an administrator counts every one.
+   */
+  async listMine(client: SupabaseClient): Promise<Tenant[]> {
+    const { data, error } = await client
+      .from('tenants')
+      .select(TENANT_COLUMNS)
+      .order('company_name')
+
+    if (error) throw this.toHttpError(error)
+
+    return data.map(toTenant)
+  }
+
+  /** The same list as `listMine`, a page at a time, for the platform's table. */
+  async listPage(client: SupabaseClient, page: number): Promise<Page<Tenant>> {
+    const { data, error } = await selectPage(
+      page,
+      ({ from, to }) =>
+        client
+          .from('tenants')
+          .select(TENANT_COLUMNS, { count: 'exact' })
+          .order('company_name')
+          .range(from, to),
+      toTenant,
+    )
+
+    if (error) throw this.toHttpError(error)
+
+    return data
+  }
+
+  /**
+   * One company, through the caller's client: RLS answers "not found" for a
+   * company the caller does not reach, so there is no membership check to write.
+   */
+  async findOne(client: SupabaseClient, tenantId: string): Promise<Tenant> {
+    const { data, error } = await client
+      .from('tenants')
+      .select(TENANT_COLUMNS)
+      .eq('id', tenantId)
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    return toTenant(data)
+  }
+
+  /**
+   * Who belongs to a company, for the platform's own view.
+   *
+   * The membership rows come from the table; the addresses come from auth, which
+   * no policy reaches, so they are resolved one id at a time with the secret
+   * key. `listUsers()` would page through every account in the project to find
+   * three.
+   */
+  async listMembers(tenantId: string): Promise<TenantMember[]> {
+    const { data, error } = await this.supabase.unscoped
+      .from('tenant_members')
+      .select('user_id, created_at')
+      .eq('tenant_id', tenantId)
+      .order('created_at')
+
+    if (error) throw this.toHttpError(error)
+
+    return Promise.all(
+      data.map(async (row) => {
+        const { data: found } = await this.supabase.unscoped.auth.admin.getUserById(row.user_id)
+
+        return {
+          userId: row.user_id as string,
+          email: found?.user?.email ?? null,
+          joinedAt: row.created_at as string,
+        }
+      }),
+    )
+  }
+
+  /**
+   * Suspending stops the pipeline: the webhook drops that company's events and
+   * the worker refuses to run a turn for it. Reactivating only restores that —
+   * nothing that arrived while it was suspended is replayed.
+   */
+  async setStatus(tenantId: string, status: TenantStatus): Promise<Tenant> {
+    const { data, error } = await this.supabase.unscoped
+      .from('tenants')
+      .update({ status })
+      .eq('id', tenantId)
+      .select(TENANT_COLUMNS)
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    return toTenant(data)
+  }
+
+  /**
+   * Dry-run keeps everything the agent does inside Cobra: replies are stored and
+   * not sent, Wisphub writes are simulated, the administrator is not notified.
+   *
+   * The worker reads it at the moment of each send and each turn, so switching
+   * it takes effect on whatever is already queued.
+   */
+  async setDryRun(tenantId: string, dryRun: boolean): Promise<Tenant> {
+    const { data, error } = await this.supabase.unscoped
+      .from('tenants')
+      .update({ dry_run: dryRun })
+      .eq('id', tenantId)
+      .select(TENANT_COLUMNS)
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    return toTenant(data)
+  }
+
+  /**
+   * A company and its first user, in one operation.
+   *
+   * The administrator creating it does not join it: an account is either the
+   * platform's or one company's. Without a first user the company would exist
+   * with nobody able to sign in to answer its customers.
+   *
+   * It runs with the secret key because `tenants` has no insert policy. The
+   * creator's id comes from the verified token, never from the body.
+   */
+  async create({
+    input,
+    createdBy,
+  }: {
+    input: CreateTenantInput
+    createdBy: string
+  }): Promise<{ tenant: Tenant; temporaryPassword: TemporaryPassword }> {
+    const tenantRow = await this.insertWithDerivedSlug(input)
+
+    try {
+      const temporaryPassword = await this.accounts.createCompanyUser({
+        tenantId: tenantRow.id as string,
+        email: input.userEmail,
+        issuedBy: createdBy,
+      })
+
+      // The count is stated rather than read: the membership was inserted after
+      // the row came back, so the aggregate would say zero.
+      return { tenant: { ...toTenant(tenantRow), memberCount: 1 }, temporaryPassword }
+    } catch (failure) {
+      // A company nobody can sign in to is not worth keeping: undo it, and the
+      // administrator tries again with the email fixed.
+      await this.supabase.unscoped.from('tenants').delete().eq('id', tenantRow.id)
+
+      throw failure
+    }
+  }
+
+  async update(
+    client: SupabaseClient,
+    tenantId: string,
+    input: UpdateTenantInput,
+  ): Promise<Tenant> {
+    const { data, error } = await client
+      .from('tenants')
+      .update({
+        ...(input.companyName ? { company_name: input.companyName } : {}),
+        ...(input.supportPhone ? { support_phone: input.supportPhone } : {}),
+        ...(input.adminPhone ? { admin_phone: input.adminPhone } : {}),
+      })
+      .eq('id', tenantId)
+      .select(TENANT_COLUMNS)
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    return toTenant(data)
+  }
+
+  /** What the panel is allowed to know about a credential: that it is loaded. */
+  async listCredentials(client: SupabaseClient, tenantId: string): Promise<CredentialSummary[]> {
+    const { data, error } = await client
+      .from('tenant_credentials')
+      .select('provider, last4, rotated_at')
+      .eq('tenant_id', tenantId)
+
+    if (error) throw this.toHttpError(error)
+
+    return data.map((row) => ({
+      provider: row.provider,
+      last4: row.last4,
+      rotatedAt: row.rotated_at,
+    }))
+  }
+
+  /**
+   * Saves a credential encrypted. The plaintext exists in this process and
+   * nowhere else: it is never logged, never returned and never stored.
+   */
+  async saveCredential(
+    userId: string,
+    tenantId: string,
+    input: SaveCredentialInput,
+  ): Promise<CredentialSummary> {
+    await this.assertMembership(userId, tenantId)
+
+    const { ciphertext, last4 } = this.crypto.encrypt({ secret: input.secret })
+
+    const { data, error } = await this.supabase.unscoped
+      .from('tenant_credentials')
+      .upsert(
+        {
+          tenant_id: tenantId,
+          provider: input.provider,
+          ciphertext,
+          last4,
+          rotated_at: new Date().toISOString(),
+        },
+        { onConflict: 'tenant_id,provider' },
+      )
+      .select('provider, last4, rotated_at')
+      .single()
+
+    if (error) throw this.toHttpError(error)
+
+    return { provider: data.provider, last4: data.last4, rotatedAt: data.rotated_at }
+  }
+
+  async listWhatsappNumbers(
+    client: SupabaseClient,
+    tenantId: string,
+    publicUrl: string,
+  ): Promise<WhatsappNumber[]> {
+    const { data, error } = await client
+      .from('whatsapp_numbers')
+      .select('id, phone_number_id, display_number, webhook_token, valid_to')
+      .eq('tenant_id', tenantId)
+      .order('valid_from', { ascending: false })
+
+    if (error) throw this.toHttpError(error)
+
+    const { data: tenant } = await client.from('tenants').select('slug').eq('id', tenantId).single()
+
+    return data.map((row) => ({
+      id: row.id,
+      phoneNumberId: row.phone_number_id,
+      displayNumber: row.display_number,
+      webhookUrl: `${publicUrl}/wh/wa/${tenant?.slug ?? ''}/${row.webhook_token}`,
+      validTo: row.valid_to,
+    }))
+  }
+
+  /**
+   * Registers a number and mints its webhook token.
+   *
+   * `webhook_token` is the opaque last segment of the webhook URL, doubles as
+   * Meta's verify token when Dualhook points straight at it, and is the
+   * only thing that authenticates an inbound POST: through Dualhook, Meta signs
+   * with an app secret we do not have. It is generated here — never chosen by
+   * the client — because its entropy is the whole protection.
+   */
+  async registerWhatsappNumber({
+    userId,
+    tenantId,
+    input,
+    publicUrl,
+  }: {
+    userId: string
+    tenantId: string
+    input: RegisterWhatsappNumberInput
+    publicUrl: string
+  }): Promise<WhatsappNumber> {
+    await this.assertMembership(userId, tenantId)
+
+    const { data, error } = await this.supabase.unscoped
+      .from('whatsapp_numbers')
+      .insert({
+        tenant_id: tenantId,
+        phone_number_id: input.phoneNumberId,
+        display_number: input.displayNumber,
+        webhook_token: randomBytes(32).toString('base64url'),
+      })
+      .select('id, phone_number_id, display_number, webhook_token, valid_to')
+      .single()
+
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) {
+        // The index is global, so the collision may be here or somewhere else.
+        // Saying "otra empresa" when it is already registered on this very
+        // screen sends the operator looking for a company that has nothing to
+        // do with it.
+        throw new ConflictException(
+          'Este identificador ya está registrado y activo. Si pertenece a esta empresa, aparece en ' +
+            'la lista de números; dalo de baja antes de registrarlo de nuevo.',
+        )
+      }
+      throw this.toHttpError(error)
+    }
+
+    const { data: tenant } = await this.supabase.unscoped
+      .from('tenants')
+      .select('slug')
+      .eq('id', tenantId)
+      .single()
+
+    return {
+      id: data.id,
+      phoneNumberId: data.phone_number_id,
+      displayNumber: data.display_number,
+      webhookUrl: `${publicUrl}/wh/wa/${tenant?.slug ?? ''}/${data.webhook_token}`,
+      validTo: data.valid_to,
+    }
+  }
+
+  /**
+   * What is still missing before this company's bot answers anyone.
+   *
+   * Runs with the secret key because it counts rows across five tables to answer
+   * one question, and a member who can read all of them individually gains
+   * nothing from doing it here — the caller's access is checked before this.
+   *
+   * The webhook step is the only one nobody can complete from the panel: it is
+   * done in Dualhook, whose Webhook Override has to point at this company's URL, so the
+   * signal is the only honest one there is, that something actually arrived
+   * through it.
+   */
+  async getSetupStatus(userId: string, tenantId: string, publicUrl: string): Promise<TenantSetup> {
+    await this.assertMembership(userId, tenantId)
+
+    const [tenant, credentials, numbers, methods, inbound] = await Promise.all([
+      this.supabase.unscoped
+        .from('tenants')
+        .select('slug, status, dry_run')
+        .eq('id', tenantId)
+        .single(),
+      this.supabase.unscoped
+        .from('tenant_credentials')
+        .select('provider')
+        .eq('tenant_id', tenantId),
+      this.supabase.unscoped
+        .from('whatsapp_numbers')
+        .select('webhook_token')
+        .eq('tenant_id', tenantId)
+        .is('valid_to', null)
+        .order('valid_from', { ascending: false })
+        .limit(1),
+      this.supabase.unscoped
+        .from('payment_methods')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        // A switched-off account holds every receipt paid into it, so it does
+        // not count towards the step either.
+        .eq('is_active', true)
+        .is('archived_at', null),
+      this.supabase.unscoped
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('direction', 'inbound'),
+    ])
+
+    if (tenant.error) throw this.toHttpError(tenant.error)
+
+    const loaded = new Set((credentials.data ?? []).map((row) => row.provider as string))
+    const missing = REQUIRED_PROVIDERS.filter((provider) => !loaded.has(provider))
+    const number = numbers.data?.[0]
+
+    const steps: TenantSetup['steps'] = [
+      {
+        id: 'credentials',
+        isDone: missing.length === 0,
+        missingDetail: missing.length
+          ? `Credenciales pendientes: ${new Intl.ListFormat('es').format(missing.map((provider) => PROVIDER_LABEL[provider]))}`
+          : null,
+      },
+      {
+        id: 'number',
+        isDone: !!number,
+        missingDetail: number ? null : 'Aún no hay números conectados',
+      },
+      {
+        id: 'webhook',
+        isDone: (inbound.count ?? 0) > 0,
+        missingDetail:
+          (inbound.count ?? 0) > 0 ? null : 'Aún no se ha recibido ningún mensaje por el webhook',
+      },
+      {
+        id: 'paymentMethods',
+        isDone: (methods.count ?? 0) > 0,
+        missingDetail:
+          (methods.count ?? 0) > 0
+            ? null
+            : 'Sin cuentas registradas, todos los comprobantes se retienen para revisión manual',
+      },
+    ]
+
+    const slug = tenant.data.slug as string
+
+    return {
+      steps,
+      status: tenant.data.status as TenantStatus,
+      dryRun: tenant.data.dry_run as boolean,
+      isReady: steps.every((step) => step.isDone) && tenant.data.status === 'active',
+      webhookUrl: number ? `${publicUrl}/wh/wa/${slug}/${number.webhook_token}` : null,
+    }
+  }
+
+  /** The collection accounts of the company, as Wisphub knows them. */
+  listWisphubPaymentMethods(userId: string, tenantId: string): Promise<WisphubNamedEntity[]> {
+    return this.listFromWisphub(userId, tenantId, 'formas-de-pago')
+  }
+
+  /**
+   * The zones of the company.
+   *
+   * A zone is optional on an account: one with none is offered to every
+   * customer. It is matched by name because that is what
+   * `GET /api/clientes` puts on a customer — the id never travels with them.
+   */
+  listWisphubZones(userId: string, tenantId: string): Promise<WisphubNamedEntity[]> {
+    return this.listFromWisphub(userId, tenantId, 'zonas')
+  }
+
+  /**
+   * One paginated list from Wisphub.
+   *
+   * Asked here and not by the panel: the API key never leaves the server. It is
+   * also not the agent's client doing the call — that package is ESM only and
+   * this process is CommonJS — so the base URL and the auth header come from
+   * `@cobra/contracts`, which both of them read.
+   */
+  private async listFromWisphub(
+    userId: string,
+    tenantId: string,
+    resource: 'formas-de-pago' | 'zonas',
+  ): Promise<WisphubNamedEntity[]> {
+    await this.assertMembership(userId, tenantId)
+
+    const apiKey = await this.readCredentialSecret(tenantId, 'wisphub')
+
+    if (!apiKey) {
+      throw new ConflictException(
+        'Esta empresa aún no tiene configurada la credencial de Wisphub, por lo que no es posible consultar sus datos.',
+      )
+    }
+
+    const found: WisphubNamedEntity[] = []
+    let url: string | null = `${WISPHUB_BASE_URL}/api/${resource}/`
+
+    // Wisphub paginates, and the one the operator needs may be on the second
+    // page.
+    for (let page = 1; url && page <= WISPHUB_MAX_PAGES; page += 1) {
+      const response: Response = await fetch(url, {
+        headers: { Authorization: wisphubAuthHeader(apiKey) },
+        signal: AbortSignal.timeout(WISPHUB_TIMEOUT_MS),
+      })
+
+      if (!response.ok) {
+        this.logger.error(`Wisphub answered ${response.status} listing ${resource}`)
+        throw new InternalServerErrorException(
+          `Wisphub no respondió a la consulta de ${resource.replaceAll('-', ' ')}. Inténtalo de nuevo en unos minutos.`,
+        )
+      }
+
+      const parsed = wisphubNamedEntityPageSchema.safeParse(await response.json())
+
+      if (!parsed.success) {
+        this.logger.error(`Wisphub answered an unexpected shape listing ${resource}`)
+        throw new InternalServerErrorException(
+          'Wisphub devolvió una respuesta que no fue posible interpretar',
+        )
+      }
+
+      found.push(...parsed.data.results)
+      url = parsed.data.next
+    }
+
+    return found
+  }
+
+  async listPaymentMethods(client: SupabaseClient, tenantId: string) {
+    const { data, error } = await client
+      .from('payment_methods')
+      .select('id, zone, entity_name, payment_address, wisphub_id, description, is_active')
+      .eq('tenant_id', tenantId)
+      .is('archived_at', null)
+      .order('entity_name')
+
+    if (error) throw this.toHttpError(error)
+
+    return data.map(toPaymentMethod)
+  }
+
+  async addPaymentMethod(client: SupabaseClient, tenantId: string, input: PaymentMethodInput) {
+    const { data, error } = await client
+      .from('payment_methods')
+      .insert({
+        tenant_id: tenantId,
+        zone: input.zone ?? null,
+        entity_name: input.entityName,
+        payment_address: input.paymentAddress,
+        wisphub_id: input.wisphubId ?? null,
+        description: input.description ?? null,
+      })
+      .select('id, zone, entity_name, payment_address, wisphub_id, description')
+      .single()
+
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) {
+        throw new ConflictException('Esta cuenta ya está registrada para esta empresa')
+      }
+      throw this.toHttpError(error)
+    }
+
+    return data
+  }
+
+  /**
+   * Takes a number out of service. The row stays.
+   *
+   * `whatsapp_numbers` is a validity table on purpose: a number that leaves one
+   * company and is activated at another must not carry the first one's history
+   * with it. Deleting the row would take the record of which number received
+   * what along with it, and the partial unique index already frees the
+   * `phone_number_id` the moment `valid_to` is set — which is what makes
+   * registering it again work.
+   *
+   * Runs with the secret key, like `registerWhatsappNumber` does and for the same
+   * reason: the table has select policies and nothing else, so a write with the
+   * caller's client matches no rows and reports no error — it just does nothing.
+   * Membership is checked first, which is the check the missing policy would
+   * have made.
+   */
+  async retireWhatsappNumber(userId: string, tenantId: string, numberId: string): Promise<void> {
+    await this.assertMembership(userId, tenantId)
+
+    const { data, error } = await this.supabase.unscoped
+      .from('whatsapp_numbers')
+      .update({ valid_to: new Date().toISOString() })
+      .eq('tenant_id', tenantId)
+      .eq('id', numberId)
+      .is('valid_to', null)
+      .select('id')
+
+    if (error) throw this.toHttpError(error)
+
+    // An update that matched nothing is the silent failure this method exists to
+    // avoid repeating: say so rather than answering as if it worked.
+    if (!data?.length) {
+      throw new NotFoundException('El número no existe o ya fue dado de baja')
+    }
+  }
+
+  async updatePaymentMethod(
+    client: SupabaseClient,
+    {
+      tenantId,
+      methodId,
+      input,
+    }: { tenantId: string; methodId: string; input: PaymentMethodInput },
+  ) {
+    const { data, error } = await client
+      .from('payment_methods')
+      .update({
+        zone: input.zone ?? null,
+        entity_name: input.entityName,
+        payment_address: input.paymentAddress,
+        wisphub_id: input.wisphubId ?? null,
+        // The panel's form has no description field; leaving it out must not
+        // erase the one an account was loaded with.
+        ...(input.description !== undefined && { description: input.description }),
+      })
+      .eq('tenant_id', tenantId)
+      .eq('id', methodId)
+      .is('archived_at', null)
+      .select('id')
+
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) {
+        throw new ConflictException('Esta cuenta ya está registrada para esta empresa')
+      }
+      throw this.toHttpError(error)
+    }
+
+    this.assertPaymentMethodMatched(data)
+  }
+
+  async setPaymentMethodActive(
+    client: SupabaseClient,
+    { tenantId, methodId, isActive }: { tenantId: string; methodId: string; isActive: boolean },
+  ) {
+    const { data, error } = await client
+      .from('payment_methods')
+      .update({ is_active: isActive })
+      .eq('tenant_id', tenantId)
+      .eq('id', methodId)
+      .is('archived_at', null)
+      .select('id')
+
+    if (error) throw this.toHttpError(error)
+
+    this.assertPaymentMethodMatched(data)
+  }
+
+  /**
+   * Removes the account from the panel and from the agent. The row stays:
+   * receipts paid into it point at it, and a delete would empty that link on
+   * every one of them.
+   */
+  async removePaymentMethod(client: SupabaseClient, tenantId: string, methodId: string) {
+    const { data, error } = await client
+      .from('payment_methods')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId)
+      .eq('id', methodId)
+      .is('archived_at', null)
+      .select('id')
+
+    if (error) throw this.toHttpError(error)
+
+    this.assertPaymentMethodMatched(data)
+  }
+
+  /** An update that matched no row reports no error; say so instead of answering as if it worked. */
+  private assertPaymentMethodMatched(rows: unknown[] | null): void {
+    if (!rows?.length) {
+      throw new NotFoundException('La cuenta de recaudo no existe o ya fue eliminada')
+    }
+  }
+
+  /**
+   * Inserts the company, deriving its slug from its name.
+   *
+   * The slug is only ever seen inside the webhook URL, so nobody is asked to
+   * invent one. Two companies can share a name, and the column is unique, so a
+   * collision retries with a numeric suffix rather than failing in the face of
+   * whoever is onboarding a client.
+   */
+  private async insertWithDerivedSlug(input: CreateTenantInput): Promise<Record<string, unknown>> {
+    const base = slugify(input.companyName)
+
+    for (let attempt = 1; attempt <= SLUG_ATTEMPTS; attempt += 1) {
+      const slug = attempt === 1 ? base : `${base}-${attempt}`
+
+      const { data, error } = await this.supabase.unscoped
+        .from('tenants')
+        .insert({
+          slug,
+          company_name: input.companyName,
+          support_phone: input.supportPhone,
+          admin_phone: input.adminPhone,
+        })
+        .select('id, slug, company_name, support_phone, admin_phone, status, dry_run')
+        .single()
+
+      if (!error) return data
+      if (error.code !== UNIQUE_VIOLATION) throw this.toHttpError(error)
+    }
+
+    throw new ConflictException(
+      'Ya existen demasiadas empresas con un nombre similar. Usa un nombre distinto.',
+    )
+  }
+
+  /** The decrypted secret of one provider. It exists in this process and nowhere else. */
+  private async readCredentialSecret(
+    tenantId: string,
+    provider: CredentialProvider,
+  ): Promise<string | null> {
+    const { data } = await this.supabase.unscoped
+      .from('tenant_credentials')
+      .select('ciphertext')
+      .eq('tenant_id', tenantId)
+      .eq('provider', provider)
+      .maybeSingle()
+
+    if (!data) return null
+
+    try {
+      return this.crypto.decrypt(data.ciphertext as string).secret
+    } catch {
+      this.logger.error(`Could not decrypt the ${provider} credential of tenant ${tenantId}`)
+
+      return null
+    }
+  }
+
+  /**
+   * The check RLS would have done, for the writes that run with the secret key.
+   *
+   * The service role ignores policies, so a route that skips this one answers
+   * happily for a tenant the caller has nothing to do with.
+   */
+  async assertMembership(userId: string, tenantId: string): Promise<void> {
+    const { data, error } = await this.supabase.unscoped
+      .from('tenant_members')
+      .select('tenant_id')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (error) throw this.toHttpError(error)
+    if (!data) throw new ForbiddenException('No tienes acceso a esta empresa')
+  }
+
+  private toHttpError(error: PostgrestError): Error {
+    if (error.code === 'PGRST116') return new NotFoundException('No se encontró el recurso')
+
+    this.logger.error(`Postgrest ${error.code}: ${error.message}`)
+
+    return new InternalServerErrorException('No fue posible completar la operación')
+  }
+}
+
+/**
+ * A company name turned into a URL segment.
+ *
+ * `normalize('NFD')` splits an accented letter into the letter plus its mark, so
+ * stripping the marks leaves ASCII behind — without it "Telecomunicación" loses
+ * the whole last syllable instead of just the accent. A name with nothing
+ * latin in it at all reduces to empty, hence the fallback.
+ */
+export const slugify = (name: string): string => {
+  const slug = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 36)
+    .replace(/-+$/, '')
+
+  return slug || 'empresa'
+}
+
+/**
+ * Every other endpoint answers in the contract's names, and this one answered in
+ * Postgres'. The panel then read one table in snake_case and the rest in camel —
+ * which is how the timeline came to read `agent_steps` as `steps` and crash.
+ */
+const toPaymentMethod = (row: Record<string, unknown>) => ({
+  id: row['id'] as string,
+  zone: (row['zone'] as string | null) ?? null,
+  entityName: row['entity_name'] as string,
+  paymentAddress: row['payment_address'] as string,
+  wisphubId: (row['wisphub_id'] as string | null) ?? null,
+  description: (row['description'] as string | null) ?? null,
+  isActive: row['is_active'] as boolean,
+})
+
+const toTenant = (row: Record<string, unknown>): Tenant => ({
+  id: row['id'] as string,
+  slug: row['slug'] as string,
+  companyName: row['company_name'] as string,
+  supportPhone: row['support_phone'] as string,
+  adminPhone: row['admin_phone'] as string,
+  status: row['status'] as TenantStatus,
+  dryRun: row['dry_run'] as boolean,
+  // Supabase returns an aggregate relation as an array with one row.
+  memberCount: (row['tenant_members'] as Array<{ count: number }> | undefined)?.[0]?.count ?? 0,
+})

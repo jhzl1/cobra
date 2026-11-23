@@ -1,0 +1,1 @@
+export { PlatformTenantPage } from './PlatformTenantPage'

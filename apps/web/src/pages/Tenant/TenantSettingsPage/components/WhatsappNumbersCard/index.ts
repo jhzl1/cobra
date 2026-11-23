@@ -1,0 +1,1 @@
+export { WhatsappNumbersCard } from './WhatsappNumbersCard'

@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "noEmit": true,
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["src", "tsup.config.ts"]
+}

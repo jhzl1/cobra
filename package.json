@@ -10,20 +10,23 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint",
+    "lint": "oxlint",
     "tscheck": "turbo run tscheck",
     "test": "turbo run test",
     "db:new": "pnpm --filter @cobra/db db:new",
     "db:deploy": "pnpm --filter @cobra/db db:deploy",
     "db:reset": "pnpm --filter @cobra/db db:reset",
     "db:types": "pnpm --filter @cobra/db db:types",
+    "skills:sync": "node .claude/skills/skill-sync/assets/sync.mjs",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write ."
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "oxlint": "^1.93.0",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "railway": "^3.16.0",
     "turbo": "^2.10.13",
     "typescript": "~6.0.3"
   }

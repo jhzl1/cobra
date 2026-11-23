@@ -1,0 +1,207 @@
+import { type LanguageModel, type ModelMessage, generateText, stepCountIs } from 'ai'
+import { buildSystemPrompt } from '../prompts/system-prompt'
+import { buildTurnPrompt } from '../prompts/turn-prompt'
+import { buildTools } from '../tools'
+import type {
+  ConversationMessage,
+  MessagingPort,
+  PaymentMethod,
+  PendingReceipt,
+  PendingReceiptResult,
+  ReceiptPort,
+  StepRecorder,
+  TenantConfig,
+  WisphubPort,
+} from '../types'
+import { type AnsweredCall, toAnsweredCall } from './answered-call'
+import type { Steering } from './steering'
+
+/**
+ * What the customer reads when the model call does not come back.
+ *
+ * n8n execution 44062 died with `Request timed out.` after 16.7 seconds against
+ * OpenRouter and the customer got nothing at all. It says neither that
+ * something failed nor that anything was registered, because at that point we
+ * do not know either.
+ */
+export const FALLBACK_REPLY =
+  'Recibimos tu mensaje y lo estamos revisando. En un momento te respondemos por aquí.'
+
+/** Default ceiling for the whole model loop of one turn. */
+const TURN_TIMEOUT_MS = 60_000
+
+/** Default cap on model calls in one turn, tool rounds included. */
+const MAX_MODEL_STEPS = 8
+
+export interface RunTurnInput {
+  tenant: TenantConfig
+  conversationId: string
+  model: LanguageModel
+  /** The contact's phone, or null when they only have a username. */
+  phone: string | null
+  /** Everything the agent may remember: messages after `context_reset_at`. */
+  history: readonly ConversationMessage[]
+  /** The texts of this burst, already joined. */
+  burstText: string | null
+  receiptArrivedThisTurn: boolean
+  pendingReceiptLookup: PendingReceiptResult
+  pendingReceipt: PendingReceipt | null
+  mediaId: string | null
+  deps: {
+    wisphub: WisphubPort
+    receipts: ReceiptPort
+    messaging: MessagingPort
+    steps: StepRecorder
+    steering: Steering
+    listPaymentMethods(zone: string | null): Promise<PaymentMethod[]>
+  }
+  /** Hard ceiling for the whole model loop. */
+  timeoutMs?: number
+  maxSteps?: number
+}
+
+export interface TurnResult {
+  reply: string
+  /** True when the reply is `FALLBACK_REPLY` rather than something the model wrote. */
+  isFallbackReply: boolean
+  inputTokens: number | null
+  outputTokens: number | null
+  error: string | null
+  /** One per model call that returned, in order, including those of a failed turn. */
+  answeredCalls: AnsweredCall[]
+  /**
+   * Every tool the model called, in order, including those steering skipped. The
+   * worker reads it to tell a turn that only looked something up from one that
+   * changed something outside the conversation.
+   */
+  calledTools: string[]
+}
+
+export const runTurn = async (input: RunTurnInput): Promise<TurnResult> => {
+  const {
+    tenant,
+    conversationId,
+    model,
+    phone,
+    history,
+    burstText,
+    receiptArrivedThisTurn,
+    pendingReceiptLookup,
+    pendingReceipt,
+    mediaId,
+    deps,
+    timeoutMs = TURN_TIMEOUT_MS,
+    maxSteps = MAX_MODEL_STEPS,
+  } = input
+
+  const tools = buildTools({
+    tenantId: tenant.id,
+    conversationId,
+    wisphub: deps.wisphub,
+    receipts: deps.receipts,
+    messaging: deps.messaging,
+    steps: deps.steps,
+    steering: deps.steering,
+    listPaymentMethods: deps.listPaymentMethods,
+    pendingReceipt,
+    mediaId,
+  })
+
+  const messages: ModelMessage[] = [
+    ...toModelMessages(history),
+    {
+      role: 'user',
+      content: buildTurnPrompt({
+        phone,
+        text: burstText,
+        receiptArrivedThisTurn,
+        pendingReceiptLookup,
+      }),
+    },
+  ]
+
+  const llmStep = await deps.steps.start({ kind: 'llm', name: 'agent', input: { maxSteps } })
+  const answeredCalls: AnsweredCall[] = []
+  const calledTools: string[] = []
+
+  try {
+    const result = await generateText({
+      model,
+      instructions: buildSystemPrompt(tenant),
+      messages,
+      tools,
+      // No `temperature`. Claude Haiku 5.5 rejects anything but its default, and
+      // `temperature: 0` never kept the agent from inventing: what does is that
+      // amounts come from Wisphub tools and payments are checked in code.
+      stopWhen: stepCountIs(maxSteps),
+      // Declared, not inherited. A model call with no ceiling is a conversation
+      // that stops answering with nothing in the log to show why.
+      timeout: timeoutMs,
+      onStepEnd: (step) => {
+        answeredCalls.push(toAnsweredCall(step))
+
+        for (const call of step.toolCalls) calledTools.push(call.toolName)
+      },
+      /**
+       * Where a message that arrived mid-turn joins the conversation: right
+       * before the next model call, after the tools of the previous step have
+       * either finished or been skipped.
+       */
+      prepareStep: ({ messages: current }) => {
+        const steeringPrompt = deps.steering.takeQueuedPrompt()
+
+        if (!steeringPrompt) return {}
+
+        return {
+          messages: [...current, { role: 'user' as const, content: steeringPrompt }],
+        }
+      },
+    })
+
+    await deps.steps.finish(llmStep, {
+      status: 'done',
+      output: { finishReason: result.finishReason, steps: result.steps.length },
+    })
+
+    const reply = result.text.trim()
+
+    return {
+      reply: reply || FALLBACK_REPLY,
+      isFallbackReply: !reply,
+      inputTokens: result.usage.inputTokens ?? null,
+      outputTokens: result.usage.outputTokens ?? null,
+      error: null,
+      answeredCalls,
+      calledTools,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    await deps.steps.finish(llmStep, { status: 'error', error: message })
+
+    return {
+      reply: FALLBACK_REPLY,
+      isFallbackReply: true,
+      inputTokens: null,
+      outputTokens: null,
+      error: message,
+      answeredCalls,
+      calledTools,
+    }
+  }
+}
+
+/**
+ * The stored conversation as the model sees it.
+ *
+ * An operator's message is an assistant message: from the customer's side of
+ * the chat there is one voice, and telling the model that a human took over
+ * would make it explain the handoff to the customer.
+ */
+const toModelMessages = (history: readonly ConversationMessage[]): ModelMessage[] =>
+  history
+    .filter((message) => !!message.body || message.type === 'image')
+    .map((message) => ({
+      role: message.author === 'contact' ? ('user' as const) : ('assistant' as const),
+      content: message.body ?? '(el cliente envió una imagen)',
+    }))

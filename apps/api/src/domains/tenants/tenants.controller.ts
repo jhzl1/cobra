@@ -1,0 +1,297 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Req,
+} from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import { ApiOperation, ApiTags } from '@nestjs/swagger'
+import type { SupabaseContext } from '@supabase/server'
+import { SupabaseCtx } from '@supabase/server/adapters/nestjs'
+import type { Request } from 'express'
+import {
+  type CreateTenantInput,
+  type PaymentMethodInput,
+  type PaymentMethodStatusInput,
+  type UpdateTenantDryRunInput,
+  createTenantSchema,
+  paymentMethodSchema,
+  paymentMethodStatusSchema,
+  registerWhatsappNumberSchema,
+  saveCredentialSchema,
+  updateTenantDryRunSchema,
+  updateTenantSchema,
+  updateTenantStatusSchema,
+} from '@cobra/contracts'
+import { readCallerId } from '~/auth/caller'
+import { RequirePlatformAdmin } from '~/auth/require-platform-admin.decorator'
+import { RequireSession } from '~/auth/require-session.decorator'
+import { ZodValidationPipe } from '~/common/pipes/zod-validation.pipe'
+import { publicUrlOf } from '~/config/public-url'
+import { TenantsService } from './tenants.service'
+
+/**
+ * One role, on purpose: every member of a tenant may see the conversations,
+ * take a handoff, load credentials and edit the company's configuration. The
+ * decision is in PLAN.md, and a role model would be one more thing to get wrong
+ * for no product value today.
+ */
+@ApiTags('Empresas')
+@Controller('tenants')
+@RequireSession()
+export class TenantsController {
+  constructor(
+    private readonly tenants: TenantsService,
+    private readonly config: ConfigService,
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Listar las empresas del usuario' })
+  list(@SupabaseCtx() ctx: SupabaseContext) {
+    return this.tenants.listMine(ctx.supabase)
+  }
+
+  @Get(':tenantId')
+  @ApiOperation({ summary: 'Ver una empresa' })
+  findOne(@SupabaseCtx() ctx: SupabaseContext, @Param('tenantId', ParseUUIDPipe) tenantId: string) {
+    return this.tenants.findOne(ctx.supabase, tenantId)
+  }
+
+  /**
+   * Only whoever administers the platform. Until this gate existed, anyone with
+   * a session could create a company and became its member — the only thing
+   * holding that back was that sign-up is closed.
+   */
+  @Post()
+  @RequirePlatformAdmin()
+  @ApiOperation({ summary: 'Crear una empresa con su primer usuario' })
+  create(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Body(new ZodValidationPipe(createTenantSchema)) body: unknown,
+  ) {
+    return this.tenants.create({
+      input: body as CreateTenantInput,
+      createdBy: readCallerId(ctx.userClaims),
+    })
+  }
+
+  @Patch(':tenantId')
+  @ApiOperation({ summary: 'Editar los datos de la empresa' })
+  update(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Body(new ZodValidationPipe(updateTenantSchema)) body: unknown,
+  ) {
+    return this.tenants.update(
+      ctx.supabase,
+      tenantId,
+      body as Parameters<TenantsService['update']>[2],
+    )
+  }
+
+  /**
+   * Suspending is the platform's call, not the company's.
+   *
+   * It is a route of its own, and not a field on PATCH /tenants/:tenantId,
+   * because that one is the company's to call: a member could lift their own
+   * suspension the moment the field existed there.
+   */
+  @Patch(':tenantId/status')
+  @RequirePlatformAdmin()
+  @ApiOperation({ summary: 'Activar o suspender una empresa' })
+  setStatus(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Body(new ZodValidationPipe(updateTenantStatusSchema)) body: unknown,
+  ) {
+    return this.tenants.setStatus(tenantId, (body as { status: 'active' | 'suspended' }).status)
+  }
+
+  /** Its own route for the same reason as the status: PATCH /:tenantId is the company's. */
+  @Patch(':tenantId/dry-run')
+  @RequirePlatformAdmin()
+  @ApiOperation({ summary: 'Activar o desactivar el modo de prueba de una empresa' })
+  setDryRun(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Body(new ZodValidationPipe(updateTenantDryRunSchema)) body: unknown,
+  ) {
+    return this.tenants.setDryRun(tenantId, (body as UpdateTenantDryRunInput).dryRun)
+  }
+
+  @Get(':tenantId/members')
+  @RequirePlatformAdmin()
+  @ApiOperation({ summary: 'Ver quién pertenece a una empresa' })
+  listMembers(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
+    return this.tenants.listMembers(tenantId)
+  }
+
+  @Get(':tenantId/setup')
+  @ApiOperation({ summary: 'Qué le falta a la empresa para que su bot responda' })
+  getSetupStatus(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Req() request: Request,
+  ) {
+    return this.tenants.getSetupStatus(
+      readCallerId(ctx.userClaims),
+      tenantId,
+      this.publicUrl(request),
+    )
+  }
+
+  @Get(':tenantId/credentials')
+  @ApiOperation({ summary: 'Ver qué credenciales están cargadas (nunca su valor)' })
+  listCredentials(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+  ) {
+    return this.tenants.listCredentials(ctx.supabase, tenantId)
+  }
+
+  @Put(':tenantId/credentials')
+  @ApiOperation({ summary: 'Cargar o rotar una credencial' })
+  saveCredential(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Body(new ZodValidationPipe(saveCredentialSchema)) body: unknown,
+  ) {
+    return this.tenants.saveCredential(
+      readCallerId(ctx.userClaims),
+      tenantId,
+      body as Parameters<TenantsService['saveCredential']>[2],
+    )
+  }
+
+  @Get(':tenantId/whatsapp-numbers')
+  @ApiOperation({ summary: 'Números de WhatsApp y la URL de webhook de cada uno' })
+  listWhatsappNumbers(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Req() request: Request,
+  ) {
+    return this.tenants.listWhatsappNumbers(ctx.supabase, tenantId, this.publicUrl(request))
+  }
+
+  @Post(':tenantId/whatsapp-numbers')
+  @ApiOperation({ summary: 'Registrar un número y generar sus tokens' })
+  registerWhatsappNumber(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Body(new ZodValidationPipe(registerWhatsappNumberSchema)) body: unknown,
+    @Req() request: Request,
+  ) {
+    return this.tenants.registerWhatsappNumber({
+      userId: readCallerId(ctx.userClaims),
+      tenantId,
+      input: body as Parameters<TenantsService['registerWhatsappNumber']>[0]['input'],
+      publicUrl: this.publicUrl(request),
+    })
+  }
+
+  /**
+   * The base of the webhook URL the panel shows. It comes from the request so a
+   * tunnel needs no configuration; `PUBLIC_URL` overrides it where the API never
+   * sees the host that fronts it.
+   */
+  private publicUrl(request: Request): string {
+    return publicUrlOf(request, this.config.get<string>('PUBLIC_URL'))
+  }
+
+  @Get(':tenantId/wisphub/payment-methods')
+  @ApiOperation({ summary: 'Las formas de pago que la empresa tiene en Wisphub' })
+  listWisphubPaymentMethods(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+  ) {
+    return this.tenants.listWisphubPaymentMethods(readCallerId(ctx.userClaims), tenantId)
+  }
+
+  @Get(':tenantId/wisphub/zones')
+  @ApiOperation({ summary: 'Las zonas que la empresa tiene en Wisphub' })
+  listWisphubZones(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+  ) {
+    return this.tenants.listWisphubZones(readCallerId(ctx.userClaims), tenantId)
+  }
+
+  @Get(':tenantId/payment-methods')
+  @ApiOperation({ summary: 'Cuentas donde los clientes pagan' })
+  listPaymentMethods(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+  ) {
+    return this.tenants.listPaymentMethods(ctx.supabase, tenantId)
+  }
+
+  @Post(':tenantId/payment-methods')
+  @ApiOperation({ summary: 'Agregar una cuenta de recaudo' })
+  addPaymentMethod(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Body(new ZodValidationPipe(paymentMethodSchema)) body: unknown,
+  ) {
+    return this.tenants.addPaymentMethod(
+      ctx.supabase,
+      tenantId,
+      body as Parameters<TenantsService['addPaymentMethod']>[2],
+    )
+  }
+
+  @Put(':tenantId/payment-methods/:methodId')
+  @ApiOperation({ summary: 'Editar una cuenta de recaudo' })
+  updatePaymentMethod(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('methodId', ParseUUIDPipe) methodId: string,
+    @Body(new ZodValidationPipe(paymentMethodSchema)) body: unknown,
+  ) {
+    return this.tenants.updatePaymentMethod(ctx.supabase, {
+      tenantId,
+      methodId,
+      input: body as PaymentMethodInput,
+    })
+  }
+
+  @Patch(':tenantId/payment-methods/:methodId/status')
+  @ApiOperation({
+    summary: 'Activar o desactivar una cuenta de recaudo: desactivada, el agente deja de ofrecerla',
+  })
+  setPaymentMethodStatus(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('methodId', ParseUUIDPipe) methodId: string,
+    @Body(new ZodValidationPipe(paymentMethodStatusSchema)) body: unknown,
+  ) {
+    const { isActive } = body as PaymentMethodStatusInput
+
+    return this.tenants.setPaymentMethodActive(ctx.supabase, { tenantId, methodId, isActive })
+  }
+
+  @Delete(':tenantId/whatsapp-numbers/:numberId')
+  @ApiOperation({ summary: 'Dar de baja un número: deja de recibir, y su historia queda' })
+  retireWhatsappNumber(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('numberId', ParseUUIDPipe) numberId: string,
+  ) {
+    return this.tenants.retireWhatsappNumber(readCallerId(ctx.userClaims), tenantId, numberId)
+  }
+
+  @Delete(':tenantId/payment-methods/:methodId')
+  @ApiOperation({
+    summary: 'Eliminar una cuenta de recaudo: sale del panel y del agente, y su historia queda',
+  })
+  removePaymentMethod(
+    @SupabaseCtx() ctx: SupabaseContext,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('methodId', ParseUUIDPipe) methodId: string,
+  ) {
+    return this.tenants.removePaymentMethod(ctx.supabase, tenantId, methodId)
+  }
+}

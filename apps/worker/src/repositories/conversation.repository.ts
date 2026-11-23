@@ -1,0 +1,289 @@
+import { Injectable } from '@nestjs/common'
+import type { ConversationMessage } from '@cobra/agent'
+import { SupabaseService } from '../runtime/supabase.service.js'
+
+/** How many stored messages the agent gets as memory. */
+const HISTORY_MESSAGE_LIMIT = 40
+
+export interface ConversationWithContact {
+  id: string
+  tenantId: string
+  contactId: string
+  status: 'bot' | 'human' | 'closed'
+  contextResetAt: string | null
+  lastInboundAt: string | null
+  personId: string
+  phone: string | null
+}
+
+/**
+ * Every method takes `tenantId` first, and that is not decoration.
+ *
+ * This process runs with the service role, which bypasses RLS completely. The
+ * policies in @cobra/db protect the panel; what keeps one client's data away
+ * from another here is that no query can be written without its tenant.
+ */
+@Injectable()
+export class ConversationRepository {
+  constructor(private readonly supabase: SupabaseService) {}
+
+  async load(tenantId: string, conversationId: string): Promise<ConversationWithContact | null> {
+    const { data, error } = await this.supabase
+      .scope(tenantId)
+      .select(
+        'conversations',
+        'id, tenant_id, contact_id, status, context_reset_at, last_inbound_at, contacts!inner (person_id, phone)',
+      )
+      .eq('id', conversationId)
+      .maybeSingle()
+
+    if (error) throw error
+    if (!data) return null
+
+    const row = data as Record<string, unknown>
+    const contact = (Array.isArray(row['contacts']) ? row['contacts'][0] : row['contacts']) as
+      { person_id: string; phone: string | null } | undefined
+
+    return {
+      id: row['id'] as string,
+      tenantId: row['tenant_id'] as string,
+      contactId: row['contact_id'] as string,
+      status: row['status'] as ConversationWithContact['status'],
+      contextResetAt: (row['context_reset_at'] as string | null) ?? null,
+      lastInboundAt: (row['last_inbound_at'] as string | null) ?? null,
+      personId: contact?.person_id ?? '',
+      phone: contact?.phone ?? null,
+    }
+  }
+
+  /** What the turn drains. Oldest first, so the burst reads in order. */
+  async unprocessedInbound(
+    tenantId: string,
+    conversationId: string,
+  ): Promise<ConversationMessage[]> {
+    const { data, error } = await this.supabase
+      .scope(tenantId)
+      .select('messages', 'id, author, type, body, media_id, received_at')
+      .eq('conversation_id', conversationId)
+      .eq('direction', 'inbound')
+      .is('processed_at', null)
+      .order('received_at', { ascending: true })
+
+    if (error) throw error
+
+    return (data ?? []).map(toConversationMessage)
+  }
+
+  /**
+   * The agent's memory: messages after `context_reset_at` only.
+   *
+   * n8n deleted the customer's conversation after a successful payment. Nothing
+   * is deleted here — the mark moves, the agent starts from it, and the panel
+   * keeps the whole history, which is what the client of Cobra pays to see.
+   */
+  async history(
+    tenantId: string,
+    conversationId: string,
+    contextResetAt: string | null,
+    limit = HISTORY_MESSAGE_LIMIT,
+  ): Promise<ConversationMessage[]> {
+    let query = this.supabase
+      .scope(tenantId)
+      .select('messages', 'id, author, type, body, media_id, received_at')
+      .eq('conversation_id', conversationId)
+      .not('processed_at', 'is', null)
+
+    if (contextResetAt) query = query.gt('received_at', contextResetAt)
+
+    const { data, error } = await query.order('received_at', { ascending: false }).limit(limit)
+
+    if (error) throw error
+
+    return (data ?? []).map(toConversationMessage).reverse()
+  }
+
+  /**
+   * Closes the turn: marks what it read and stores what it answered, in one
+   * transaction. See `finish_turn` in @cobra/db for why it cannot be two
+   * statements.
+   */
+  async finishTurn(
+    tenantId: string,
+    conversationId: string,
+    messageIds: string[],
+    reply: string | null,
+  ): Promise<string | null> {
+    const { data, error } = await this.supabase.unscoped.rpc('finish_turn', {
+      p_tenant_id: tenantId,
+      p_conversation_id: conversationId,
+      p_message_ids: messageIds,
+      p_reply: reply,
+    })
+
+    if (error) throw error
+
+    return (data as string | null) ?? null
+  }
+
+  /**
+   * Points the message at the image that was stored for it.
+   *
+   * The receipt row already carries the path, but the panel draws the bubble
+   * from the message — so without this the operator sees an empty bubble for an
+   * image the system read, judged and answered.
+   */
+  async attachMedia(tenantId: string, messageId: string, storagePath: string): Promise<void> {
+    const { error } = await this.supabase
+      .scope(tenantId)
+      .update('messages', { storage_path: storagePath })
+      .eq('id', messageId)
+
+    if (error) throw error
+  }
+
+  /** Used when the conversation is in `human`: stored, never answered. */
+  async markProcessed(tenantId: string, messageIds: string[]): Promise<void> {
+    if (!messageIds.length) return
+
+    const { error } = await this.supabase
+      .scope(tenantId)
+      .update('messages', { processed_at: new Date().toISOString() })
+      .in('id', messageIds)
+
+    if (error) throw error
+  }
+
+  /**
+   * Parks the agent, the same state "Tomar el control" leaves behind, with
+   * nobody assigned: whoever answers first takes it. `human_since` is stamped by
+   * a trigger in @cobra/db.
+   */
+  async handOffToPerson(tenantId: string, conversationId: string): Promise<void> {
+    const { error } = await this.supabase
+      .scope(tenantId)
+      .update('conversations', { status: 'human', assigned_to: null })
+      .eq('id', conversationId)
+
+    if (error) throw error
+  }
+
+  /** Undoes a handoff, unless nobody holds it anymore. */
+  async handBackToAgent(tenantId: string, conversationId: string): Promise<void> {
+    const { error } = await this.supabase
+      .scope(tenantId)
+      .update('conversations', { status: 'bot', assigned_to: null })
+      .eq('id', conversationId)
+      .eq('status', 'human')
+
+    if (error) throw error
+  }
+
+  /**
+   * A message written on an operator's behalf, stored `pending` for the send
+   * job. Marked processed because it is outbound: no turn consumes it.
+   */
+  async storeOperatorReply(
+    tenantId: string,
+    conversationId: string,
+    body: string,
+  ): Promise<string> {
+    const { data, error } = await this.supabase
+      .scope(tenantId)
+      .insert('messages', {
+        conversation_id: conversationId,
+        direction: 'outbound',
+        author: 'operator',
+        type: 'text',
+        body,
+        delivery_state: 'pending',
+        processed_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    if (error) throw error
+
+    return (data as { id: string }).id
+  }
+
+  /**
+   * Gives back to the agent the conversations of the tenant held by a person in
+   * which no operator wrote for `idle` (a Postgres interval). Returns how many.
+   * See `release_idle_handoffs` in @cobra/db.
+   */
+  async releaseIdleHandoffs(tenantId: string, idle: string): Promise<number> {
+    const { data, error } = await this.supabase.unscoped.rpc('release_idle_handoffs', {
+      p_tenant_id: tenantId,
+      p_idle: idle,
+    })
+
+    if (error) throw error
+
+    return (data as number | null) ?? 0
+  }
+
+  /** After a payment lands, the agent's memory starts here. The panel keeps it all. */
+  async resetContext(tenantId: string, conversationId: string): Promise<void> {
+    const { error } = await this.supabase
+      .scope(tenantId)
+      .update('conversations', { context_reset_at: new Date().toISOString() })
+      .eq('id', conversationId)
+
+    if (error) throw error
+  }
+
+  /**
+   * Starts the memory over in every conversation of the tenant silent for
+   * `idle` (a Postgres interval, `'48 hours'`). Returns how many it reset. See
+   * `reset_stale_contexts` in @cobra/db for why it is one statement.
+   */
+  async resetStaleContexts(tenantId: string, idle: string): Promise<number> {
+    const { data, error } = await this.supabase.unscoped.rpc('reset_stale_contexts', {
+      p_tenant_id: tenantId,
+      p_idle: idle,
+    })
+
+    if (error) throw error
+
+    return (data as number | null) ?? 0
+  }
+
+  /** The last message the customer sent, so the read receipt can be sent back. */
+  async latestInboundWamid(tenantId: string, conversationId: string): Promise<string | null> {
+    const { data } = await this.supabase
+      .scope(tenantId)
+      .select('messages', 'wamid')
+      .eq('conversation_id', conversationId)
+      .eq('direction', 'inbound')
+      .not('wamid', 'is', null)
+      .order('received_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    return ((data as { wamid?: string } | null)?.wamid as string | undefined) ?? null
+  }
+
+  async loadStatus(
+    tenantId: string,
+    conversationId: string,
+  ): Promise<ConversationWithContact['status'] | null> {
+    const { data } = await this.supabase
+      .scope(tenantId)
+      .select('conversations', 'status')
+      .eq('id', conversationId)
+      .maybeSingle()
+
+    const status = (data as { status?: ConversationWithContact['status'] } | null)?.status
+
+    return status ?? null
+  }
+}
+
+const toConversationMessage = (row: Record<string, unknown>): ConversationMessage => ({
+  id: row['id'] as string,
+  author: row['author'] as ConversationMessage['author'],
+  type: row['type'] as ConversationMessage['type'],
+  body: (row['body'] as string | null) ?? null,
+  mediaId: (row['media_id'] as string | null) ?? null,
+  receivedAt: new Date(row['received_at'] as string),
+})

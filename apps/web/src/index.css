@@ -1,0 +1,221 @@
+@import '@fontsource-variable/red-hat-text';
+@import '@fontsource-variable/red-hat-display';
+@import '@fontsource-variable/red-hat-mono';
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@source './**/*.{ts,tsx}';
+
+/* The panel is dark only: the tokens live in :root and there is no .dark block.
+   The variant stays because shadcn's own source ships `dark:` utilities that are
+   part of the dark look (outline, destructive, ghost), and <html class="dark">
+   is fixed in index.html so they resolve. */
+@custom-variant dark (&:is(.dark *));
+
+/* Neutral greys with no hue on purpose. shadcn's zinc carries a blue cast
+   (hue 286) that is the first thing that makes a dark panel read as the
+   generator's default; a console is grey, and colour is spent on state. */
+:root {
+  color-scheme: dark;
+  --radius: 0.5rem;
+
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  /* The panes. One step above the page, so a seam between two of them is the
+     only line the layout needs. */
+  --card: #111111;
+  --card-foreground: #ededed;
+  --popover: #161616;
+  --popover-foreground: #ededed;
+
+  /* Near-white. Reserved for one action per screen. */
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+
+  /* The interactive grey. Its border is what separates it from "switched off":
+     #636363 is the lightest grey that still clears 3:1 against a pane, the
+     contrast WCAG asks of a control's boundary. */
+  --secondary: #181818;
+  --secondary-foreground: #ededed;
+  --secondary-border: #636363;
+  --secondary-hover: #222222;
+  --secondary-active: #2c2c2c;
+
+  --muted: #181818;
+  --muted-foreground: #9a9a9a;
+  --accent: #1c1c1c;
+  --accent-foreground: #ededed;
+
+  /* Disabled has a colour of its own. It is not "secondary at half opacity",
+     which would be the same object, dimmer. */
+  --disabled-foreground: #6b6b6b;
+
+  /* State, and nothing else. Each one is a light tint that reads as text on the
+     panes, so a status is a coloured word, not a filled pill. */
+  --destructive: #ff7b72;
+  --destructive-foreground: #0a0a0a;
+  --success: #7ee787;
+  --success-foreground: #0a0a0a;
+  --warning: #ffa657;
+  --warning-foreground: #0a0a0a;
+  /* The agent at work. shadcn has no slot for "in progress". */
+  --info: #79c0ff;
+  --info-foreground: #0a0a0a;
+
+  --border: #262626;
+  --input: #3a3a3a;
+  --ring: #8a8a8a;
+}
+
+/*
+ * A turn the agent is still running. `flow` runs light down the rail of the step
+ * in progress; `blink` is the caret of the sentence saying what it is doing.
+ */
+@theme {
+  /* The landing page's motion: fast out of the gate, long settle. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-flow: flow 1.2s linear infinite;
+  --animate-blink: blink 1s steps(1) infinite;
+
+  @keyframes flow {
+    from {
+      transform: translateY(-100%);
+    }
+    to {
+      transform: translateY(250%);
+    }
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  /* The next page of a table is on its way: a segment a third as wide as the
+     bar crosses it, from just outside the left edge to just outside the right. */
+  --animate-page-load: page-load 1s ease-in-out infinite;
+
+  @keyframes page-load {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(300%);
+    }
+  }
+}
+
+@theme inline {
+  --font-sans: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Red Hat Display Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Red Hat Mono Variable', ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-border: var(--secondary-border);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-active: var(--secondary-active);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    /* The browser's own scrollbars are light grey slabs on a dark panel. */
+    scrollbar-color: #363636 transparent;
+    scrollbar-width: thin;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    caret-color: var(--foreground);
+  }
+
+  /*
+   * A column the height of the screen, so a screen that fills the space left
+   * with `flex-1` has space to fill. The global spinner shows before any layout
+   * exists, while the session is checked, and without this it sat at the top.
+   */
+  #root {
+    @apply flex min-h-dvh flex-col;
+  }
+
+  ::selection {
+    background: #3d3d3d;
+    color: var(--foreground);
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+
+  /* Times, amounts and phone numbers line up in columns. */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/*
+ * The landing page's entrances. Content marked `data-reveal` rises into place
+ * the first time it scrolls into view (`LandingPage` sets
+ * `data-revealed`). Only when the visitor has not asked for less motion:
+ * otherwise it is simply there.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  /* The section links glide on the landing page only; the panel scrolls its own panes. */
+  html:has([data-landing]) {
+    scroll-behavior: smooth;
+  }
+
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(6px);
+    transition:
+      opacity 0.9s var(--ease-out-expo),
+      transform 0.9s var(--ease-out-expo),
+      filter 0.9s var(--ease-out-expo);
+  }
+
+  [data-reveal][data-revealed] {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}

@@ -1,0 +1,102 @@
+import { type AnyFormApi, useStore } from '@tanstack/react-form'
+import { Button } from '~/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '~/components/ui/dialog'
+import { Spinner } from '~/components/ui/spinner'
+
+interface Props {
+  open: boolean
+  onClose: () => void
+  title: string
+  description?: string
+  submitLabel: string
+  form: AnyFormApi
+  /** What the API said that no field on screen accounts for. */
+  error?: string | null
+  /**
+   * The fields depend on data still on its way. Showing them meanwhile shows
+   * empty pickers that fill in a moment later, which reads as a form with no
+   * values.
+   */
+  isLoading?: boolean
+  children: React.ReactNode
+}
+
+/**
+ * Every "create" in the panel is a dialog, and this is the shell they share.
+ *
+ * The rule is not only a preference: these forms used to sit inline under their
+ * table, laid out with `items-end`, and a field carrying two lines of hint
+ * pushed its neighbours out of line. A dialog gives each field a row of its own
+ * and the alignment stops being something to keep balanced by hand.
+ */
+export const FormDialog = ({
+  open,
+  onClose,
+  title,
+  description,
+  submitLabel,
+  form,
+  error,
+  isLoading = false,
+  children,
+}: Props) => {
+  // Read off the store rather than through `form.Subscribe`: that component is
+  // typed against the twelve generics of the concrete form, and this shell only
+  // needs to know whether it is submitting.
+  const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+
+        {/* noValidate: the zod schema answers each field in Spanish. Without it
+            the browser stops the submit first with its own bubble, in the
+            browser's language ("Please fill out this field"). */}
+        <form
+          noValidate
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void form.handleSubmit()
+          }}
+        >
+          {isLoading ? (
+            <div className="flex min-h-40 items-center justify-center">
+              <Spinner className="size-5" />
+              <span className="sr-only">Cargando</span>
+            </div>
+          ) : (
+            children
+          )}
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" loading={isSubmitting} disabled={isLoading}>
+              {submitLabel}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

@@ -1,0 +1,81 @@
+import { describe, expect, it } from 'vitest'
+import type { ZodType } from 'zod'
+import { changePasswordSchema, createAccountSchema, passwordResetRequestSchema } from './accounts'
+import { sendMessageSchema } from './conversations'
+import { updatePlatformSettingSchema } from './platform-settings'
+import { applyHeldReceiptSchema, dismissHeldReceiptSchema } from './receipts'
+import {
+  createTenantSchema,
+  paymentMethodSchema,
+  registerWhatsappNumberSchema,
+  saveCredentialSchema,
+  updateTenantDryRunSchema,
+} from './tenants'
+
+/**
+ * Words that only appear if a message came out of zod in English. `'string'` and
+ * `'number'` are in here because the type errors are the ones most likely to
+ * slip through: nothing on screen produces them, so nobody notices.
+ */
+const ENGLISH = /\b(expected|received|invalid|required|too (small|big)|string|number|characters)\b/i
+
+const messagesOf = (schema: ZodType, input: unknown): string[] => {
+  const result = schema.safeParse(input)
+
+  expect(result.success).toBe(false)
+
+  return result.error?.issues.map((issue) => issue.message) ?? []
+}
+
+/**
+ * The panel shows these to the operator, and the API answers with the very same
+ * strings, so one of them coming back in English is a defect on both sides at
+ * once. The locale in ./locale covers whatever has no message of its own; this
+ * is what proves it stays covered.
+ */
+describe('validation messages', () => {
+  const cases: Array<[string, ZodType, unknown]> = [
+    [
+      'empty company',
+      createTenantSchema,
+      { companyName: '', supportPhone: '', adminPhone: '', userEmail: '' },
+    ],
+    [
+      'malformed phones',
+      createTenantSchema,
+      { companyName: 'Acme', supportPhone: '15556640086x', adminPhone: '+57 300 123' },
+    ],
+    ['wrong types', createTenantSchema, { companyName: 42, supportPhone: null }],
+    ['bad address', createAccountSchema, { email: 'jahaziel' }],
+    ['bad reset address', passwordResetRequestSchema, { email: '' }],
+    ['short password', changePasswordSchema, { password: 'corta' }],
+    ['password without special character', changePasswordSchema, { password: 'Larga12345' }],
+    ['long password', changePasswordSchema, { password: 'p'.repeat(73) }],
+    ['short secret', saveCredentialSchema, { provider: 'dualhook', secret: 'corto' }],
+    ['short number', registerWhatsappNumberSchema, { phoneNumberId: 'abc', displayNumber: 'no' }],
+    [
+      'empty account',
+      paymentMethodSchema,
+      { entityName: '', paymentAddress: '', zone: 'z'.repeat(81), wisphubId: 'w'.repeat(41) },
+    ],
+    ['empty message', sendMessageSchema, { body: '' }],
+    [
+      'held receipt without data',
+      applyHeldReceiptSchema,
+      { documents: 'abc', amount: 0, paymentMethodId: '' },
+    ],
+    ['held receipt amount as text', applyHeldReceiptSchema, { amount: '50000' }],
+    ['dismissal note too long', dismissHeldReceiptSchema, { note: 'n'.repeat(1001) }],
+    ['dry-run as text', updateTenantDryRunSchema, { dryRun: 'true' }],
+    ['no model', updatePlatformSettingSchema('agent_model'), { value: '  ' }],
+    ['model as a number', updatePlatformSettingSchema('vision_model'), { value: 4000 }],
+    ['blank fallback', updatePlatformSettingSchema('agent_fallback_model'), { value: ' ' }],
+  ]
+
+  it.each(cases)('answers in Spanish: %s', (_name, schema, input) => {
+    const messages = messagesOf(schema, input)
+
+    expect(messages.length).toBeGreaterThan(0)
+    for (const message of messages) expect(message).not.toMatch(ENGLISH)
+  })
+})

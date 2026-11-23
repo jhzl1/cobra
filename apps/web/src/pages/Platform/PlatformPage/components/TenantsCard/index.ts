@@ -1,0 +1,1 @@
+export { TenantsCard } from './TenantsCard'

@@ -1,0 +1,22 @@
+{
+  "name": "@cobra/db",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "db:link": "supabase link --project-ref ${SUPABASE_PROJECT_ID:?falta SUPABASE_PROJECT_ID}",
+    "db:new": "supabase migration new",
+    "db:status": "supabase migration list",
+    "db:deploy": "supabase db push",
+    "db:diff": "supabase db diff -f",
+    "db:lint": "supabase db lint --linked",
+    "db:advisors": "supabase db advisors --linked",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --local > src/database.types.ts",
+    "db:types:linked": "supabase gen types typescript --linked > src/database.types.ts"
+  },
+  "devDependencies": {
+    "supabase": "^2.111.0"
+  }
+}

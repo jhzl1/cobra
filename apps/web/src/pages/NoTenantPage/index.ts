@@ -1,0 +1,1 @@
+export { NoTenantPage } from './NoTenantPage'
