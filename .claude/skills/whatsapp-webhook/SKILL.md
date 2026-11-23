@@ -22,7 +22,7 @@ Cargar esta skill antes de tocar `apps/api/src/webhooks/` o
 
 ## El canal es Dualhook
 
-Dualhook es un Meta Tech Partner para coexistencia. Cobra no habla con
+Dualhook es un Meta Tech Partner para coexistencia. Wispay no habla con
 `graph.facebook.com`.
 
 - **Entrada.** El Webhook Override de Dualhook hace que Meta entregue mensajes,
@@ -31,7 +31,7 @@ Dualhook es un Meta Tech Partner para coexistencia. Cobra no habla con
   `entry[].changes[].value`), así que `metaWebhookSchema` de `@cobra/contracts`
   sigue siendo el que manda.
 - **Verificación.** Al guardar la URL, Meta la comprueba con un `GET` (`hub.mode`,
-  `hub.verify_token`, `hub.challenge`) y Cobra le devuelve el `hub.challenge`
+  `hub.verify_token`, `hub.challenge`) y Wispay le devuelve el `hub.challenge`
   pelado, fuera del sobre `{ success, data }`. El Verify Token es el
   `webhookToken` de la ruta: ya es el secreto de esa URL, y uno aparte sería otro
   valor que guardar y mostrar.

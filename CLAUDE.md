@@ -1,4 +1,4 @@
-# Cobra — instrucciones del repositorio
+# Wispay — instrucciones del repositorio
 
 Agente de cobros por WhatsApp, multi-cliente, para ISP que facturan en Wisphub.
 Reemplaza el workflow de n8n original, que sigue vivo y es la línea base contra

@@ -1,4 +1,4 @@
-# Cobra — plan de construcción
+# Wispay — plan de construcción
 
 > Repo: `/Users/jhzl/Documents/dev/personal/cobra`
 > Proyecto personal, fuera de `dev/rentek`. Paquetes bajo el scope `@cobra/*`.
@@ -51,19 +51,19 @@ corre hoy, pero su `STATUS.md` deja dos lecciones que aplican igual:
 
 ## Decisiones ya tomadas
 
-| Tema                      | Decisión                                                                                                                             |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Configurabilidad          | Flujo idéntico para todos. Por cliente cambian: credenciales, nombre de compañía, teléfono de soporte, teléfono del administrador.   |
-| Tiempo real               | Supabase Realtime, sin gateway de WebSocket propio.                                                                                  |
-| Migración                 | Sin puentes hacia n8n. Se construye completo y se apaga n8n cuando esté listo.                                                       |
-| Traza                     | Timeline de pasos, no grafo de nodos.                                                                                                |
-| Infra                     | Railway (API + worker) + Supabase (Postgres, Auth, Realtime, Storage). Colas con `pg-boss`. Sin Redis.                               |
-| Ráfagas                   | Ventana de 1,5 s para texto. El media entra de inmediato, sin esperar.                                                               |
-| Mensajes a mitad de turno | `steer`: se revisa antes de lanzar cada tool, la que ya corre termina, las que no arrancaron se saltan.                              |
-| Facturación               | Solo Wisphub. Cobra es un producto vertical para ISP que facturan ahí; las tools se escriben contra esa API sin capa de abstracción. |
-| Roles                     | Uno solo. Todo usuario de un cliente ve conversaciones, hace handoff, carga credenciales y edita la configuración de su empresa.     |
-| Aviso de handoff          | Bandeja en el panel **y** mensaje de WhatsApp al operador, igual que las alertas al administrador hoy.                               |
-| Datos actuales            | Se arranca limpio. Nada de Mongo se migra.                                                                                           |
+| Tema                      | Decisión                                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Configurabilidad          | Flujo idéntico para todos. Por cliente cambian: credenciales, nombre de compañía, teléfono de soporte, teléfono del administrador.    |
+| Tiempo real               | Supabase Realtime, sin gateway de WebSocket propio.                                                                                   |
+| Migración                 | Sin puentes hacia n8n. Se construye completo y se apaga n8n cuando esté listo.                                                        |
+| Traza                     | Timeline de pasos, no grafo de nodos.                                                                                                 |
+| Infra                     | Railway (API + worker) + Supabase (Postgres, Auth, Realtime, Storage). Colas con `pg-boss`. Sin Redis.                                |
+| Ráfagas                   | Ventana de 1,5 s para texto. El media entra de inmediato, sin esperar.                                                                |
+| Mensajes a mitad de turno | `steer`: se revisa antes de lanzar cada tool, la que ya corre termina, las que no arrancaron se saltan.                               |
+| Facturación               | Solo Wisphub. Wispay es un producto vertical para ISP que facturan ahí; las tools se escriben contra esa API sin capa de abstracción. |
+| Roles                     | Uno solo. Todo usuario de un cliente ve conversaciones, hace handoff, carga credenciales y edita la configuración de su empresa.      |
+| Aviso de handoff          | Bandeja en el panel **y** mensaje de WhatsApp al operador, igual que las alertas al administrador hoy.                                |
+| Datos actuales            | Se arranca limpio. Nada de Mongo se migra.                                                                                            |
 
 **Decisión abierta:** si el agente corre en el worker de Railway o en un Durable Object de
 Cloudflare. No bloquea nada: `packages/agent` queda aislado del runtime y el steering se resuelve
@@ -77,7 +77,7 @@ Monorepo pnpm + Turborepo, copiando las convenciones de `midgard`
 (`/Users/jhzl/Documents/dev/rentek/midgard`), que ya es NestJS 11 + Supabase + React 19.
 
 ```
-cobra/
+wispay/
 ├── apps/
 │   ├── api/          @cobra/api    — NestJS 11 (HTTP + webhook)
 │   ├── worker/       @cobra/worker — NestJS standalone, corre pg-boss
@@ -147,7 +147,7 @@ Reutilizar de lo que ya existe:
 - `.prettierrc` y `tsconfig.base.json` de `midgard`, tal cual.
 
 Lo que **no** se reutiliza: `@rentekfintech/roles`. Es un paquete privado de Rentek publicado en
-GitHub Packages, y Cobra es un proyecto personal; además resuelve un modelo de roles que aquí no
+GitHub Packages, y Wispay es un proyecto personal; además resuelve un modelo de roles que aquí no
 existe, porque todo miembro de un cliente tiene los mismos permisos. La pertenencia se resuelve con
 `tenant_members` y una función `security definer` que devuelve los `tenant_id` del usuario.
 
@@ -559,7 +559,7 @@ de `RegisterPayment` son densas y cada una salió de un incidente real en produc
 ## Riesgos abiertos
 
 **Aceptado (2026-10-27, revisado 2026-11-23): el webhook no tiene firma.** Meta entrega directo a
-Cobra y firma `X-Hub-Signature-256` con el app secret de la aplicación de Dualhook, que Dualhook no
+Wispay y firma `X-Hub-Signature-256` con el app secret de la aplicación de Dualhook, que Dualhook no
 entrega. Meta tampoco deja agregar un encabezado propio, así que el secreto compartido que se planeó
 mientras n8n reenviaba ya no tiene dónde ir. La única autenticación es el token opaco de la ruta.
 
@@ -604,7 +604,7 @@ que no existe ninguna consulta que devuelva datos del B. Test de integración qu
 la API con el token del A.
 
 **Fase 2** — apuntar el Webhook Override de un número de prueba a la ruta del cliente de prueba en
-Cobra.
+Wispay.
 Mandar un mensaje desde un celular real: aparece en el panel sin recargar. Responder desde el panel
 con la conversación en `human`: llega al celular. Mandar tres mensajes seguidos: aparecen los tres.
 

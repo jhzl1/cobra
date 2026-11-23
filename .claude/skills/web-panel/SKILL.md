@@ -1,6 +1,6 @@
 ---
 name: web-panel
-description: 'Trigger: ruta de empresa o de plataforma, suscripción en vivo, componente del panel en apps/web. Lo que solo vale para el panel de Cobra; la estructura de carpetas no vive aquí.'
+description: 'Trigger: ruta de empresa o de plataforma, suscripción en vivo, componente del panel en apps/web. Lo que solo vale para el panel de Wispay; la estructura de carpetas no vive aquí.'
 license: Apache-2.0
 metadata:
   author: jhzl
@@ -18,7 +18,7 @@ Cargar esta skill antes de crear una ruta, una pantalla o un componente en
 `apps/web/src`, o antes de tocar una suscripción de Realtime.
 
 Esta skill no dice dónde va un archivo: eso no se decide aquí. Solo guarda lo
-que sale de Cobra —su modelo de empresas, Supabase Realtime, WhatsApp— y que
+que sale de Wispay —su modelo de empresas, Supabase Realtime, WhatsApp— y que
 ninguna regla genérica de React puede saber.
 
 ## Rutas: empresa o plataforma
