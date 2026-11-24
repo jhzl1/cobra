@@ -26,6 +26,7 @@ case "$service" in
       DATABASE_URL
       CREDENTIALS_MASTER_KEY
       CORS_ORIGINS
+      RESEND_API_KEY
     )
     optional=(PUBLIC_URL)
     ;;

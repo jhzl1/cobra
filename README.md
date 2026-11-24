@@ -215,6 +215,7 @@ Lo que hay que crear en **cada** Environment:
 | `SUPABASE_SECRET_KEY`      | secret   | api, worker                                              |
 | `DATABASE_URL`             | secret   | api, worker                                              |
 | `CREDENTIALS_MASTER_KEY`   | secret   | api, worker                                              |
+| `RESEND_API_KEY`           | secret   | api                                                      |
 | `RAILWAY_TOKEN`            | secret   | deploy a Railway                                         |
 | `VERCEL_ORG_ID`            | secret   | deploy a Vercel                                          |
 | `VERCEL_PROJECT_ID`        | secret   | deploy a Vercel                                          |

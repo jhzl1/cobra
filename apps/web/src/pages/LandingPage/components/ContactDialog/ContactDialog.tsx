@@ -1,6 +1,7 @@
 import { useForm } from '@tanstack/react-form'
 import { CircleCheck } from 'lucide-react'
 import { useState } from 'react'
+import { createLeadSchema } from '@cobra/contracts'
 import { Button } from '~/components/ui/button'
 import {
   Dialog,
@@ -20,25 +21,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select'
-import { fieldError } from '~/utils/form'
-import { CUSTOMER_COUNT_OPTIONS, contactRequestSchema } from './helpers'
+import { CUSTOMER_COUNT_OPTIONS } from '~/utils/customerCount'
+import { applyServerErrors, fieldError } from '~/utils/form'
+import { contactFormSchema } from './helpers'
+import { useCreateLeadMutation } from './hooks/mutations/useCreateLeadMutation'
 
 interface ContactDialogProps {
   onClose: () => void
 }
 
 /**
- * A provider asks for a demonstration. The request is not stored anywhere yet:
- * there is no endpoint for it, so the form validates and confirms on screen
- * only. The endpoint is the next step before this page is published.
+ * A provider asks for a demonstration. The request is stored for the platform
+ * administrator to follow up, and the API limits how many requests one
+ * connection can send per hour.
  */
 export const ContactDialog = ({ onClose }: ContactDialogProps) => {
   const [isSent, setIsSent] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  const createLead = useCreateLeadMutation()
 
   const form = useForm({
     defaultValues: { name: '', company: '', whatsapp: '', email: '', customerCount: '' },
-    validators: { onChange: contactRequestSchema },
-    onSubmit: () => setIsSent(true),
+    validators: { onChange: contactFormSchema },
+    onSubmit: async ({ value }) => {
+      setFailure(null)
+
+      try {
+        await createLead.mutateAsync(createLeadSchema.parse(value))
+        setIsSent(true)
+      } catch (error) {
+        const [unmatched] = applyServerErrors(form, error)
+
+        setFailure(unmatched ?? (error instanceof Error ? error.message : null))
+      }
+    },
   })
 
   if (isSent) {
@@ -75,6 +91,7 @@ export const ContactDialog = ({ onClose }: ContactDialogProps) => {
       description="Déjanos tus datos y te contactaremos por WhatsApp para coordinarla."
       submitLabel="Enviar solicitud"
       form={form}
+      error={failure}
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <form.Field name="name">

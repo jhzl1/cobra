@@ -2,12 +2,12 @@ import { z } from 'zod'
 import { paginationSearchSchema } from '~/lib/searchSchemas'
 
 /**
- * The companies tab is the default, so the URL only names the other three.
+ * The companies tab is the default, so the URL only names the other four.
  * `catch` covers an unknown tab; the outer `default` covers a missing one and
  * is what keeps the key optional in links.
  */
 export const platformTabSchema = z
-  .enum(['companies', 'errors', 'models', 'users'])
+  .enum(['companies', 'errors', 'models', 'users', 'leads'])
   .catch('companies')
   .default('companies')
 

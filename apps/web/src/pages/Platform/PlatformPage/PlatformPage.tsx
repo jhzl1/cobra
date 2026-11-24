@@ -1,6 +1,7 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { ErrorsCard } from './components/ErrorsCard'
+import { LeadsCard } from './components/LeadsCard'
 import { ModelSettingsCard } from './components/ModelSettingsCard'
 import { TenantsCard } from './components/TenantsCard'
 import { UsersCard } from './components/UsersCard'
@@ -11,9 +12,10 @@ const route = getRouteApi('/_app/_platform/platform')
 
 /**
  * The platform section: the companies on this installation, creating one, the
- * failed runs of all of them, the models, and every account — where new
- * administrators are created and reset requests are answered. One tab each, so a burst of errors does not push the
- * companies a long scroll away.
+ * failed runs of all of them, the models, every account — where new
+ * administrators are created and reset requests are answered — and the demo
+ * requests sent from the landing page. One tab each, so a burst of errors does
+ * not push the companies a long scroll away.
  *
  * Only an administrator reaches it, and the check that matters is the API's —
  * this only decides what is drawn.
@@ -47,6 +49,7 @@ export const PlatformPage = () => {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="leads">Leads</TabsTrigger>
         </TabsList>
 
         <TabsContent value="companies" className="p-4 md:p-6">
@@ -60,6 +63,9 @@ export const PlatformPage = () => {
         </TabsContent>
         <TabsContent value="users" className="p-4 md:p-6">
           <UsersCard page={page} />
+        </TabsContent>
+        <TabsContent value="leads" className="p-4 md:p-6">
+          <LeadsCard page={page} />
         </TabsContent>
       </Tabs>
     </div>

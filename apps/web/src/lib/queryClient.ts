@@ -3,6 +3,7 @@ import type { HeldReceiptStatus } from '@cobra/contracts'
 
 // Each list's pages share its prefix, so invalidating the prefix reaches all of them.
 const PLATFORM_ERRORS = ['platform', 'errors'] as const
+const PLATFORM_LEADS = ['platform', 'leads'] as const
 const PLATFORM_TENANTS = ['platform', 'tenant-pages'] as const
 const PLATFORM_USERS = ['platform', 'users'] as const
 
@@ -73,6 +74,8 @@ export const queryKeys = {
   jobRuns: (tenantId: string, onlyErrors: boolean) =>
     ['platform', 'tenants', tenantId, 'job-runs', onlyErrors] as const,
   platformErrorPage: (page: number) => [...PLATFORM_ERRORS, page] as const,
+  platformLeads: PLATFORM_LEADS,
+  platformLeadPage: (page: number) => [...PLATFORM_LEADS, page] as const,
   platformTenantPage: (page: number) => [...PLATFORM_TENANTS, page] as const,
 }
 

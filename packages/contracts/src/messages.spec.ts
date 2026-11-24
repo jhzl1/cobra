@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ZodType } from 'zod'
 import { changePasswordSchema, createAccountSchema, passwordResetRequestSchema } from './accounts'
 import { sendMessageSchema } from './conversations'
+import { createLeadSchema } from './leads'
 import { updatePlatformSettingSchema } from './platform-settings'
 import { applyHeldReceiptSchema, dismissHeldReceiptSchema } from './receipts'
 import {
@@ -70,6 +71,11 @@ describe('validation messages', () => {
     ['no model', updatePlatformSettingSchema('agent_model'), { value: '  ' }],
     ['model as a number', updatePlatformSettingSchema('vision_model'), { value: 4000 }],
     ['blank fallback', updatePlatformSettingSchema('agent_fallback_model'), { value: ' ' }],
+    [
+      'empty lead',
+      createLeadSchema,
+      { name: '', company: 'c'.repeat(121), whatsapp: '12', email: 'x', customerCount: 'many' },
+    ],
   ]
 
   it.each(cases)('answers in Spanish: %s', (_name, schema, input) => {

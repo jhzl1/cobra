@@ -81,8 +81,13 @@ export const LandingPage = () => {
             </p>
 
             <div data-reveal className="mt-9 flex flex-wrap justify-center gap-2.5">
-              <Button size="lg" className="h-11 px-5.5 text-[15px]" onClick={handleOpenContact}>
+              <Button
+                size="lg"
+                className="relative h-11 px-5.5 text-[15px]"
+                onClick={handleOpenContact}
+              >
                 Solicitar una demostración
+                <span aria-hidden className="cta-beam" />
               </Button>
               <Button asChild variant="ghost" size="lg" className="h-11 px-5.5 text-[15px]">
                 <a href="#how-it-works">
@@ -131,10 +136,11 @@ export const LandingPage = () => {
           <Button
             data-reveal
             size="lg"
-            className="mt-8 h-11 px-5.5 text-[15px]"
+            className="relative mt-8 h-11 px-5.5 text-[15px]"
             onClick={handleOpenContact}
           >
             Solicitar una demostración
+            <span aria-hidden className="cta-beam" />
           </Button>
         </section>
       </main>
