@@ -161,9 +161,20 @@ Sirve para redesplegar después de cambiar una variable.
 Los jobs van en este orden:
 
 ```
-target → migrate → version → railway (api, worker) → vercel (web)
+target → changes
+       → migrate → version → railway (api, worker) → vercel (web)
 ```
 
+- **`changes`** decide qué apps se despliegan: las afectadas por lo que cambió
+  desde el último deploy exitoso de esa rama, no desde el push anterior, porque
+  los pushes que la cola se salta también tienen que llegar. Lo calcula `turbo`
+  a partir de las dependencias entre paquetes: un cambio en `@cobra/contracts`
+  despliega las tres apps; uno en `apps/web`, solo el panel. Se despliega todo
+  cuando se corre a mano, cuando la rama no tiene un deploy exitoso anterior y
+  cuando cambia la configuración del despliegue (`deploy.yml`,
+  `.github/scripts/`, `.railway/`, `package.json` de la raíz,
+  `pnpm-workspace.yaml`, `turbo.json`). Las migraciones corren siempre: si no hay
+  ninguna nueva, no hacen nada.
 - **`migrate`** llama a `migrate.yml`. Si una migración falla, no se despliega
   nada: el código nuevo nunca arranca contra el esquema viejo. Esto incluye
   producción: un merge a `main` aplica sus migraciones.
@@ -172,8 +183,9 @@ target → migrate → version → railway (api, worker) → vercel (web)
   sube el código con `railway up --ci`, que termina con el resultado del deploy:
   falla si el build falla, si el healthcheck de `/api/health` nunca responde o si
   el proceso se cae.
-- **`vercel`** arranca solo cuando los dos servicios de Railway terminaron bien:
-  un panel nuevo no sale mientras responde la API vieja. Hace `vercel pull`,
+- **`vercel`** arranca solo cuando los servicios de Railway que tocaba desplegar
+  terminaron bien, o cuando no había ninguno: un panel nuevo no sale mientras
+  responde la API vieja. Hace `vercel pull`,
   `vercel build` con las variables del panel y `vercel deploy --prebuilt`. En `dev` mueve además el alias fijo de la preview
   (`VERCEL_ALIAS`) al deploy nuevo, porque el `CORS_ORIGINS` de la API apunta a
   esa URL.

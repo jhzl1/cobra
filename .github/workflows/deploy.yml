@@ -24,6 +24,8 @@ concurrency:
 
 permissions:
   contents: read
+  # `changes` asks GitHub which commit this branch last deployed.
+  actions: read
 
 jobs:
   target:
@@ -49,6 +51,82 @@ jobs:
           esac
           echo "environment=$environment" >> "$GITHUB_OUTPUT"
           echo "railway-environment=$railway_environment" >> "$GITHUB_OUTPUT"
+
+  # Which apps this run deploys: those affected by what changed since this
+  # branch's last successful deploy. Not since the previous push: the
+  # concurrency group skips the runs in between, and a commit that only lived in
+  # a skipped run would otherwise never reach its app.
+  #
+  # turbo decides what "affected" means from the packages' own dependencies, so
+  # a change to @cobra/contracts deploys all three apps and one to apps/web only
+  # the panel. The deploy setup itself is not a package: touching it deploys
+  # everything, and so does a manual run, which exists to redeploy after a
+  # variable changes.
+  changes:
+    name: Changes
+    needs: target
+    runs-on: ubuntu-latest
+    outputs:
+      railway: ${{ steps.affected.outputs.railway }}
+      web: ${{ steps.affected.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The whole history: the last deployed commit can be any distance back.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Only the workspace root: turbo is a root dev dependency, and the apps are
+      # not needed to work out which of them changed.
+      - run: pnpm install --frozen-lockfile --filter cobra
+
+      - id: affected
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          deploy_all() {
+            echo 'railway=["api","worker"]' >> "$GITHUB_OUTPUT"
+            echo 'web=true' >> "$GITHUB_OUTPUT"
+            echo "Every app deploys: $1." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+
+          if [ "$EVENT" = workflow_dispatch ]; then
+            deploy_all "manual run"
+          fi
+
+          base="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deploy.yml \
+            --branch "$REF_NAME" --status success --limit 1 \
+            --json headSha --jq '.[0].headSha // empty')"
+
+          if [ -z "$base" ]; then
+            deploy_all "$REF_NAME has no earlier successful deploy"
+          fi
+
+          # A force push can leave the last deployed commit outside this history.
+          if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            deploy_all "the last deployed commit $base is not in this history"
+          fi
+
+          if git diff --name-only "$base" HEAD | grep -Eq '^(\.github/workflows/deploy\.yml|\.github/scripts/|\.railway/|package\.json$|pnpm-workspace\.yaml$|turbo\.json$)'; then
+            deploy_all "the deploy setup changed since $base"
+          fi
+
+          affected="$(pnpm exec turbo ls --filter="...[$base]" --output=json | jq -c '[.packages.items[].name]')"
+          railway="$(jq -c '. as $names | ["api", "worker"] | map(select(("@cobra/" + .) as $name | $names | index($name)))' <<< "$affected")"
+          web="$(jq -r 'index("@cobra/web") != null' <<< "$affected")"
+
+          echo "railway=$railway" >> "$GITHUB_OUTPUT"
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+          echo "Changed since $base: $affected. Railway deploys $railway; the panel deploys: $web." >> "$GITHUB_STEP_SUMMARY"
 
   # A failed migration stops the deploy: new code must never boot against the
   # schema it does not expect yet.
@@ -81,7 +159,8 @@ jobs:
 
   railway:
     name: Railway · ${{ matrix.service }}
-    needs: [target, version]
+    needs: [target, version, changes]
+    if: needs.changes.outputs.railway != '[]'
     runs-on: ubuntu-latest
     environment: ${{ needs.target.outputs.environment }}
     # `railway up --ci` waits for a final status, and a deployment Railway
@@ -92,7 +171,7 @@ jobs:
       # would not stop its build on Railway, only hide how it ended.
       fail-fast: false
       matrix:
-        service: [api, worker]
+        service: ${{ fromJSON(needs.changes.outputs.railway) }}
     # Every name sync-railway-variables.sh may read. Which service gets which is
     # decided there; this block only exposes them.
     env:
@@ -145,9 +224,17 @@ jobs:
 
   # Last, after both Railway services: a panel built for the new api must not go
   # live while the old api is still the one answering.
+  #
+  # `!cancelled()` because a skipped `railway` (nothing to deploy there) would
+  # otherwise skip this job too. A failed `railway` still stops it.
   vercel:
     name: Vercel · web
-    needs: [target, version, railway]
+    needs: [target, version, changes, railway]
+    if: >-
+      !cancelled()
+      && needs.changes.outputs.web == 'true'
+      && needs.version.result == 'success'
+      && (needs.railway.result == 'success' || needs.railway.result == 'skipped')
     runs-on: ubuntu-latest
     environment: ${{ needs.target.outputs.environment }}
     env:
