@@ -36,6 +36,12 @@ const envSchema = z.object({
   CREDENTIALS_MASTER_KEY: z.string().min(1),
 
   /**
+   * Resend's API key. The leads service emails the platform administrators
+   * about each demo request; a send that fails only leaves a log line.
+   */
+  RESEND_API_KEY: z.string().min(1),
+
+  /**
    * Where this API answers from outside, if it cannot tell on its own.
    *
    * Optional, and usually left empty: the webhook URL the panel shows is built

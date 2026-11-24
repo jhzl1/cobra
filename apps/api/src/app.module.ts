@@ -10,6 +10,7 @@ import { AccountsModule } from './domains/accounts/accounts.module'
 import { ConversationsModule } from './domains/conversations/conversations.module'
 import { HealthController } from './domains/health/health.controller'
 import { HeldReceiptsModule } from './domains/held-receipts/held-receipts.module'
+import { LeadsModule } from './domains/leads/leads.module'
 import { PaymentsModule } from './domains/payments/payments.module'
 import { PlatformModule } from './domains/platform/platform.module'
 import { TenantsModule } from './domains/tenants/tenants.module'
@@ -32,6 +33,7 @@ import { WhatsappModule } from './webhooks/whatsapp.module'
     QueueModule,
     PlatformModule,
     AccountsModule,
+    LeadsModule,
     TenantsModule,
     ConversationsModule,
     HeldReceiptsModule,

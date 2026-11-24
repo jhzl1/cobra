@@ -50,12 +50,6 @@ export const Faq = () => {
         'WhatsApp solo permite enviar mensajes durante las 24 horas siguientes al último mensaje del cliente. El panel muestra el tiempo restante y bloquea el envío cuando la ventana se cierra, para evitar mensajes que no serían entregados.',
     },
     {
-      id: 'credentials',
-      question: '¿Quién tiene acceso a las credenciales?',
-      answer:
-        'Nadie puede consultarlas desde el panel. Se almacenan cifradas y solo se muestran sus últimos cuatro caracteres, para identificar cuál está configurada.',
-    },
-    {
       id: 'mobile',
       question: '¿El panel se puede usar desde el celular?',
       answer:
