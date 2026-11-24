@@ -106,6 +106,7 @@ jobs:
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       CREDENTIALS_MASTER_KEY: ${{ secrets.CREDENTIALS_MASTER_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
       PUBLIC_URL: ${{ vars.PUBLIC_URL }}
       TURN_CONCURRENCY: ${{ vars.TURN_CONCURRENCY }}

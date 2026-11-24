@@ -6,9 +6,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import { createHash } from 'node:crypto'
-import type { CreateLeadInput, Lead, LeadStatus, Page } from '@cobra/contracts'
+import type { CreateLeadInput, CustomerCount, Lead, LeadStatus, Page } from '@cobra/contracts'
 import { selectPage } from '~/common/pagination'
 import { SupabaseService } from '~/supabase/supabase.service'
 
@@ -19,11 +20,32 @@ const ONE_HOUR_MS = 3_600_000
 
 const LEAD_COLUMNS = 'id, name, company, whatsapp, email, customer_count, status, created_at'
 
+const RESEND_EMAILS_URL = 'https://api.resend.com/emails'
+
+const RESEND_TIMEOUT_MS = 5_000
+
+const LEAD_NOTIFICATION_SENDER = 'Wispay <notificaciones@wispay.co>'
+
+/** Copied from the panel's options: the API cannot import from apps/web. */
+const CUSTOMER_COUNT_LABELS = {
+  'up-to-200': 'Hasta 200',
+  '201-800': 'Entre 201 y 800',
+  '801-2000': 'Entre 801 y 2.000',
+  'over-2000': 'Más de 2.000',
+} satisfies Record<CustomerCount, string>
+
 @Injectable()
 export class LeadsService {
   private readonly logger = new Logger(LeadsService.name)
 
-  constructor(private readonly supabase: SupabaseService) {}
+  private readonly resendApiKey: string
+
+  constructor(
+    private readonly supabase: SupabaseService,
+    config: ConfigService,
+  ) {
+    this.resendApiKey = config.getOrThrow<string>('RESEND_API_KEY')
+  }
 
   /**
    * A demo request from the landing page. `unscoped` because the route is
@@ -32,6 +54,9 @@ export class LeadsService {
    * Counted against the database, not a counter in memory, because the API
    * restarts on every deploy. Two requests racing can both pass the count; that
    * lets a fourth row in, not a flood.
+   *
+   * A failed email does not fail the request: the lead is already stored, and
+   * an error would make the visitor retry into the hourly limit.
    */
   async create({
     lead,
@@ -68,6 +93,8 @@ export class LeadsService {
     })
 
     if (error) throw this.toHttpError(error)
+
+    await this.notifyAdmins(lead)
 
     return { received: true }
   }
@@ -106,6 +133,78 @@ export class LeadsService {
     if (error) throw this.toHttpError(error)
 
     return toLead(data)
+  }
+
+  private async notifyAdmins(lead: CreateLeadInput): Promise<void> {
+    // `unscoped` because the route is public, so there is no session to read
+    // with, and `user_roles` belongs to no tenant.
+    const { data: admins, error } = await this.supabase.unscoped
+      .from('user_roles')
+      .select('email')
+      .eq('role', 'ADMIN')
+      .is('revoked_at', null)
+      .not('user_id', 'is', null)
+
+    if (error) {
+      this.logger.warn(
+        `Demo request email skipped, administrators unreadable: Postgrest ${error.code}`,
+      )
+
+      return
+    }
+
+    const recipients: string[] = admins.map((admin) => admin.email)
+
+    if (recipients.length === 0) {
+      this.logger.warn('Demo request email skipped: no active platform administrator')
+
+      return
+    }
+
+    const body = [
+      `Nombre: ${lead.name}`,
+      `Empresa: ${lead.company}`,
+      `WhatsApp: ${lead.whatsapp}`,
+      `Correo: ${lead.email}`,
+      `Clientes activos: ${CUSTOMER_COUNT_LABELS[lead.customerCount]}`,
+      '',
+      'La solicitud ya está en la pestaña Leads de la plataforma.',
+    ].join('\n')
+    // Resend requires a `to`. The sender goes there and the administrators in
+    // `bcc`, so no administrator sees who else received it.
+    const email = {
+      from: LEAD_NOTIFICATION_SENDER,
+      to: [LEAD_NOTIFICATION_SENDER],
+      bcc: recipients,
+      reply_to: lead.email,
+      subject: `Nueva solicitud de demostración: ${lead.company}`,
+      text: body,
+    }
+
+    try {
+      const response = await fetch(RESEND_EMAILS_URL, {
+        method: 'POST',
+        signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
+        headers: {
+          Authorization: `Bearer ${this.resendApiKey}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'wispay-api',
+        },
+        body: JSON.stringify(email),
+      })
+
+      if (!response.ok) {
+        const reason = await response.text()
+
+        this.logger.warn(
+          `Demo request email rejected by Resend (${response.status}) for ${recipients.length} recipients: ${reason}`,
+        )
+      }
+    } catch (failure) {
+      const reason = failure instanceof Error ? failure.message : String(failure)
+
+      this.logger.warn(`Demo request email not sent: ${reason}`)
+    }
   }
 
   private toHttpError(error: PostgrestError): Error {

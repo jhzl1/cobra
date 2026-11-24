@@ -79,6 +79,7 @@ export default defineRailway(() => {
     'CORS_ORIGINS',
     'SUPABASE_PUBLISHABLE_KEY',
     'SUPABASE_JWKS_URL',
+    'RESEND_API_KEY',
   ])
 
   const api = service('api', {
