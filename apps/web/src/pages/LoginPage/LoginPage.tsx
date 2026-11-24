@@ -144,20 +144,24 @@ export const LoginPage = () => {
             </form.Subscribe>
           </form>
 
-          <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />o<span className="h-px flex-1 bg-border" />
-          </div>
+          {/* Google sign-in is off for now. The markup stays, so turning it back
+              on is removing `hidden`. */}
+          <div hidden>
+            <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />o<span className="h-px flex-1 bg-border" />
+            </div>
 
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-full"
-            loading={isRedirectingToGoogle}
-            onClick={() => void signInWithGoogle()}
-          >
-            <GoogleIcon />
-            Continuar con Google
-          </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              loading={isRedirectingToGoogle}
+              onClick={() => void signInWithGoogle()}
+            >
+              <GoogleIcon />
+              Continuar con Google
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
