@@ -1,4 +1,4 @@
-import { Bell, Bot, Hand, Lock } from 'lucide-react'
+import { Bell, Bot, Hand } from 'lucide-react'
 
 /**
  * What lets an internet provider leave the agent collecting on its own. Each
@@ -79,7 +79,12 @@ export const Features = () => (
           </div>
         </article>
 
-        <article data-reveal className="flex flex-col gap-2.5 bg-background p-7 lg:min-h-65">
+        {/* Two columns wide: with five cards, the last row would otherwise leave
+            an empty cell showing the grid's border colour. */}
+        <article
+          data-reveal
+          className="flex flex-col gap-2.5 bg-background p-7 sm:col-span-2 lg:min-h-65"
+        >
           <h3 className="text-lg font-semibold tracking-tight">Notificaciones</h3>
           <p className="text-[15px] text-muted-foreground">
             Cuando una conversación requiere a un asesor, el panel emite una alerta y se envía un
@@ -90,21 +95,6 @@ export const Features = () => (
               <Bell className="size-4" />
               Conversaciones
               <b className="font-mono">2</b>
-            </span>
-          </div>
-        </article>
-
-        <article data-reveal className="flex flex-col gap-2.5 bg-background p-7 lg:min-h-65">
-          <h3 className="text-lg font-semibold tracking-tight">Credenciales cifradas</h3>
-          <p className="text-[15px] text-muted-foreground">
-            Las credenciales de Wisphub y WhatsApp se almacenan cifradas. El panel solo muestra sus
-            últimos cuatro caracteres.
-          </p>
-          <div className="mt-auto pt-5">
-            <span className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-card px-3 font-mono text-[13px]">
-              <Lock className="size-4" />
-              Wisphub
-              <span className="text-muted-foreground">•••• a91f</span>
             </span>
           </div>
         </article>
